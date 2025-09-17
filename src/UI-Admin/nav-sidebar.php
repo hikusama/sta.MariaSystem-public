@@ -1,6 +1,6 @@
 <style>
    .sidebar-list a.active {
-        background-color: #77070A !important;
+        background-color: #dc3545 !important;
         font-weight: bold;
         color: snow;
     }
@@ -41,7 +41,10 @@ $profile = $result["admin_picture"];
                 <span class=""><i class=""></i></span> User Management 
             </a>
             <a href="index.php?page=contents/learners" class="text-black nav-item rounded-1 p-2 nav-learners">
-                <span class=""><i class=""></i></span> Learners
+                <span class=""><i class=""></i></span> Students
+            </a>
+            <a href="index.php?page=contents/enrolment" class="text-black nav-item rounded-1 p-2 nav-enrolment">
+                <span class=""><i class=""></i></span> Enrolment Process
             </a>
             <a href="index.php?page=contents/classroom" class="text-black nav-item rounded-1 p-2 nav-classroom">
                 <span class=""><i class=""></i></span> Classroom

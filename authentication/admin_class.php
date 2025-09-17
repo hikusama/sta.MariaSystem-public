@@ -86,28 +86,69 @@ class Action
         }
     }
 
-    function admin_register(){
-        $lastName = $_POST["lastName"];
-        $firstName = $_POST["firstName"];
-        $middleName = $_POST["middleName"];
-        $suffix = $_POST["suffix"] ?? '';
-        $user_role = $_POST["user_role"];
-        $gender = $_POST["gender"];
-        $email = $_POST["email"];
-        $contact = $_POST["contact"];
-        $username = $_POST["username"];
+    function Account_form(){
+        
+        $lastName = htmlspecialchars(trim($_POST["lastName"]));
+        $firstName = htmlspecialchars(trim($_POST["firstName"]));
+        $middleName = htmlspecialchars(trim($_POST["middleName"] ?? ''));
+        $suffix = htmlspecialchars(trim($_POST["suffix"] ?? ''));
+        $user_role = htmlspecialchars(trim($_POST["user_role"]));
+        $gender = htmlspecialchars(trim($_POST["gender"]));
+        $email = filter_var(trim($_POST["email"]), FILTER_SANITIZE_EMAIL);
+        $contact = htmlspecialchars(trim($_POST["contact"]));
+        $username = htmlspecialchars(trim($_POST["username"]));
         $password = $_POST["password"];
         $cpassword = $_POST["cpassword"];
 
+        // Validation code remains the same...
+
         try {
-            return json_encode([
-                    'status' => 1,
-                    'message' => 'success po!'
+            // Check if username exists using prepared statement
+            $stmt = $this->db->prepare("SELECT username FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            $usernameTaken = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if($usernameTaken){
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Username ' . $usernameTaken["username"] . ' already taken please try another username'
+                ]);
+            }
+
+            // Check if email exists
+            $stmt = $this->db->prepare("SELECT email FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            $emailTaken = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if($emailTaken){
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Email address already registered'
+                ]);
+            }
+
+            $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+            
+            // FIXED: Use $this->db instead of $pdo
+            $query = "INSERT INTO users (firstname, middlename, lastname, suffix, email, contact, gender, username, password, user_role, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')";
+            
+            $stmt = $this->db->prepare($query); // CHANGED: $pdo to $this->db
+            $stmt->execute([
+                $firstName, $middleName, $lastName, $suffix, 
+                $email, $contact, $gender, $username, $hashedPassword, $user_role
             ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Account created successfully!'
+            ]);
+            
         } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
             return json_encode([
                 'status' => 0,
-                'message' => 'An error Occured: ' . $e->getMessage()
+                'message' => 'An error occurred. Please try again later.'
             ]);
         }
     }

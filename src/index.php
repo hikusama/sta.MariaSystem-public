@@ -1,8 +1,16 @@
 <?php include '../header.php'; ?>
+<style>
+    main{
+        background: url('../assets/image/bg.jpg');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+</style>
 <main class="p-0 d-flex justify-content-center align-items-center w-100 h-100">
-    <div class="shadow rounded-3 col-md-3">
-        <div class="card-header bg-dark text-white text-center shadow p-2 py-3 rounded-top">
-            <h4 class="card-title text-white mt-1 loginAccess">TripTrip Project</h4>
+    <div class="shadow rounded-3 col-md-3 bg-white">
+        <div class="card-header bg-danger text-white text-center shadow p-2 py-3 rounded-top">
+            <h4 class="card-title text-white mt-1 loginAccess">LOGIN</h4>
         </div>
         <div class="card-body  shadow loginBody">
             <form action="../authentication/auth.php" class="form-floating mt-2 p-3" method="post">
@@ -15,7 +23,7 @@
                     <input type="password" class="form-control" name="password" placeholder="Password: ">
                 </div>
                 <div class="m-0 text-center d-flex flex-column ">
-                    <button type="submit" class="btn btn-dark mb-0 buttonLogin p-1 py-2"
+                    <button type="submit" class="btn btn-danger mb-0 buttonLogin p-1 py-2"
                         style="color: #fff !important;"><i class="bi bi-person-plus-fill me-1"></i>Login</button>
                     <!-- <label for="" class="m-0 mt-2" data-bs-toggle="modal" data-bs-target="#changePassword" style="color: #000 !important; cursor: pointer;">forgot Password?</label> -->
                 </div>
@@ -24,7 +32,7 @@
 
                     <div class="">
                         <span style="color: #000 !important;">Don't have an account? </span><a href="register.php"
-                            class="text-decoration-none fw-bold" style="color: #344767 !important;">Sign Up</a>
+                            class="text-decoration-none fw-bold text-danger">Sign Up</a>
                     </div>
                 </div>
             </form>

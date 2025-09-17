@@ -12,14 +12,14 @@ $user_id = $_SESSION['admin_id'];
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
 ?>
 
-<div class="text-black justify-content-between d-flex flex-row col-md-12 col-12  m-0" style="padding: .2rem !important; padding-top: .3rem !important; padding-bottom: .3rem !important; border-bottom: solid 1px rgba(0,0,0,.2);">
-  <div class="m-0 p-0 col-md-8 col-10 py-2 d-flex flex-row buttonUpdateProfile">
+<div class="text-white justify-content-between d-flex flex-row col-md-12 col-12  m-0 p-0 bg-danger" style="border-bottom: solid 1px rgba(0,0,0,.2);">
+  <div class="m-0 p-0 col-md-8 col-10 d-flex flex-row buttonUpdateProfile">
       <div class="burderDiv" style="display: none;">
         <button class="buttonHide" id="burgerButton"><i class="burger fa-solid fa-bars fs-4 me-3"></i></button>
       </div>
       <div class="row d-flex flex-row col-md-12 col-12 ps-3 transformMedia">
-        <img src="../../assets/image/users.png" alt="" style="width: 70px; height: auto; border-radius: 50%;">
-        <h4 class="card-title text-black text-start p-0 m-0 w-75 d-flex align-items-center">TripTrip System</h4>
+        <img src="../../assets/image/logo2.png" alt="" style="width: 70px; height: auto; border-radius: 50%;" class="p-1">
+        <h4 class="card-title text-white text-start p-0 m-0 w-75 d-flex align-items-center">STA.MARIA WEB SYSTEM</h4>
       </div>
   </div>
   <div class="justify-content-end paddingMedia transformMedia d-flex col-md-4 col-4 pe-4">
@@ -29,7 +29,7 @@ $user_id = $_SESSION['admin_id'];
     </div>
 
     <button type="button" onclick="LogoutButton()" style="border: none; background: none;">
-        <i class="fas fa-sign-out-alt text-black ms-1" style="font-size: 17px !important;"></i> 
+        <i class="fas fa-sign-out-alt text-white ms-1" style="font-size: 17px !important;"></i> 
     </button>
     <div class="logoutDomain transformMedia col-md-3 col-8 h-auto shadow rounded-1 flex-column border" id="logoutDomain" style="display:none; background-color: #fff !important;">
       <div class="header-logout bg-dark p-3 d-flex align-items-start justify-content-start w-100 rounded-top">

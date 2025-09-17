@@ -1,50 +1,46 @@
 <div class="d-flex justify-content-between align-items-center mb-2">
     <div class="mx-2">
-        <h4>Users Management</h4>
+        <h4><i class="fa-solid fa-users-gear me-2"></i>Users Management</h4>
     </div>
 </div>
 
 <!-- Search and Filters -->
 
 <div class="row g-2  justify-content-between">
-    <div class="col-md-5">
-        <input type="text" id="searchInput" name="search" class="form-control" placeholder="Search...."
-            value="<?= isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '' ?>">
+    <div class="row mb-3  justify-content-between">
+        <div class="col-md-4">
+            <input type="text" id="searchInput" name="search" class="form-control" placeholder="Search by name, role, status, or date...">
+        </div>
+        <div class="col-md-4">
+            <select id="categoryFilter" name="category" class="form-select">
+                <option value="">All User Roles</option>
+                <?php
+                    $catStmt = $pdo->query("SELECT DISTINCT user_role FROM users ORDER BY user_role ASC");
+                    while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)): ?>
+                <option value="<?= htmlspecialchars($cat['user_role']) ?>">
+                    <?= htmlspecialchars($cat['user_role']) ?>
+                </option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="button" class="btn btn-danger w-100" data-bs-toggle="modal" data-bs-target="#AddNewAccount"
+                id="add_new"><i class="fa fa-plus"></i> New Account</button>
+        </div>
     </div>
-    <div class="col-md-5">
-        <select id="categoryFilter" name="category" class="form-select">
-            <option value="">All Categories</option>
-            <?php
-                // Fetch unique categories
-                $catStmt = $pdo->query("SELECT DISTINCT user_role FROM users ORDER BY created_date ASC");
-                while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)): ?>
-            <option value="<?= htmlspecialchars($cat['user_role']) ?>"
-                <?= (isset($_GET['category']) && $_GET['category'] === $cat['user_role']) ? 'selected' : '' ?>>
-                <?= htmlspecialchars($cat['user_role']) ?>
-            </option>
-            <?php endwhile; ?>
-        </select>
 
-    </div>
-    <div class="col-md-2">
-        <button type="button" class="btn btn-dark w-100" data-bs-toggle="modal" data-bs-target="#AddNewAccount"
-            id="add_new"><i class="fa fa-plus"></i> New Account</button>
-    </div>
+    
     <!-- Adding account modal -->
     <div class="modal fade" id="AddNewAccount" tabindex="-1" aria-labelledby="AddNewAccountLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title text-white" id="AddNewAccountLabel">Create New User Account</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"
+                        onclick="location.reload()"></button>
                 </div>
                 <div class="modal-body">
-                     
-                    <form action="../../authentication/auth.php" class="row g-3" id="Account-form" method="post">
-                        <!-- Name Section -->
-                         <input type="hidden" name="adminAccReg" value="true">
-                         <input type="hidden" name="csrf_token" value="<?= $csrf_token; ?>">
+                    <form class="row g-3" id="Account-form" method="post">
                         <div class="col-md-3">
                             <label class="form-label">Last Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="lastName" required>
@@ -73,7 +69,6 @@
                             <select class="form-select" name="user_role" required>
                                 <option value="" disabled selected>Select User Role</option>
                                 <option value="TEACHER">Teacher</option>
-                                <option value="STUDENT">Student</option>
                                 <option value="PARENT">Parent</option>
                             </select>
                         </div>
@@ -81,8 +76,8 @@
                             <label class="form-label">Gender <span class="text-danger">*</span></label>
                             <select class="form-select" name="gender" required>
                                 <option value="" disabled selected>Select</option>
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
+                                <option value="MALE">Male</option>
+                                <option value="FEMALE">Female</option>
                             </select>
                         </div>
 
@@ -113,7 +108,7 @@
                         <!-- Form Submission -->
                         <div class="col-12 text-center mt-3">
                             <button type="submit" class="btn btn-primary px-5">
-                                 Create Account
+                                Create Account
                             </button>
                         </div>
                     </form>
@@ -124,50 +119,63 @@
             </div>
         </div>
     </div>
+    <!-- Accounts Displays -->
+   <div class="table-container-wrapper">
+        <?php
+            $stmt = $pdo->prepare("SELECT * FROM users ORDER BY created_date DESC");
+            $stmt->execute();
+            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $count = 1;
+        ?>
+        
+        <!-- Fixed Header -->
+        <div class="table-header">
+            <table class="table table-bordered table-sm text-center mb-0">
+                <thead>
+                    <tr>
+                        <th width="5%">#</th>
+                        <th width="20%">Name</th>
+                        <th width="15%">User Role</th>
+                        <th width="15%">Status</th>
+                        <th width="20%">Created at</th>
+                        <th width="25%">Action</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+        
+        <!-- Scrollable Body -->
+        <div class="table-body-scroll">
+            <table class="table table-bordered table-sm text-center mb-0">
+                <tbody>
+                    <?php foreach($users as $user) : ?>
+                    <tr>
+                        <td width="5%"><?= $count++ ?></td>
+                        <td width="20%">
+                            <?= htmlspecialchars($user["firstname"]) . " " . 
+                            (!empty($user["middlename"]) ? htmlspecialchars(substr($user["middlename"], 0, 1)) . ". " : "") . 
+                            htmlspecialchars($user["lastname"]) ?>
+                        </td>
+                        <td width="15%"><?= htmlspecialchars($user["user_role"]) ?></td>
+                        <td width="15%">
+                            <span class="badge bg-<?= ($user["status"] == 'Active') ? 'success' : 'secondary' ?>">
+                                <?= htmlspecialchars($user["status"] ?? 'Inactive') ?>
+                            </span>
+                        </td>
+                        <td width="20%"><?= htmlspecialchars($user["created_date"]) ?></td>
+                        <td width="25%">
+                            <div class="d-flex gap-1 justify-content-center">
+                                <button type="button" class="btn btn-info btn-sm">View</button>
+                                <button type="button" class="btn btn-danger btn-sm">Manage</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+
 </div>
-<?php if (
-        isset($_GET['username']) || 
-        isset($_GET['registration']) || 
-        isset($_GET['NewPassword']) || 
-        isset($_GET['incorrectPass'])
-    ): ?>
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltipTriggerList.forEach(function (tooltipTriggerEl) {
-                new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-
-            // SweetAlert2 messages (still inside DOMContentLoaded)
-            const messages = {
-                username: { icon: 'success', title: 'Profile updated successfully!' },
-                registration: { icon: 'success', title: 'Password changed successfully!' },
-                NewPassword: { icon: 'error', title: 'New passwords do not match!' },
-                incorrectPass: { icon: 'error', title: 'Current password is incorrect!' }
-            };
-
-            for (const key in messages) {
-                const value = new URLSearchParams(window.location.search).get(key);
-                if (value) {
-                    Swal.fire({
-                        toast: true,
-                        icon: messages[key].icon,
-                        title: messages[key].title,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000,
-                        timerProgressBar: true,
-                        didClose: () => removeUrlParams([key])
-                    });
-                    break;
-                }
-            }
-
-            function removeUrlParams(params) {
-                const url = new URL(window.location);
-                params.forEach(param => url.searchParams.delete(param));
-                window.history.replaceState({}, document.title, url.toString());
-            }
-        });
-    </script>
-<?php endif; ?>

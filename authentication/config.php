@@ -5,7 +5,7 @@ function db_connect()
     $host = 'localhost';
     $username = 'root';
     $password = '';
-    $database = 'triptrip_db';
+    $database = 'staMariaDb';
 
     try {
         $pdo = new PDO("mysql:host=$host;charset=utf8mb4", $username, $password);
@@ -36,13 +36,6 @@ function db_connect()
                 logout_time DATETIME DEFAULT NULL,
                 FOREIGN KEY (admin_id) REFERENCES admin(admin_id) ON DELETE CASCADE
             )",
-            "CREATE TABLE IF NOT EXISTS users_history (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                login_time DATETIME NOT NULL,
-                logout_time DATETIME DEFAULT NULL,
-                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-            )",
             "CREATE TABLE IF NOT EXISTS users (
                 user_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 firstname VARCHAR(50) NOT NULL,
@@ -50,10 +43,20 @@ function db_connect()
                 lastname VARCHAR(50) NOT NULL,
                 suffix VARCHAR(5),
                 email VARCHAR(100) NOT NULL,
+                contact VARCHAR(14) NOT NULL,
+                gender ENUM('MALE', 'FEMALE'),
+                status ENUM('Active','Inactive'),
                 username VARCHAR(50) NOT NULL,
                 password VARCHAR(255) NOT NULL,
-                user_role ENUM('STUDENT', 'PARENT', 'TEACHER'),
+                user_role ENUM('PARENT', 'TEACHER'),
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )",
+             "CREATE TABLE IF NOT EXISTS users_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                login_time DATETIME NOT NULL,
+                logout_time DATETIME DEFAULT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
             )",
             
         ];

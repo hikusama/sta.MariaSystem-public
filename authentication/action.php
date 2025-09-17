@@ -20,3 +20,10 @@ if($action === 'admin_register'){
 		echo $registration;
 	}
 }
+if($action === 'Account_form'){
+    $registration = $crud->Account_form();
+    if($registration){
+        echo $registration;
+    }
+    exit();
+}

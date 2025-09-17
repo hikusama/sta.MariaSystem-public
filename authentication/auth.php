@@ -321,39 +321,39 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             die('Query Failed: ' . $e->getMessage());
         }
     }
-    if (isset($_POST['adminAccReg']) && $_POST['adminAccReg'] === 'true') {
-        $lastName = $_POST["lastName"];
-        $firstName = $_POST["firstName"];
-        $middleName = $_POST["middleName"];
-        $suffix = $_POST["suffix"] ?? '';
-        $user_role = $_POST["user_role"];
-        $gender = $_POST["gender"];
-        $email = $_POST["email"];
-        $contact = $_POST["contact"];
-        $username = $_POST["username"];
-        $password = $_POST["password"];
-        $cpassword = $_POST["cpassword"];
-        try {
-            $stmt = $pdo->prepare("SELECT username FROM users WHERE username = '$username';"); $stmt->execute();
-            $usernameTaken = $stmt->fetch(PDO::FETCH_ASSOC);
+    // if (isset($_POST['adminAccReg']) && $_POST['adminAccReg'] === 'true') {
+    //     $lastName = $_POST["lastName"];
+    //     $firstName = $_POST["firstName"];
+    //     $middleName = $_POST["middleName"];
+    //     $suffix = $_POST["suffix"] ?? '';
+    //     $user_role = $_POST["user_role"];
+    //     $gender = $_POST["gender"];
+    //     $email = $_POST["email"];
+    //     $contact = $_POST["contact"];
+    //     $username = $_POST["username"];
+    //     $password = $_POST["password"];
+    //     $cpassword = $_POST["cpassword"];
+    //     try {
+    //         $stmt = $pdo->prepare("SELECT username FROM users WHERE username = '$username';"); $stmt->execute();
+    //         $usernameTaken = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            if($usernameTaken){
-                header('Location: ../src/UI-Admin/index.php?page=contents/users&username=taken');
-                die();
-            }
+    //         if($usernameTaken){
+    //             header('Location: ../src/UI-Admin/index.php?page=contents/users&username=taken');
+    //             die();
+    //         }
 
-            $hasedPassword = password_hash($password, PASSWORD_BCRYPT);
-            $query = "INSERT INTO users (firstname, middlename, lastname, suffix, email, username, password, user_role) 
-                VALUES ('$firstName', '$middleName', '$lastName', '$suffix', '$email', '$username', '$hasedPassword', '$user_role')";
-            $stmt = $pdo->prepare($query);
-            $stmt->execute();
+    //         $hasedPassword = password_hash($password, PASSWORD_BCRYPT);
+    //         $query = "INSERT INTO users (firstname, middlename, lastname, suffix, email, username, password, user_role) 
+    //             VALUES ('$firstName', '$middleName', '$lastName', '$suffix', '$email', '$username', '$hasedPassword', '$user_role')";
+    //         $stmt = $pdo->prepare($query);
+    //         $stmt->execute();
 
-            header('Location: ../src/UI-Admin/index.php?page=contents/users&registration=success');
-            die();
+    //         header('Location: ../src/UI-Admin/index.php?page=contents/users&registration=success');
+    //         die();
 
-        } catch (PDOException $e) {
-            die('Query Failed: ' . $e->getMessage());
-        }
-    }
+    //     } catch (PDOException $e) {
+    //         die('Query Failed: ' . $e->getMessage());
+    //     }
+    // }
     unset($_SESSION['csrf_token']);
 }

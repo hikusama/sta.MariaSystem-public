@@ -155,3 +155,70 @@ label {
         font-weight: bold;
         color: #ffffff !important;
     }
+
+/* table design */
+.table-container-wrapper {
+    border-radius: 10px;
+    overflow: hidden;
+    background: white;
+    height: 70vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.table-header {
+    background-color: #f8f9fa;
+    flex-shrink: 0;
+}
+
+.table-body-scroll {
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.table-body-scroll::-webkit-scrollbar{
+    display: none !important;
+}
+
+.table {
+    margin-bottom: 0 !important;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.table th,
+.table td {
+    vertical-align: middle;
+    padding: 0.5rem;
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.table-bordered th,
+.table-bordered td {
+    border: 1px solid #dee2e6;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Ensure proper column alignment */
+.table-header table,
+.table-body-scroll table {
+    width: 100%;
+    table-layout: fixed;
+}

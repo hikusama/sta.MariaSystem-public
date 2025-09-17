@@ -60,6 +60,86 @@ $(document).ready(function () {
     })
   })
 
+  $(document).on("submit", "#Account-form", function (e) { 
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      // Validate passwords match
+      const password = $form.find('[name="password"]').val();
+      const cpassword = $form.find('[name="cpassword"]').val();
+      
+      if (password !== cpassword) {
+          Swal.fire({
+              title: "Error",
+              text: "Passwords do not match!",
+              icon: "error",
+              toast: true,
+              position: "top-end",
+              timer: 3000,
+              showConfirmButton: false
+          });
+          $form.data("isSubmitted", false);
+          return;
+      }
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=Account_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      $form[0].reset(); // Reset form on success
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 3000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');
+          }
+      });
+  });
+
   function showError (message) {
     Swal.fire({
       title: 'Failed',

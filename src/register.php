@@ -1,7 +1,15 @@
 <?php include '../header.php'; ?>
+<style>
+    main{
+        background: url('../assets/image/bg.jpg');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+</style>
 <main class="login-page p-0 d-flex justify-content-center align-items-center w-100 h-100">
-    <div class="card-header shadow p-0 m-0 rounded-3 col-md-5 col-11 rounded rounded-top">
-        <div class="card-header  py-2 text-white bg-dark text-center rounded-top">
+    <div class="card-header shadow p-0 m-0 rounded-3 col-md-5 col-11 rounded rounded-top bg-white">
+        <div class="card-header  py-2 text-white bg-danger text-center rounded-top">
             <h4 class="mt-1 text-white">Registration</h4>
         </div>
         <div class="card-body h-auto" >
@@ -54,7 +62,7 @@
                         not match</p>
                 </div>
                 <div class="col-12 text-center mt-4 ">
-                    <button type="submit" class="btn btn-dark px-5 m-0 w-100" style="color: #fff !important;">
+                    <button type="submit" class="btn btn-danger px-5 m-0 w-100" style="color: #fff !important;">
                         <i class="bi bi-person-plus-fill me-1"></i> Sign-up
                     </button>
                     <div class="mt-2 mb-3">
