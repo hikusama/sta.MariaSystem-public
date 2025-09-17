@@ -58,6 +58,48 @@ function db_connect()
                 logout_time DATETIME DEFAULT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
             )",
+            "CREATE TABLE IF NOT EXISTS sections (
+                section_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                section_name VARCHAR(50) NOT NULL,
+                section_grade_level VARCHAR(7) NOT NULL,
+                section_description TEXT,
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )",
+            "CREATE TABLE IF NOT EXISTS Subjects (
+                subject_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                grade_level VARCHAR(7) NOT NULL,
+                subject_name VARCHAR(50) NOT NULL,
+                subject_code VARCHAR(20) NOT NULL,
+                subject_units INT(11) NOT NULL,
+                subjects_status ENUM('Available', 'Unavailable') DEFAULT 'Available',
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+            )",
+            "CREATE TABLE IF NOT EXISTS school_year (
+                school_year_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                school_year_status ENUM('Active', 'Inactive'),
+                school_year_name VARCHAR(50) NOT NULL,
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )",
+            "CREATE TABLE IF NOT EXISTS classrooms (
+                room_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                room_status  ENUM('Unavailable', 'Available') DEFAULT 'Available',
+                room_name VARCHAR(50) NOT NULL,
+                room_type VARCHAR(50) NOT NULL,
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )",
+            "CREATE TABLE IF NOT EXISTS classes (
+                class_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                section_id INT(11) NOT NULL,
+                adviser_id INT(11) NOT NULL,
+                sy_id INT(11) NOT NULL,
+                section_name VARCHAR(20) NOT NULL,
+                grade_level VARCHAR(10) NOT NULL,
+                assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (section_id) REFERENCES sections(section_id) ON DELETE CASCADE,
+                FOREIGN KEY (adviser_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                FOREIGN KEY (sy_id) REFERENCES school_year(school_year_id) ON DELETE CASCADE
+            )",
             
         ];
 

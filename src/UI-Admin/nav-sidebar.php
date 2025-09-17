@@ -43,6 +43,9 @@ $profile = $result["admin_picture"];
             <a href="index.php?page=contents/learners" class="text-black nav-item rounded-1 p-2 nav-learners">
                 <span class=""><i class=""></i></span> Students
             </a>
+            <a href="index.php?page=contents/assign" class="text-black nav-item rounded-1 p-2 nav-assign">
+                <span class=""><i class=""></i></span> Class Management
+            </a>
             <a href="index.php?page=contents/enrolment" class="text-black nav-item rounded-1 p-2 nav-enrolment">
                 <span class=""><i class=""></i></span> Enrolment Process
             </a>

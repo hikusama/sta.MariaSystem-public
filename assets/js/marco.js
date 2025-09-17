@@ -58,10 +58,9 @@ document.addEventListener('DOMContentLoaded', function() {
         filterTable();
     }
 
-    // const clearButton = document.createElement('button');
-    // clearButton.textContent = 'Clear Filters';
     clearButton.className = 'btn btn-secondary btn-sm';
     clearButton.addEventListener('click', clearFilters);
     
     categoryFilter.parentNode.appendChild(clearButton);
+
 });

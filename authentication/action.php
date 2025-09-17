@@ -27,3 +27,31 @@ if($action === 'Account_form'){
     }
     exit();
 }
+if($action === 'classroom_form'){
+    $registration = $crud->classroom_form();
+    if($registration){
+        echo $registration;
+    }
+    exit();
+}
+if($action === 'section_form'){
+    $registration = $crud->section_form();
+    if($registration){
+        echo $registration;
+    }
+    exit();
+}
+if($action === 'schoolYear_form'){
+    $registration = $crud->schoolYear_form();
+    if($registration){
+        echo $registration;
+    }
+    exit();
+}
+if($action === 'assignTeacher_form'){
+    $registration = $crud->assignTeacher_form();
+    if($registration){
+        echo $registration;
+    }
+    exit();
+}

@@ -153,5 +153,186 @@ class Action
         }
     }
 
+    function classroom_form(){
+        $classroom_name = htmlspecialchars(trim($_POST["classroom_name"]));
+        $classroom_type = htmlspecialchars(trim($_POST["classroom_type"]));
+        
+        // Validate inputs
+        if (empty($classroom_name) || empty($classroom_type)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Please fill in all required fields'
+            ]);
+        }
+        
+        try {
+            // Check if classroom already exists
+            $checkStmt = $this->db->prepare("SELECT room_name FROM classrooms WHERE room_name = ?");
+            $checkStmt->execute([$classroom_name]);
+            $existingClassroom = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existingClassroom) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Classroom "'.$classroom_name.'" already exists!'
+                ]);
+            }
+            
+            $query = "INSERT INTO classrooms (room_name, room_type) 
+                    VALUES (?, ?)";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$classroom_name, $classroom_type]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Classroom created successfully!'
+            ]);
+            
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function section_form(){
+        $section_name = htmlspecialchars(trim($_POST["section_name"]));
+        $grade_level = htmlspecialchars(trim($_POST["grade_level"]));
+        $section_desc = htmlspecialchars(trim($_POST["section_desc"]));
+        
+        // Validate inputs
+        if (empty($section_name) || empty($grade_level) || empty($section_desc)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Please fill in all required fields'
+            ]);
+        }
+        
+        try {
+            // Check if classroom already exists
+            $checkStmt = $this->db->prepare("SELECT section_name FROM sections WHERE section_name = ?");
+            $checkStmt->execute([$section_name]);
+            $existingSection = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existingSection) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Section "'.$section_name.'" already exists!'
+                ]);
+            }
+            
+            $query = "INSERT INTO sections (section_name, section_grade_level, section_description) 
+                    VALUES (?, ?, ?)";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$section_name, $grade_level, $section_desc]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Sectoin created successfully!'
+            ]);
+            
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function schoolYear_form(){
+        $status = htmlspecialchars(trim($_POST["status"]));
+        $schoolYear_name = htmlspecialchars(trim($_POST["schoolYear_name"]));
+        
+        // Validate inputs
+        if (empty($status) || empty($schoolYear_name)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Please fill in all required fields'
+            ]);
+        }
+        
+        try {
+            // Check if classroom already exists
+            $checkStmt = $this->db->prepare("SELECT school_year_name FROM school_year WHERE school_year_name = ?");
+            $checkStmt->execute([$schoolYear_name]);
+            $existingClassroom = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existingClassroom) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'School Year: "'.$schoolYear_name.'" already exists!'
+                ]);
+            }
+            
+            $query = "INSERT INTO school_year (school_year_status, school_year_name) 
+                    VALUES (?, ?)";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$status, $schoolYear_name]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'School Year created successfully!'
+            ]);
+            
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
+    function assignTeacher_form(){
+        $classroom_id = htmlspecialchars(trim($_POST["classroom_id"]));
+        $section_id = htmlspecialchars(trim($_POST["section_id"]));
+        $grade_level = htmlspecialchars(trim($_POST["grade_level"]));
+        $teacher_name = htmlspecialchars(trim($_POST["teacher_name"]));
+        $schoolYear_id = htmlspecialchars(trim($_POST["schoolYear_id"]));
+        
+        // Validate inputs
+        if (empty($classroom_id) || empty($section_id) || empty($grade_level)
+                || empty($teacher_name) || empty($schoolYear_id)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Please fill in all required fields'
+            ]);
+        }
+        
+        try {
+            // Check if classroom already exists
+            // $checkStmt = $this->db->prepare("SELECT school_year_name FROM school_year WHERE school_year_name = ?");
+            // $checkStmt->execute([$schoolYear_name]);
+            // $existingClassroom = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            // if ($existingClassroom) {
+            //     return json_encode([
+            //         'status' => 0,
+            //         'message' => 'School Year: "'.$schoolYear_name.'" already exists!'
+            //     ]);
+            // }
+            
+            $query = "INSERT INTO classes (section_id, adviser_id, sy_id, section_name, grade_level) 
+                    VALUES (?, ?)";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$status, $schoolYear_name]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'School Year created successfully!'
+            ]);
+            
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occurred. Please try again later.'
+            ]);
+        }
+    }
     
 }
