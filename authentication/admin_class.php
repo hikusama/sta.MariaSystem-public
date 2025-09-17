@@ -8,7 +8,6 @@ use PHPMailer\PHPMailer\Exception;
 class Action
 {
     private $db;
-
     public function __construct()
     {
 
@@ -19,13 +18,10 @@ class Action
         }
         $this->db = $pdo;
     }
-
     function __destruct()
     {
         $this->db = null;
     }
-
-
     //SYSTEM INITIALIZATION
     function save_installation_data()
     {
