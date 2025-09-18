@@ -23,7 +23,7 @@
                     onclick="location.reload()"></button>
             </div>
             <div class="modal-body">
-                <form class="row g-3" id="Account-form" method="post">
+                <form class="row g-3" id="studentAcc-form" method="post">
                     <div class="row">
                         <div class="col-md-3">
                             <label class="form-label">Student LRN <span class="text-danger">*</span></label>
@@ -54,16 +54,16 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Last Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="lastName" required>
-                        </div>
-                        <div class="col-md-3">
                             <label class="form-label">First Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="firstName" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Middle Name <span class="text-danger">*</span></label>
                             <input required type="text" class="form-control" name="middleName">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="lastName" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Suffix</label>
@@ -112,7 +112,7 @@
                         </div>
                         <div class="col-md-4 d-flex flex-column justify-content-center align-items-center">
                             <img src="../../assets/image/users.png" class="w-50 h-auto">
-                            <input type="file" class="form-control">
+                            <input type="file" class="form-control" name="student_profile">
                         </div>
                     </div>
 

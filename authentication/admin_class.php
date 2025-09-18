@@ -330,5 +330,62 @@ class Action
             ]);
         }
     }
+    function studentAcc_form() {
+    $lrn = htmlspecialchars(trim($_POST["lrn"] ?? ''));
+    $gradeLevel = htmlspecialchars(trim($_POST["grade_level"] ?? ''));
+    $nickname = htmlspecialchars(trim($_POST["nickname"] ?? ''));
+    $sex = htmlspecialchars(trim($_POST["sex"] ?? ''));
+    $lastName = htmlspecialchars(trim($_POST["lastName"] ?? ''));
+    $firstName = htmlspecialchars(trim($_POST["firstName"] ?? ''));
+    $middleName = htmlspecialchars(trim($_POST["middleName"] ?? ''));
+    $suffix = htmlspecialchars(trim($_POST["suffix"] ?? ''));
+    $religion = htmlspecialchars(trim($_POST["religion"] ?? ''));
+    $birthdate = $_POST["birthdate"] ?? null;
+    $birthplace = $_POST["birthplace"] ?? null;
+    $student_profile = $_POST["student_profile"] ?? '';
+
+    // Provide defaults to avoid undefined index notices
+
+    try {
+        $stmt = $this->db->prepare("SELECT lrn FROM student WHERE lrn = ?");
+        $stmt->execute([$lrn]);
+        $lrnTaken = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($lrnTaken) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'LRN: ' . $lrnTaken["lrn"] . ' already taken. Please try another.'
+            ]);
+        }
+
+        if ($student_profile == '') {
+            $student_profile = '../assets/image/users.png';
+        }
+
+        $query = "INSERT INTO student 
+            (guardian_id, lrn, fname, mname, lname, suffix, sex, birthdate, birthplace, religion, gradeLevel, student_profile) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([
+            $_SESSION['user_id'], $lrn, $firstName, $middleName, 
+            $lastName, $suffix, $sex, $birthdate, $birthplace,
+            $religion, $gradeLevel, $student_profile
+        ]);
+
+        return json_encode([
+            'status' => 1,
+            'message' => 'Account created successfully!'
+        ]);
+
+    } catch (PDOException $e) {
+        error_log("Database error: " . $e->getMessage());
+        return json_encode([
+            'status' => 0,
+            'message' => 'An error occurred. Please try again later.'
+        ]);
+    }
+}
+
     
 }

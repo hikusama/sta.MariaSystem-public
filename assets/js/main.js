@@ -481,6 +481,97 @@ $(document).ready(function () {
           }
       });
   });
+  $(document).on("submit", "#studentAcc-form", function (e) { 
+    // alert('Button Submit');
+      e.preventDefault();
+      const $form = $(this);
+      if ($form.data("isSubmitted")) return;
+      $form.data("isSubmitted", true);
+      
+      // Basic validation
+      const lrn = $form.find('[name="lrn"]').val().trim();
+      const grade_level = $form.find('[name="grade_level"]').val().trim();
+      const lastName = $form.find('[name="lastName"]').val().trim();
+      const firstName = $form.find('[name="firstName"]').val().trim();
+      const middleName = $form.find('[name="middleName"]').val().trim();
+      const religion = $form.find('[name="religion"]').val().trim();
+      const birthdate = $form.find('[name="birthdate"]').val().trim();
+      
+      if (!lrn ||
+          !grade_level ||
+          !lastName || !firstName || !middleName
+            || !religion || !birthdate) {
+          Swal.fire({
+              title: "Error",
+              text: "Please fill in all required fields",
+              icon: "error",
+              toast: true,
+              position: "top-end",
+              timer: 3000,
+              showConfirmButton: false,
+          });
+          $form.data("isSubmitted", false);
+          return;
+      }
+      
+      const formData = new FormData(this);
+      const $btn = $form.find("button[type='submit']");
+      $btn.prop("disabled", true);
+      $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+      
+      $.ajax({
+          url: base_url + "authentication/action.php?action=studentAcc_form",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          dataType: "json",
+          success: function (response) {
+              if (response.status === 1) {
+                  Swal.fire({
+                      title: "Success!",
+                      text: response.message,
+                      icon: "success",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  }).then(() => {
+                      // $form[0].reset(); // Reset form on success
+                      // $('#createClassrooms').modal('hide'); // Close modal
+                      // loadClassrooms(); // Refresh classroom list
+                      $form[0].reset(); 
+                  });
+              } else {
+                  Swal.fire({
+                      title: "Error",
+                      text: response.message,
+                      icon: "error",
+                      toast: true,
+                      position: "top-end",
+                      timer: 3000,
+                      showConfirmButton: false,
+                  });
+              }
+          },
+          error: function (jqXHR, textStatus, err) {
+              console.error("AJAX error:", textStatus, err);
+              Swal.fire({
+                  title: "Connection Error",
+                  text: "Please check your connection and try again.",
+                  icon: "error",
+                  toast: true,
+                  position: "top-end",
+                  timer: 3000,
+                  showConfirmButton: false,
+              });
+          },
+          complete: function () {
+              $form.data("isSubmitted", false);
+              $btn.prop("disabled", false).html('Create Account');// Fixed button text
+          }
+      });
+  });
 
 
   function showError (message) {

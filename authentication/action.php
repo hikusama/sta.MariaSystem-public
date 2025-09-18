@@ -55,3 +55,10 @@ if($action === 'assignTeacher_form'){
     }
     exit();
 }
+if($action === 'studentAcc_form'){
+    $registration = $crud->studentAcc_form();
+    if($registration){
+        echo $registration;
+    }
+    exit();
+}
