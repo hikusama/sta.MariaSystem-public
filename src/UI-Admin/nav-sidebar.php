@@ -50,7 +50,7 @@ $profile = $result["admin_picture"];
                 <span class=""><i class=""></i></span> Enrolment Process
             </a>
             <a href="index.php?page=contents/classroom" class="text-black nav-item rounded-1 p-2 nav-classroom">
-                <span class=""><i class=""></i></span> Classroom
+                <span class=""><i class=""></i></span> Classroom Management
             </a>
             <a href="index.php?page=contents/settings" class="text-black nav-item rounded-1 p-2 nav-settings">
                 <span class=""><i class=""></i></span> Account Settings 

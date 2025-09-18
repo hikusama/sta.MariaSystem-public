@@ -18,7 +18,7 @@ $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
 
 <div class="modal-header bg-danger " style="border-bottom: 1px solid #ddd;">
     <div class="">
-            <a href="index.php?page=contents/enrolment"><button class="btn text-white btn-success btn-sm m-0 ">Back</button></a>
+           <a href="index.php?page=contents/enrolment"><button class="btn text-white btn-success btn-sm m-0 ">Back</button></a>
         </div>
     <!-- <h5 class="modal-title text-white">BASIC EDUCATION ENROLLMENT FORM</h5> -->
     <div class="m-0"><!-- <button type="button" class="btn m-0 btn-sm btn-danger" id="printSectionBtn">Print</button> --></div>

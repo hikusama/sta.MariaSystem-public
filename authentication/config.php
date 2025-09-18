@@ -63,7 +63,7 @@ function db_connect()
                 section_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 section_name VARCHAR(50) NOT NULL,
                 section_grade_level VARCHAR(7) NOT NULL,
-                section_description TEXT,
+                section_status ENUM('Available', 'Inavailable'),
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )",
             "CREATE TABLE IF NOT EXISTS Subjects (
@@ -104,7 +104,7 @@ function db_connect()
             "CREATE TABLE IF NOT EXISTS student (
                 student_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 guardian_id INT(11),
-                enrolment_status ENUM('active', 'transferred', 'dropped'),
+                enrolment_status ENUM('active', 'transferred', 'dropped', 'pending') DEFAULT 'pending',
                 lrn VARCHAR(12) NOT NULL,
                 fname VARCHAR(150) NOT NULL,
                 mname VARCHAR(150) NOT NULL,
@@ -116,7 +116,7 @@ function db_connect()
                 religion VARCHAR(50),
                 address VARCHAR(255),
                 gradeLevel VARCHAR(10),
-                enrolled_date date,
+                enrolled_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 student_profile BLOB,
                 FOREIGN KEY (guardian_id) REFERENCES users(user_id) ON DELETE CASCADE
             )",

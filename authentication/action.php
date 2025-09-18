@@ -48,6 +48,13 @@ if($action === 'schoolYear_form'){
     }
     exit();
 }
+if($action === 'subjects_form'){
+    $registration = $crud->subjects_form();
+    if($registration){
+        echo $registration;
+    }
+    exit();
+}
 if($action === 'assignTeacher_form'){
     $registration = $crud->assignTeacher_form();
     if($registration){

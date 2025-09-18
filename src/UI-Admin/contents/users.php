@@ -9,7 +9,8 @@
 <div class="row g-2  justify-content-between">
     <div class="row mb-3  justify-content-between">
         <div class="col-md-4">
-            <input type="text" id="searchInput" name="search" class="form-control" placeholder="Search by name, role, status, or date...">
+            <input type="text" id="searchInput" name="search" class="form-control"
+                placeholder="Search by name, role, status, or date...">
         </div>
         <div class="col-md-4">
             <select id="categoryFilter" name="category" class="form-select">
@@ -29,7 +30,7 @@
         </div>
     </div>
 
-    
+
     <!-- Adding account modal -->
     <div class="modal fade" id="AddNewAccount" tabindex="-1" aria-labelledby="AddNewAccountLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -120,14 +121,14 @@
         </div>
     </div>
     <!-- Accounts Displays -->
-   <div class="table-container-wrapper">
+    <div class="table-container-wrapper">
         <?php
             $stmt = $pdo->prepare("SELECT * FROM users ORDER BY created_date DESC");
             $stmt->execute();
             $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $count = 1;
         ?>
-        
+
         <!-- Fixed Header -->
         <div class="table-header">
             <table class="table table-bordered table-sm text-center mb-0">
@@ -143,7 +144,7 @@
                 </thead>
             </table>
         </div>
-        
+
         <!-- Scrollable Body -->
         <div class="table-body-scroll">
             <table class="table table-bordered table-sm text-center mb-0">
@@ -175,7 +176,72 @@
             </table>
         </div>
     </div>
-
-
-
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const tableBody = document.querySelector('.table-body-scroll tbody');
+    const originalRows = Array.from(tableBody.querySelectorAll('tr'));
+
+    const rowData = originalRows.map(row => {
+        const cells = row.querySelectorAll('td');
+        return {
+            element: row,
+            name: cells[1].textContent.toLowerCase(),
+            role: cells[2].textContent.toLowerCase(),
+            status: cells[3].textContent.toLowerCase(),
+            date: cells[4].textContent.toLowerCase()
+        };
+    });
+
+    function filterTable() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const categoryValue = categoryFilter.value.toLowerCase();
+
+        rowData.forEach((data, index) => {
+            const matchesSearch = searchTerm === '' ||
+                data.name.includes(searchTerm) ||
+                data.role.includes(searchTerm) ||
+                data.status.includes(searchTerm) ||
+                data.date.includes(searchTerm);
+
+            const matchesCategory = categoryValue === '' ||
+                data.role.includes(categoryValue);
+
+            if (matchesSearch && matchesCategory) {
+                data.element.style.display = '';
+                data.element.querySelector('td:first-child').textContent = index + 1;
+            } else {
+                data.element.style.display = 'none';
+            }
+        });
+
+        renumberVisibleRows();
+    }
+
+    function renumberVisibleRows() {
+        let visibleCount = 1;
+        rowData.forEach(data => {
+            if (data.element.style.display !== 'none') {
+                data.element.querySelector('td:first-child').textContent = visibleCount++;
+            }
+        });
+    }
+
+    searchInput.addEventListener('input', filterTable);
+    categoryFilter.addEventListener('change', filterTable);
+
+    function clearFilters() {
+        searchInput.value = '';
+        categoryFilter.value = '';
+        filterTable();
+    }
+
+    clearButton.className = 'btn btn-secondary btn-sm';
+    clearButton.addEventListener('click', clearFilters);
+
+    categoryFilter.parentNode.appendChild(clearButton);
+
+});
+</script>
