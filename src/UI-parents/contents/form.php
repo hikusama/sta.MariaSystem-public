@@ -43,30 +43,31 @@ $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
                 <label>PSA birth Certificate</label>
                 <input type="text" name="psa" id="psa" placeholder="PSA birth . (if available)" class="form-control">
             </div> -->
-            <div class="d-flex flex-column col-md-3 col-11 ">
-                <label class="m-0 mt-1">Last name</label>
-                <input type="text" id="lname" name="lname" placeholder="Last name" class="form-control">
-            </div>
+            
             <div class="d-flex flex-column col-md-3 col-11 ">
                 <label class="m-0 mt-1">First name</label>
-                <input type="text" id="fname" name="fname" placeholder="Last name" class="form-control">
+                <input type="text" value="<?= htmlspecialchars($studentInfo["fname"]) ?>" id="fname" name="fname" placeholder="Last name" class="form-control">
             </div>
             <div class="d-flex flex-column col-md-3 col-11 ">
                 <label class="m-0 mt-1">Middle name</label>
-                <input type="text" id="mname" name="mname" placeholder="Last name" class="form-control">
+                <input type="text" value="<?= htmlspecialchars($studentInfo["mname"]) ?>" id="mname" name="mname" placeholder="Last name" class="form-control">
+            </div>
+            <div class="d-flex flex-column col-md-3 col-11 ">
+                <label class="m-0 mt-1">Last name</label>
+                <input type="text" id="lname" value="<?= htmlspecialchars($studentInfo["lname"]) ?>" name="lname" placeholder="Last name" class="form-control">
             </div>
             <div class="d-flex flex-column col-md-2 col-11">
                 <label class="m-0 mt-1">name extention</label>
-                <input type="text" id="suffix" name="suffix" placeholder="Last name" class="form-control">
+                <input type="text" id="suffix" value="<?= htmlspecialchars($studentInfo["suffix"]) ?>" name="suffix" placeholder="Name extention" class="form-control">
             </div>
             <div class="d-flex flex-column col-md-3 col-11 ">
                 <label>LRN:</label>
-                <input type="text" name="lrn" id="lrn" placeholder="LRN (12 digits only)"
+                <input type="text" value="<?= htmlspecialchars($studentInfo["lrn"]) ?>" name="lrn" id="lrn" placeholder="LRN (12 digits only)"
                     maxlength="12" class="form-control" pattern="\d{12}" required>
             </div>
             <div class="d-flex flex-column col-md-3 col-11">
                 <label class="m-0 mt-1">Birth date</label>
-                <input type="date" name="birthdate" id="birthdate" placeholder="Birth date" class="form-control">
+                <input type="date" value="<?= htmlspecialchars($studentInfo["birthdate"]) ?>" name="birthdate" id="birthdate" placeholder="Birth date" class="form-control">
             </div>
             <div class="d-flex flex-column col-md-3 col-11">
                 <label class="m-0 mt-1">Age</label>
@@ -74,7 +75,7 @@ $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
             </div>
             <div class="d-flex flex-column col-md-2 col-11">
                 <label class="m-0 mt-1">Sex</label>
-                <select name="gender" id="gender" class="form-select">
+                <select name="gender" id="gender" class="form-select" value="<?= htmlspecialchars($studentInfo["sex"]) ?>">
                     <option value="">Select Gender</option>
                     <option value="Male">MALE</option>
                     <option value="Female">FEMALE</option>
@@ -82,11 +83,11 @@ $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
             </div>
             <div class="d-flex flex-column col-md-3 col-11">
                 <label class="m-0 mt-1">Birth Place</label>
-                <input type="text" name="birth_place" id="birth_place" placeholder="Birth Place (city/Muntinlupa)" class="form-control">
+                <input type="text" value="<?= htmlspecialchars($studentInfo["birthplace"]) ?>" name="birth_place" id="birth_place" placeholder="Birth Place (city/Muntinlupa)" class="form-control">
             </div>
             <div class="d-flex flex-column col-md-3 col-11">
                 <label class="m-0 mt-1">Religion</label>
-                <select name="religious" id="religious" class="form-select">
+                <select name="religious" id="religious" class="form-select" value="<?= htmlspecialchars($studentInfo["religion"]) ?>">
                     <option value="">Select Religion</option>
                     <option value="Roman Catholic">Roman Catholic</option>
                     <option value="Iglesia ni Cristo">Iglesia ni Cristo</option>
