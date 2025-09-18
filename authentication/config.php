@@ -105,7 +105,7 @@ function db_connect()
                 student_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 guardian_id INT(11),
                 enrolment_status ENUM('active', 'transferred', 'dropped'),
-                lrn INT(12) NOT NULL,
+                lrn VARCHAR(12) NOT NULL,
                 fname VARCHAR(150) NOT NULL,
                 mname VARCHAR(150) NOT NULL,
                 lname VARCHAR(150) NOT NULL,

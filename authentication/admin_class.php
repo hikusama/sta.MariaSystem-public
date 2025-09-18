@@ -331,61 +331,93 @@ class Action
         }
     }
     function studentAcc_form() {
-    $lrn = htmlspecialchars(trim($_POST["lrn"] ?? ''));
-    $gradeLevel = htmlspecialchars(trim($_POST["grade_level"] ?? ''));
-    $nickname = htmlspecialchars(trim($_POST["nickname"] ?? ''));
-    $sex = htmlspecialchars(trim($_POST["sex"] ?? ''));
-    $lastName = htmlspecialchars(trim($_POST["lastName"] ?? ''));
-    $firstName = htmlspecialchars(trim($_POST["firstName"] ?? ''));
-    $middleName = htmlspecialchars(trim($_POST["middleName"] ?? ''));
-    $suffix = htmlspecialchars(trim($_POST["suffix"] ?? ''));
-    $religion = htmlspecialchars(trim($_POST["religion"] ?? ''));
-    $birthdate = $_POST["birthdate"] ?? null;
-    $birthplace = $_POST["birthplace"] ?? null;
-    $student_profile = $_POST["student_profile"] ?? '';
+        $lrn = htmlspecialchars(trim($_POST["lrn"] ?? ''));
+        $gradeLevel = htmlspecialchars(trim($_POST["grade_level"] ?? ''));
+        $nickname = htmlspecialchars(trim($_POST["nickname"] ?? ''));
+        $sex = htmlspecialchars(trim($_POST["sex"] ?? ''));
+        $lastName = htmlspecialchars(trim($_POST["lastName"] ?? ''));
+        $firstName = htmlspecialchars(trim($_POST["firstName"] ?? ''));
+        $middleName = htmlspecialchars(trim($_POST["middleName"] ?? ''));
+        $suffix = htmlspecialchars(trim($_POST["suffix"] ?? ''));
+        $religion = htmlspecialchars(trim($_POST["religion"] ?? ''));
+        $birthdate = $_POST["birthdate"] ?? null;
+        $birthplace = $_POST["birthplace"] ?? null;
 
-    // Provide defaults to avoid undefined index notices
+        try {
+            // Check if LRN exists
+            $checkStmt = $this->db->prepare("SELECT lrn FROM student WHERE lrn = ?");
+            $checkStmt->execute([$lrn]);
+            $lrnTaken = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
-    try {
-        $stmt = $this->db->prepare("SELECT lrn FROM student WHERE lrn = ?");
-        $stmt->execute([$lrn]);
-        $lrnTaken = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($lrnTaken) {
+            if ($lrnTaken) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'LRN: "'.$lrn.'" already exists!'
+                ]);
+            }
+
+            // == FILE UPLOAD
+           $student_profile = '';
+
+            if (isset($_FILES['student_profile']) && $_FILES['student_profile']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = '../assets/image/uploads/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0777, true); 
+                }
+
+                $fileTmp = $_FILES['student_profile']['tmp_name'];
+                $fileName = basename($_FILES['student_profile']['name']);
+                $fileExt = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+                // validate allowed file types
+                $allowed = ['jpg','jpeg','png','gif','webp'];
+                if (!in_array($fileExt, $allowed)) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Invalid image file type.'
+                    ]);
+                }
+
+                // create unique filename
+                $newFileName = uniqid('profile_', true) . '.' . $fileExt;
+                $destPath = $uploadDir . $newFileName;
+
+                if (move_uploaded_file($fileTmp, $destPath)) {
+                    $student_profile = $destPath;
+                } else {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Failed to upload profile image.'
+                    ]);
+                }
+            }
+
+
+            // ==== INSERT ====
+            $query = "INSERT INTO student 
+                (guardian_id, lrn, fname, mname, lname, suffix, sex, birthdate, birthplace, religion, gradeLevel, student_profile) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([
+                $_SESSION['user_id'], $lrn, $firstName, $middleName, 
+                $lastName, $suffix, $sex, $birthdate, $birthplace,
+                $religion, $gradeLevel, $student_profile
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Account created successfully!'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
             return json_encode([
                 'status' => 0,
-                'message' => 'LRN: ' . $lrnTaken["lrn"] . ' already taken. Please try another.'
+                'message' => 'An error occurred. Please try again later.'
             ]);
         }
-
-        if ($student_profile == '') {
-            $student_profile = '../assets/image/users.png';
-        }
-
-        $query = "INSERT INTO student 
-            (guardian_id, lrn, fname, mname, lname, suffix, sex, birthdate, birthplace, religion, gradeLevel, student_profile) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        $stmt = $this->db->prepare($query);
-        $stmt->execute([
-            $_SESSION['user_id'], $lrn, $firstName, $middleName, 
-            $lastName, $suffix, $sex, $birthdate, $birthplace,
-            $religion, $gradeLevel, $student_profile
-        ]);
-
-        return json_encode([
-            'status' => 1,
-            'message' => 'Account created successfully!'
-        ]);
-
-    } catch (PDOException $e) {
-        error_log("Database error: " . $e->getMessage());
-        return json_encode([
-            'status' => 0,
-            'message' => 'An error occurred. Please try again later.'
-        ]);
     }
-}
 
     
 }

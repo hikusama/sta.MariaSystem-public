@@ -1,3 +1,10 @@
+<style>
+    img{
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+    }
+</style>
 <div class="d-flex justify-content-between align-items-center mb-2">
     <div class="mx-2">
         <h4><i class="fa-solid fa-users-gear me-2"></i>Learners Management</h4>
@@ -23,11 +30,19 @@
                     onclick="location.reload()"></button>
             </div>
             <div class="modal-body">
-                <form class="row g-3" id="studentAcc-form" method="post">
+                <form class="row g-3" id="studentAcc-form" method="post" enctype="multipart/form-data">
                     <div class="row">
                         <div class="col-md-3">
                             <label class="form-label">Student LRN <span class="text-danger">*</span></label>
-                            <input required type="text" class="form-control" placeholder="must be 12 digit lrn...." name="lrn">
+                            <input 
+                                type="text" 
+                                name="lrn" 
+                                pattern="\d{12}" 
+                                maxlength="12" 
+                                inputmode="numeric" 
+                                required
+                                class="form-control"
+                                placeholder="Enter 12-digit LRN">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Grade Level <span class="text-danger">*</span></label>
@@ -125,4 +140,40 @@
             </div>
         </div>
     </div>
+</div>
+
+<div class="row mt-2 gap-3 px-4">
+    <?php
+        $stmt = $pdo->prepare("SELECT * FROM student WHERE guardian_id = '$user_id'");
+        $stmt->execute();
+        $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach($students as $student) :
+    ?>  
+    <div class="row col-md-5 border shadow rounded p-0 py-2">
+        <div class="col-md-4 border-end m-0 p-0 d-flex flex-column align-items-center justify-content-center">
+            <?php if($student["student_profile"] !== '') { ?>
+                <img src="../../assets/image/uploads/<?php echo $student["student_profile"];?>">
+            <?php }else{ ?>
+                <img src="../../assets/image/users.png">
+            <?php } ?>
+            <label class="form-label m-0 p-0">LRN: <?= htmlspecialchars($student["lrn"]) ?></label>
+        </div>
+        <div class="col-md-8 d-flex flex-column align-items-start justify-content-center px-1">
+            <span>Name: 
+                <strong>
+                    <?= htmlspecialchars($student["fname"]) . " " . htmlspecialchars(substr($student["mname"], 0, 1)) . ". " . 
+                    htmlspecialchars($student["lname"])?>
+                </strong>
+            </span>
+            <span>Grade Level: <strong><?= htmlspecialchars($student["gradeLevel"]) ?></strong></span>
+            <span>Birth Day: <strong><?= htmlspecialchars($student["birthdate"]) ?></strong></span>
+            <span>Enrolment Status: <strong><?php if($student["enrolment_status"] == ''){echo 'Pending';}else{$student["enrolment_status"];}?></strong></span>
+            <div class="buttons w-100 d-flex justify-content-end pe-2 mt-1 pt-2 gap-2 border-top">
+                <a href="index.php?page=contents/profile&student_id=<?= htmlspecialchars($student["student_id"]) ?>"><button class="btn btn-sm m-0 btn-info">Profile</button></a>
+                <a href="index.php?page=contents/form&student_id=<?= htmlspecialchars($student["student_id"]) ?>"><button class="btn btn-sm m-0 btn-danger">Enrolment Form</button></a>
+            </div>
+        </div>
+    </div>
+    <?php endforeach ?>
+    
 </div>
