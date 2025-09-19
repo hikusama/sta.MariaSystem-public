@@ -1,6 +1,7 @@
 <?php
     $query = "SELECT classes.*, users.* FROM classes
-    INNER JOIN users ON classes.adviser_id = users.user_id";
+    INNER JOIN users ON classes.adviser_id = users.user_id
+    WHERE users.user_id = '$user_id'";
     $stmt = $pdo->prepare($query);
     $stmt->execute();
     $classes = $stmt->fetchAll(PDO::FETCH_ASSOC);
