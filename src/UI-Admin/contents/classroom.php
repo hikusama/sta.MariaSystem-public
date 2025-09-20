@@ -496,7 +496,7 @@
             </div>
             <div class="modal-body">
                 <form class="row g-3" id="editClassroom-form" method="post">
-                    <input type="hidden" name="classroom_id" id="classroom_id">
+                    <input type="hidden" name="classroom_id" id="classroom_ids">
                      <div class="my-2">
                         <label class="form-label">Room Status</label>
                        <select name="room_status" id="room_status" class="form-control">

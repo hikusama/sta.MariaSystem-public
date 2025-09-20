@@ -723,18 +723,18 @@ class Action
         }
     }
     function editClassroom_form(){
-        $classroom_id   = $_POST["classroom_id"] ?? '';
-        $room_status = $_POST["room_status"] ?? '';
+        $classroom_id   = $_POST["classroom_id"];
+        $room_status    = $_POST["room_status"] ?? '';
         $classroom_name = $_POST["classroom_name"] ?? '';
         $classroom_type = $_POST["classroom_type"] ?? '';
 
         try {
             $stmt = $this->db->prepare("
                 UPDATE classrooms 
-                SET room_status= :room_status, room_name = :room_name, room_type = :room_type
+                SET room_status = :room_status, room_name = :room_name, room_type = :room_type
                 WHERE room_id = :room_id
             ");
-            $stmt->bindParam(':room_status', $classroom_status, PDO::PARAM_STR);
+            $stmt->bindParam(':room_status', $room_status, PDO::PARAM_STR);
             $stmt->bindParam(':room_name', $classroom_name, PDO::PARAM_STR);
             $stmt->bindParam(':room_type', $classroom_type, PDO::PARAM_STR);
             $stmt->bindParam(':room_id', $classroom_id, PDO::PARAM_INT);
@@ -748,7 +748,7 @@ class Action
             } else {
                 return json_encode([
                     'status' => 0,
-                    'message' => 'No changes made or classroom not found'
+                    'message' => 'No changes made (maybe same values or invalid ID) the room id is: ' . $classroom_id
                 ]);
             }
 
@@ -759,6 +759,7 @@ class Action
             ]);
         }
     }
+
     function getClassroomById($id){
         try {
             $stmt = $this->db->prepare("SELECT * FROM classrooms WHERE room_id = :room_id");

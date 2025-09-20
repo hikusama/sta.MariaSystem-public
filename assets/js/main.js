@@ -1187,7 +1187,7 @@ $(document).on('click', '.deleteClassroomBtn', function () {
 
   $(document).on('click', '.editClassroomsBtn', function () {
     const classroom_id = $(this).data('id');
-    $('#classroom_id').val(classroom_id);
+    $('#classroom_ids').val(classroom_id);
     $('#editClassroom').modal('show');
 });
 $(document).on('click', '.editClassroomsBtn', function () {
