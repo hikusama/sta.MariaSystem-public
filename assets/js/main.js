@@ -147,22 +147,22 @@ $(document).ready(function () {
       $form.data("isSubmitted", true);
       
       // Basic validation
-      const classroomName = $form.find('[name="school_year_name"]').val().trim();
-      const classroomType = $form.find('[name="classroom_type"]').val().trim();
+    //   const classroomName = $form.find('[name="school_year_name"]').val();
+    //   const classroomType = $form.find('[name="classroom_type"]').val().trim();
       
-      if (!classroomName || !classroomType) {
-          Swal.fire({
-              title: "Error",
-              text: "Please fill in all required fields",
-              icon: "error",
-              toast: true,
-              position: "top-end",
-              timer: 3000,
-              showConfirmButton: false,
-          });
-          $form.data("isSubmitted", false);
-          return;
-      }
+    //   if (!classroomName || !classroomType) {
+    //       Swal.fire({
+    //           title: "Error",
+    //           text: "Please fill in all required fields",
+    //           icon: "error",
+    //           toast: true,
+    //           position: "top-end",
+    //           timer: 3000,
+    //           showConfirmButton: false,
+    //       });
+    //       $form.data("isSubmitted", false);
+    //       return;
+    //   }
       
       const formData = new FormData(this);
       const $btn = $form.find("button[type='submit']");
