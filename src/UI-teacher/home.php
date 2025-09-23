@@ -21,7 +21,7 @@
             </div>
         </div>
         <div class="row col-md-5 border shadow m-0 p-3 rounded-3 mb-4">
-            <span class="m-0 fs-5">SCHOOL YEAR: <strong><?= $activeSY["school_year_name"] . ' is currently Active' ?? 'No Active School Year' ?></strong></span>
+           <span class="m-0 fs-5">SCHOOL YEAR: <strong><?= $activeSY["school_year_name"] ?? 'No Active School Year' ?></strong></span>
         </div>
         <div class="d-flex justify-content-between align-items-center mt-4">
             <div class="mx-2 marginToMedia sideAnimation">
