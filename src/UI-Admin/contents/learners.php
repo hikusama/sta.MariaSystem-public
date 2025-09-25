@@ -15,7 +15,6 @@
         <div class="col-md-4">
             <select id="categoryFilter" name="statusCategory" class="form-select">
                 <option value="">Enrollment Status</option>
-                <option value="pending">Pending</option>
                 <option value="active">Enrolled</option>
                 <option value="transferred">Transferred</option>
                 <option value="dropped">Dropped</option>
@@ -51,10 +50,11 @@
                 <thead>
                     <tr>
                         <th width="5%">#</th>
-                        <th width="15%">Lrn</th>
+                        <th width="10%">Lrn</th>
                         <th width="20%">Name</th>
                         <th width="20%">Parent/Guardian</th>
-                        <th width="15%">Remarks</th>
+                        <th width="10%">Grade</th>
+                        <th width="10%">Remarks</th>
                         <th width="15%">Action</th>
                     </tr>
                 </thead>
@@ -66,19 +66,22 @@
             <table class="table table-bordered table-sm text-center mb-0">
                 <tbody>
                     <?php foreach($users as $user) : ?>
-                    <tr>
+                    <tr data-status="<?= htmlspecialchars($user['enrolment_status']) ?>"
+                        data-grade="<?= htmlspecialchars($user['gradeLevel'] ?? '') ?>"
+                        data-name="<?= htmlspecialchars($user['lname'] . ' ' . $user['fname'] . ' ' . $user['mname']) ?>">
                         <td width="5%"><?= $count++ ?></td>
-                        <td width="15%"><?= htmlspecialchars($user["lrn"]) ?></td>
+                        <td width="10%"><?= htmlspecialchars($user["lrn"]) ?></td>
                         <td width="20%">
-                            <?= htmlspecialchars($user["lname"]) . " " . 
-                            htmlspecialchars($user["fname"]) . " " .  (!empty($user["mname"]) ? htmlspecialchars(substr($user["mname"], 0, 1)) . ". " : "") ?>
+                            <?= htmlspecialchars($user["lname"]) . " " . htmlspecialchars($user["fname"]) . " " .  
+                            (!empty($user["mname"]) ? htmlspecialchars(substr($user["mname"], 0, 1)) . ". " : "") ?>
                         </td>
                         <td width="20%">
-                            <?= htmlspecialchars($user["parentLastname"]) . " " . 
-                            htmlspecialchars($user["parentFirstname"]) . " " .  (!empty($user["parentMiddle"]) ? htmlspecialchars(substr($user["mname"], 0, 1)) . ". " : "") ?>
+                            <?= htmlspecialchars($user["parentLastname"]) . " " . htmlspecialchars($user["parentFirstname"]) ?>
                         </td>
-                        <td width="15%">
-                            <?php
+                        <td width="10%">
+                            <?= htmlspecialchars($user["gradeLevel"]) ?>
+                        </td>
+                        <?php
                                 $statusMap = [
                                     'active'      => ['success',   'Enrolled'],
                                     'pending'     => ['warning',   'Pending'],
@@ -91,17 +94,14 @@
                                 $badgeClass = $statusMap[$currentStatus][0] ?? 'secondary';
                                 $label      = $statusMap[$currentStatus][1] ?? ucfirst($currentStatus);
                                 ?>
-
-                            <span class="badge bg-<?= $badgeClass ?>">
-                                <?= $label ?>
-                            </span>
-
+                        <td width="10%">
+                            <span class="badge bg-<?= $badgeClass ?>"><?= $label ?></span>
                         </td>
                         <td width="15%">
                             <div class="d-flex gap-1 justify-content-center">
                                 <a
                                     href="index.php?page=contents/profile&student_id=<?= htmlspecialchars($user["student_id"]) ?>"><button
-                                        class="btn m-0 btn-info">Profile</button>
+                                        class="btn m-0 btn-sm h-100 btn-info">Profile</button>
                                 </a>
                                 <form class="status-enrolment-form">
                                     <select name="status" class="status-enrolment-select form-select">
@@ -124,6 +124,8 @@
                             </div>
                         </td>
                     </tr>
+
+
                     <?php endforeach ?>
                 </tbody>
             </table>
@@ -282,5 +284,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // Regenerate whenever grade level or count changes
     gradeLevelSelect.addEventListener('change', generateSubjectSelects);
     subjectCountsSelect.addEventListener('change', generateSubjectSelects);
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const searchInput = document.getElementById("searchInput");
+    const statusFilter = document.querySelector('select[name="statusCategory"]');
+    const gradeFilter = document.querySelector('select[name="gradeLevelCategory"]');
+    const rows = document.querySelectorAll(".table-body-scroll tbody tr");
+
+    function filterTable() {
+        const searchText = searchInput.value.toLowerCase();
+        const statusValue = statusFilter.value.toLowerCase();
+        const gradeValue = gradeFilter.value.toLowerCase();
+
+        rows.forEach(row => {
+            const rowStatus = row.getAttribute("data-status")?.toLowerCase();
+            const rowGrade = row.getAttribute("data-grade")?.toLowerCase();
+            const rowName = row.getAttribute("data-name")?.toLowerCase();
+
+            let matchesSearch = rowName.includes(searchText) || searchText === "";
+            let matchesStatus = (statusValue === "" || rowStatus === statusValue);
+            let matchesGrade = (gradeValue === "" || rowGrade === gradeValue);
+
+            if (matchesSearch && matchesStatus && matchesGrade) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
+    }
+
+    searchInput.addEventListener("input", filterTable);
+    statusFilter.addEventListener("change", filterTable);
+    gradeFilter.addEventListener("change", filterTable);
 });
 </script>

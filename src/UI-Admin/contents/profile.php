@@ -313,83 +313,83 @@
             ?>
 
         <style>
-        .attendance-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
+            .attendance-container {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 20px;
+            }
 
-        .month {
-            width: calc(50% - 10px);
-        }
+            .month {
+                width: calc(50% - 10px);
+            }
 
-        /* Two months per row */
-        .days-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 40px);
-            gap: 5px;
-            margin-bottom: 20px;
-        }
+            /* Two months per row */
+            .days-grid {
+                display: grid;
+                grid-template-columns: repeat(7, 40px);
+                gap: 5px;
+                margin-bottom: 20px;
+            }
 
-        .day {
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
+            .day {
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
 
-        .present {
-            background: green !important;
-            color: white !important;
-        }
+            .present {
+                background: green !important;
+                color: white !important;
+            }
 
-        .half-morning {
-            background: green !important;
-            color: white !important;
-        }
+            .half-morning {
+                background: green !important;
+                color: white !important;
+            }
 
-        .half-afternoon {
-            background: green !important;
-            color: white !important;
-        }
+            .half-afternoon {
+                background: green !important;
+                color: white !important;
+            }
 
-        .absent {
-            background: red !important;
-            color: white !important;
-        }
+            .absent {
+                background: red !important;
+                color: white !important;
+            }
 
-        .late {
-            background: blue !important;
-            color: white !important;
-        }
+            .late {
+                background: blue !important;
+                color: white !important;
+            }
         </style>
 
         <div id="displayAttendance" class="attendance-container">
             <?php
-foreach ($months as $monthIndex => $monthName) {
-    echo "<div class='month'>";
-    echo "<h3>$monthName $currentYear</h3>";
-    echo "<div class='days-grid'>";
-    $daysInMonth = date("t", strtotime("$currentYear-" . ($monthIndex + 1) . "-01"));
+                foreach ($months as $monthIndex => $monthName) {
+                    echo "<div class='month'>";
+                    echo "<h3>$monthName $currentYear</h3>";
+                    echo "<div class='days-grid'>";
+                    $daysInMonth = date("t", strtotime("$currentYear-" . ($monthIndex + 1) . "-01"));
 
-    for ($day = 1; $day <= $daysInMonth; $day++) {
-        $dateStr = sprintf("%04d-%02d-%02d", $currentYear, $monthIndex + 1, $day);
-        $class = "day";
+                    for ($day = 1; $day <= $daysInMonth; $day++) {
+                        $dateStr = sprintf("%04d-%02d-%02d", $currentYear, $monthIndex + 1, $day);
+                        $class = "day";
 
-        foreach ($attendanceData as $record) {
-            $attClass = getAttendanceClass($record, $dateStr);
-            if ($attClass) { $class .= " $attClass"; break; }
-        }
+                        foreach ($attendanceData as $record) {
+                            $attClass = getAttendanceClass($record, $dateStr);
+                            if ($attClass) { $class .= " $attClass"; break; }
+                        }
 
-        echo "<div class='$class'>$day</div>";
-    }
+                        echo "<div class='$class'>$day</div>";
+                    }
 
-    echo "</div></div>";
-}
-?>
+                    echo "</div></div>";
+                }
+                ?>
         </div>
 
 

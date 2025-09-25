@@ -1,6 +1,6 @@
 <?php
     isset($_GET["student_id"]) ? $student_id = $_GET["student_id"] : '';
-    $query = "SELECT student.*, stuenrolmentinfo.*, users.* FROM student
+    $query = "SELECT student.*, users.*, stuenrolmentinfo.* FROM student
     INNER JOIN users ON student.guardian_id = users.user_id
     INNER JOIN stuenrolmentinfo ON student.student_id = stuenrolmentinfo.student_id 
     WHERE student.student_id = '$student_id'";
@@ -103,6 +103,7 @@
     </div>
     <div class="col-md-8">
         <form id="displayStudentInfo" class="student-Info gap-2" style="display: flex; flex-wrap: wrap !important;">
+            <input type="hidden" name="student_id" value="<?= $student_info["student_id"] ?>">
             <div class="col-md-3">
                 <label class="form-label">First Name</label>
                 <input type="text" readonly name="fname" class="form-control"
@@ -133,35 +134,61 @@
                 <input type="text" readonly name="lrn" class="form-control"
                     value="<?= htmlspecialchars($student_info["lrn"]) ?>">
             </div>
-            <div class="col-md-3">
-                <label class="form-label">SEX</label>
-                <input type="text" name="sex" class="form-control"
-                    value="<?= htmlspecialchars($student_info["sex"] ?? 'NA') ?>">
+            <div class="d-flex flex-column col-md-2 col-11">
+                <label class="m-0 mt-1">Sex</label>
+                <select name="gender" id="gender" class="form-select">
+                    <option value="">Select Gender</option>
+                    <option value="MALE" <?= ($student_info["sex"] ?? '') == 'MALE' ? 'selected' : '' ?>>MALE</option>
+                    <option value="FEMALE" <?= ($student_info["sex"] ?? '') == 'FEMALE' ? 'selected' : '' ?>>FEMALE</option>
+                </select>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Birth Date</label>
                 <input type="date" name="birthdate" class="form-control"
                     value="<?= htmlspecialchars($student_info["birthdate"] ?? 'NA') ?>">
             </div>
-            <div class="col-md-3">
+              <div class="col-md-3">
                 <label class="form-label">Birth Place</label>
                 <input type="text" name="birthplace" class="form-control"
                     value="<?= htmlspecialchars($student_info["birthplace"] ?? 'NA') ?>">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label">Age</label>
                 <input type="text" readonly name="age" class="form-control">
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Religion</label>
-                <input type="text" name="religion" class="form-control"
-                    value="<?= htmlspecialchars($student_info["religion"] ?? 'NA') ?>">
+            <div class="d-flex flex-column col-md-3 col-11">
+                <label class="m-0 mt-1">Religion</label>
+                <select name="religion" id="religious" class="form-select">
+                    <option value="">Select Religion</option>
+                    <option value="Roman Catholic" <?= ($student_info["religion"] ?? '') == 'Roman Catholic' ? 'selected' : '' ?>>Roman Catholic</option>
+                    <option value="Iglesia ni Cristo" <?= ($student_info["religion"] ?? '') == 'Iglesia ni Cristo' ? 'selected' : '' ?>>Iglesia ni Cristo</option>
+                    <option value="Evangelical" <?= ($student_info["religion"] ?? '') == 'Evangelical' ? 'selected' : '' ?>>Evangelical</option>
+                    <option value="Islam" <?= ($student_info["religion"] ?? '') == 'Islam' ? 'selected' : '' ?>>Islam</option>
+                    <option value="Seventh-day Adventist" <?= ($student_info["religion"] ?? '') == 'Seventh-day Adventist' ? 'selected' : '' ?>>Seventh-day Adventist</option>
+                    <option value="Aglipayan (IFI)" <?= ($student_info["religion"] ?? '') == 'Aglipayan (IFI)' ? 'selected' : '' ?>>Aglipayan (IFI)</option>
+                    <option value="Baptist" <?= ($student_info["religion"] ?? '') == 'Baptist' ? 'selected' : '' ?>>Baptist</option>
+                    <option value="Born Again Christian" <?= ($student_info["religion"] ?? '') == 'Born Again Christian' ? 'selected' : '' ?>>Born Again Christian</option>
+                    <option value="Jehovah's Witness" <?= ($student_info["religion"] ?? '') == 'Jehovah\'s Witness' ? 'selected' : '' ?>>Jehovah's Witness</option>
+                </select>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Mother Tongue</label>
-                <input type="text" name="mother_tongue" class="form-control"
-                    value="<?= htmlspecialchars($student_info["mother_tongue"] ?? 'NA') ?>">
+            <div class="d-flex flex-column col-md-3 col-11 ms-2">
+                <label class="m-0 mt-1">Mother Tongue</label>
+                <select name="mother_tongue" id="tongue" class="form-select">
+                    <option value="">Select Mother Tongue</option>
+                    <option value="Tagalog" <?= ($student_info["mother_tongue"] ?? '') == 'Tagalog' ? 'selected' : '' ?>>Tagalog</option>
+                    <option value="Cebuano" <?= ($student_info["mother_tongue"] ?? '') == 'Cebuano' ? 'selected' : '' ?>>Cebuano</option>
+                    <option value="Ilocano" <?= ($student_info["mother_tongue"] ?? '') == 'Ilocano' ? 'selected' : '' ?>>Ilocano</option>
+                    <option value="Hiligaynon" <?= ($student_info["mother_tongue"] ?? '') == 'Hiligaynon' ? 'selected' : '' ?>>Hiligaynon</option>
+                    <option value="Bicolano" <?= ($student_info["mother_tongue"] ?? '') == 'Bicolano' ? 'selected' : '' ?>>Bicolano</option>
+                    <option value="Kapampangan" <?= ($student_info["mother_tongue"] ?? '') == 'Kapampangan' ? 'selected' : '' ?>>Kapampangan</option>
+                    <option value="Pangasinan" <?= ($student_info["mother_tongue"] ?? '') == 'Pangasinan' ? 'selected' : '' ?>>Pangasinan</option>
+                    <option value="Waray" <?= ($student_info["mother_tongue"] ?? '') == 'Waray' ? 'selected' : '' ?>>Waray</option>
+                    <option value="Maranao" <?= ($student_info["mother_tongue"] ?? '') == 'Maranao' ? 'selected' : '' ?>>Maranao</option>
+                    <option value="Tausug" <?= ($student_info["mother_tongue"] ?? '') == 'Tausug' ? 'selected' : '' ?>>Tausug</option>
+                    <option value="Others" <?= ($student_info["mother_tongue"] ?? '') == 'Others' ? 'selected' : '' ?>>Others</option>
+                </select>
             </div>
+            
             <div class="col-md-12">
                 <strong class="fs-5">Student Address</strong>
             </div>
@@ -176,7 +203,7 @@
                     value="<?= htmlspecialchars($student_info["street"] ?? 'NA') ?>">
             </div>
             <div class="col-md-3">
-                <label class="form-label">Brangay</label>
+                <label class="form-label">Barangay</label>
                 <input type="text" name="barnagay" class="form-control"
                     value="<?= htmlspecialchars($student_info["barnagay"] ?? 'NA') ?>">
             </div>
@@ -195,18 +222,144 @@
                 <input type="text" name="country" class="form-control"
                     value="<?= htmlspecialchars($student_info["country"] ?? 'NA') ?>">
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Zip Code</label>
-                <input type="text" name="zip_code" class="form-control"
-                    value="<?= htmlspecialchars($student_info["zip_code"] ?? 'NA') ?>">
-            </div>
+               <div class="col-md-3">
+                    <label class="form-label">Zip Code</label>
+                    <input type="text" name="zip_code" class="form-control"
+                        value="<?= htmlspecialchars($student_info["zip_code"] ?? 'NA') ?>">
+                </div>
             <div class="col-md-12 d-flex justify-content-end">
                 <button type="submit" class="btn btn-danger mt-2 text-white px-5 fw-bold">Update</button>
             </div>
             
         </form>
-        <div id="displayAttendance" class="attendance" style="display:none">
+      <?php
+            require_once "../../authentication/config.php";
 
+            $student_id = $_GET['student_id'] ?? null;
+
+            // Fetch student info
+            if ($student_id) {
+                $query = "SELECT student.*, users.*, stuenrolmentinfo.* FROM student
+                        INNER JOIN users ON student.guardian_id = users.user_id
+                        INNER JOIN stuenrolmentinfo ON student.student_id = stuenrolmentinfo.student_id 
+                        WHERE student.student_id = :student_id";
+                $stmt = $pdo->prepare($query);
+                $stmt->execute([':student_id' => $student_id]);
+                $student_info = $stmt->fetch(PDO::FETCH_ASSOC);
+            }
+
+            // Fetch attendance
+            $attendanceData = [];
+            if ($student_id) {
+                $stmt = $pdo->prepare("SELECT * FROM attendance WHERE student_id = :student_id");
+                $stmt->execute([':student_id' => $student_id]);
+                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $attendanceData[] = $row;
+                }
+            }
+
+            // Function to get class based on attendance logic
+            function getAttendanceClass($record, $dateStr) {
+                $morning = ($record['morning_attendance'] && $record['morning_attendance'] !== "0000-00-00 00:00:00")
+                            ? date("Y-m-d", strtotime($record['morning_attendance'])) : null;
+                $afternoon = ($record['afternoon_attendance'] && $record['afternoon_attendance'] !== "0000-00-00 00:00:00")
+                            ? date("Y-m-d", strtotime($record['afternoon_attendance'])) : null;
+                $type = strtolower($record['attendance_type'] ?? '');
+
+                if ($morning === $dateStr && $afternoon === $dateStr && $type === "present") return "present"; // green
+                if ($morning === $dateStr && ($afternoon !== $dateStr || $type === "absent")) return "half-morning"; // yellow
+                if (($morning !== $dateStr || $type === "absent") && $afternoon === $dateStr) return "half-afternoon"; // gray
+                if ($type === "late") return "late"; // blue
+                if ($type === "absent" && $morning !== $dateStr && $afternoon !== $dateStr) return "absent"; // red
+
+                return "";
+            }
+
+            $currentYear = date("Y");
+            $months = [
+                "January","February","March","April","May","June",
+                "July","August","September","October","November","December"
+            ];
+            ?>
+
+        <style>
+            .attendance-container {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 20px;
+            }
+
+            .month {
+                width: calc(50% - 10px);
+            }
+
+            /* Two months per row */
+            .days-grid {
+                display: grid;
+                grid-template-columns: repeat(7, 40px);
+                gap: 5px;
+                margin-bottom: 20px;
+            }
+
+            .day {
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
+
+            .present {
+                background: green !important;
+                color: white !important;
+            }
+
+            .half-morning {
+                background: green !important;
+                color: white !important;
+            }
+
+            .half-afternoon {
+                background: green !important;
+                color: white !important;
+            }
+
+            .absent {
+                background: red !important;
+                color: white !important;
+            }
+
+            .late {
+                background: blue !important;
+                color: white !important;
+            }
+        </style>
+
+        <div id="displayAttendance" class="attendance-container">
+            <?php
+                foreach ($months as $monthIndex => $monthName) {
+                    echo "<div class='month'>";
+                    echo "<h3>$monthName $currentYear</h3>";
+                    echo "<div class='days-grid'>";
+                    $daysInMonth = date("t", strtotime("$currentYear-" . ($monthIndex + 1) . "-01"));
+
+                    for ($day = 1; $day <= $daysInMonth; $day++) {
+                        $dateStr = sprintf("%04d-%02d-%02d", $currentYear, $monthIndex + 1, $day);
+                        $class = "day";
+
+                        foreach ($attendanceData as $record) {
+                            $attClass = getAttendanceClass($record, $dateStr);
+                            if ($attClass) { $class .= " $attClass"; break; }
+                        }
+
+                        echo "<div class='$class'>$day</div>";
+                    }
+
+                    echo "</div></div>";
+                }
+                ?>
         </div>
         <div id="displayMedical" class="medical" style="display:none">
 
@@ -216,3 +369,35 @@
         </div>
     </div>
 </div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const birthdateInput = document.querySelector('input[name="birthdate"]');
+    const ageInput = document.querySelector('input[name="age"]');
+
+    function calculateAge() {
+        const birthdate = birthdateInput.value;
+        if (!birthdate) {
+            ageInput.value = "";
+            return;
+        }
+
+        const today = new Date();
+        const dob = new Date(birthdate);
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+
+        // Adjust if birthday hasn't occurred yet this year
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+            age--;
+        }
+
+        ageInput.value = age;
+    }
+
+    // Run once on load if birthdate already has a value
+    calculateAge();
+
+    // Update age whenever birthdate changes
+    birthdateInput.addEventListener("change", calculateAge);
+});
+</script>
