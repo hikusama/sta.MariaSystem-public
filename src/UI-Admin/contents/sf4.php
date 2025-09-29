@@ -103,7 +103,7 @@ input {
 }
  </style>
  <main>
-     <div class="main-container">
+     <form class="main-container" id="sfFour-form">
          <div class="form-title text-center w-100">
              <h2>School Form 4 (SF4) Monthly Learner's Movement and Attendance</h2>
              <p class="text-muted">(this replaces Form 3 & STS Form 4-Absenteeism and Dropout Profile)</p>
@@ -114,14 +114,14 @@ input {
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">School ID</label>
-                         <input type="text" name="schoolID" class="me-2 flex-grow-1">
+                         <input type="text" name="school_id" class="me-2 flex-grow-1">
                          <input type="text" name="region" class="flex-grow-1" placeholder="Region">
                      </div>
                  </div>
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">Division</label>
-                         <input type="text" name="division" class="flex-grow-1">
+                         <input type="text" name="Division" class="flex-grow-1">
                      </div>
                  </div>
                  <div class="col-md-4">
@@ -136,19 +136,24 @@ input {
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">School Name</label>
-                         <input type="text" name="schoolName" class="flex-grow-1">
+                         <input type="text" name="school_name" class="flex-grow-1">
                      </div>
                  </div>
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">School Year</label>
-                         <input type="text" name="schoolYear" class="flex-grow-1">
+                            <?php
+                                $stmt = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active'");
+                                $stmt->execute();
+                                $sy = $stmt->fetch(PDO::FETCH_ASSOC);
+                            ?>
+                           <input readonly class="form-control" type="text" value="<?= $sy["school_year_name"] ?>">
                      </div>
                  </div>
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">Report for the month of</label>
-                         <input type="text" name="reportMonth" class="flex-grow-1">
+                         <input type="text" name="report_for_the_month_of" class="flex-grow-1">
                      </div>
                  </div>
              </div>
@@ -684,11 +689,27 @@ input {
                  </table>
              </div>
          </div>
-
-         <div class="mt-3 text-end">
+                <div class="col-md-12">
+                    <strong>Mortality Deatch</strong>
+                </div>
+                <div class="col-md-5">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Previous Month</th>
+                                <th><input type="text" name="Previous_Month" class="form-control"></th>
+                                <th>For the month</th>
+                                <th><input type="text" name="For_the_month" class="form-control"></th>
+                                <th>Cumulative as of End of Month</th>
+                                <th><input type="text" name="Cumulative_as_of_End_of_Month" class="form-control"></th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+         <div class="mt-3 text-start">
              <button class="btn btn-primary">Save Data</button>
              <button class="btn btn-secondary">Generate Report</button>
          </div>
-     </div>
+    </form>
 
  </main>

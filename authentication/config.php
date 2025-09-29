@@ -181,12 +181,16 @@ function db_connect()
             )",
             "CREATE TABLE IF NOT EXISTS sf_add_data (
                 sf_add_data_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                school_id VARCHAR(20) NOT NULL,
-                school_name VARCHAR(100) NOT NULL,
-                Division VARCHAR(100) NOT NULL,
-                sy_id INT(11) NOT NULL,
-                district VARCHAR(20) NOT NULL,
-                report_for_the_month_of DATE NOT NULL,
+                school_id VARCHAR(20),
+                school_name VARCHAR(100),
+                Division VARCHAR(100),
+                region VARCHAR(100),
+                sy_id INT(11),
+                district VARCHAR(20),
+                report_for_the_month_of DATE,
+                Previous_Month VARCHAR(12),
+                For_the_month VARCHAR(12),
+                Cumulative_as_of_End_of_Month VARCHAR(12),
                 FOREIGN KEY (sy_id) REFERENCES school_year(school_year_id) ON DELETE CASCADE
             )",
 
