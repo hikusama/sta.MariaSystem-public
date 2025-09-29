@@ -104,12 +104,12 @@ input {
  </style>
  <main>
     <?php
-        $stmt = $pdo->prepare("SELECT * FROM sf_add_data WHERE sf_add_data_id = 1");
+        $stmt = $pdo->prepare("SELECT * FROM sf_add_data");
         $stmt->execute();
         $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
     ?>
     <form class="main-container" id="sfFour-form">
-        <input type="hidden" name="id" value="<?= htmlspecialchars($data_sf_four["sf_add_data_id"]) ?>">
+        <input type="hidden" name="id" value="<?= htmlspecialchars($data_sf_four["sf_add_data_id"] ?? '') ?>">
          <div class="form-title text-center w-100">
              <h2>School Form 4 (SF4) Monthly Learner's Movement and Attendance</h2>
              <p class="text-muted">(this replaces Form 3 & STS Form 4-Absenteeism and Dropout Profile)</p>
@@ -120,20 +120,20 @@ input {
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">School ID</label>
-                         <input type="text" name="school_id" value="<?= htmlspecialchars($data_sf_four["school_id"]) ?>" class="me-2 flex-grow-1">
-                         <input type="text" name="region" value="<?= htmlspecialchars($data_sf_four["region"]) ?>" class="flex-grow-1" placeholder="Region">
+                         <input type="text" name="school_id" value="<?= htmlspecialchars($data_sf_four["school_id"] ?? '') ?>" class="me-2 flex-grow-1">
+                         <input type="text" name="region" value="<?= htmlspecialchars($data_sf_four["region"] ?? '') ?>" class="flex-grow-1" placeholder="Region">
                      </div>
                  </div>
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">Division</label>
-                         <input type="text" name="Division" value="<?= htmlspecialchars($data_sf_four["Division"]) ?>" class="flex-grow-1">
+                         <input type="text" name="Division" value="<?= htmlspecialchars($data_sf_four["Division"] ?? '') ?>" class="flex-grow-1">
                      </div>
                  </div>
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">District</label>
-                         <input type="text" name="district" value="<?= htmlspecialchars($data_sf_four["district"]) ?>" class="flex-grow-1">
+                         <input type="text" name="district" value="<?= htmlspecialchars($data_sf_four["district"] ?? '') ?>" class="flex-grow-1">
                      </div>
                  </div>
              </div>
@@ -142,7 +142,7 @@ input {
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">School Name</label>
-                         <input type="text" name="school_name" value="<?= htmlspecialchars($data_sf_four["school_name"]) ?>" class="flex-grow-1">
+                         <input type="text" name="school_name" value="<?= htmlspecialchars($data_sf_four["school_name"] ?? '') ?>" class="flex-grow-1">
                      </div>
                  </div>
                  <div class="col-md-4">
@@ -159,7 +159,7 @@ input {
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">Report for the month of</label>
-                         <input type="date" name="report_for_the_month_of" value="<?= htmlspecialchars($data_sf_four["report_for_the_month_of"]) ?>" class="flex-grow-1">
+                         <input type="date" name="report_for_the_month_of" value="<?= htmlspecialchars($data_sf_four["report_for_the_month_of"] ?? '') ?>" class="flex-grow-1">
                      </div>
                  </div>
              </div>
@@ -703,11 +703,11 @@ input {
                         <thead>
                             <tr>
                                 <th>Previous Month</th>
-                                <th><input type="text" name="Previous_Month" value="<?= htmlspecialchars($data_sf_four["Previous_Month"]) ?>" class="form-control"></th>
+                                <th><input type="text" name="Previous_Month" value="<?= htmlspecialchars($data_sf_four["Previous_Month"] ?? '') ?>" class="form-control"></th>
                                 <th>For the month</th>
-                                <th><input type="text" name="For_the_month" value="<?= htmlspecialchars($data_sf_four["For_the_month"]) ?>" class="form-control"></th>
+                                <th><input type="text" name="For_the_month" value="<?= htmlspecialchars($data_sf_four["For_the_month"] ?? '') ?>" class="form-control"></th>
                                 <th>Cumulative as of End of Month</th>
-                                <th><input type="text" name="Cumulative_as_of_End_of_Month" value="<?= htmlspecialchars($data_sf_four["Cumulative_as_of_End_of_Month"]) ?>" class="form-control"></th>
+                                <th><input type="text" name="Cumulative_as_of_End_of_Month" value="<?= htmlspecialchars($data_sf_four["Cumulative_as_of_End_of_Month"] ?? '') ?>" class="form-control"></th>
                             </tr>
                         </thead>
                     </table>

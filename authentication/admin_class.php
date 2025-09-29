@@ -1688,7 +1688,7 @@ class Action
     function sfFour_form() {
     $school_id   = $_POST["school_id"] ?? '';
     $region      = $_POST["region"] ?? '';
-    $division    = $_POST["Division"] ?? ''; // <-- fixed casing
+    $division    = $_POST["Division"] ?? ''; // fixed casing
     $district    = $_POST["district"] ?? '';
     $school_name = $_POST["school_name"] ?? '';
     $report_for_the_month_of = $_POST["report_for_the_month_of"] ?? ''; // must be YYYY-MM-DD
@@ -1712,43 +1712,85 @@ class Action
             ]);
         }
 
-        // update query
-        $stmt = $this->db->prepare("
-            UPDATE sf_add_data 
-            SET 
-                school_id = :school_id,
-                school_name = :school_name,
-                Division = :division,
-                region = :region,
-                sy_id = :sy_id,
-                district = :district,
-                report_for_the_month_of = :report_for_the_month_of,
-                Previous_Month = :previous_month,
-                For_the_month = :for_the_month,
-                Cumulative_as_of_End_of_Month = :cumulative_as_of_end_of_month
-            WHERE sf_add_data_id = :sf_add_data_id
-        ");
+        if ($sf_add_data_id > 0) {
+            // check if record exists
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_add_data_id = :id");
+            $stmt->execute([ ':id' => $sf_add_data_id ]);
+            $exists = $stmt->fetchColumn();
+        } else {
+            $exists = 0;
+        }
 
-        $stmt->execute([
-            ':school_id' => $school_id,
-            ':school_name' => $school_name,
-            ':division' => $division,
-            ':region' => $region,
-            ':sy_id' => $school_year_id,
-            ':district' => $district,
-            ':report_for_the_month_of' => $report_for_the_month_of,
-            ':previous_month' => $Previous_Month,
-            ':for_the_month' => $For_the_month,
-            ':cumulative_as_of_end_of_month' => $Cumulative_as_of_End_of_Month,
-            ':sf_add_data_id' => $sf_add_data_id
-        ]);
+        if ($exists) {
+            // UPDATE query
+            $stmt = $this->db->prepare("
+                UPDATE sf_add_data 
+                SET 
+                    school_id = :school_id,
+                    school_name = :school_name,
+                    Division = :division,
+                    region = :region,
+                    sy_id = :sy_id,
+                    district = :district,
+                    report_for_the_month_of = :report_for_the_month_of,
+                    Previous_Month = :previous_month,
+                    For_the_month = :for_the_month,
+                    Cumulative_as_of_End_of_Month = :cumulative_as_of_end_of_month
+                WHERE sf_add_data_id = :sf_add_data_id
+            ");
 
-        return json_encode([
-            'status' => 1,
-            'message' => ($stmt->rowCount() > 0)
-                ? 'SF4 updated successfully'
-                : 'No changes were made (data is already up-to-date)'
-        ]);
+            $stmt->execute([
+                ':school_id' => $school_id,
+                ':school_name' => $school_name,
+                ':division' => $division,
+                ':region' => $region,
+                ':sy_id' => $school_year_id,
+                ':district' => $district,
+                ':report_for_the_month_of' => $report_for_the_month_of,
+                ':previous_month' => $Previous_Month,
+                ':for_the_month' => $For_the_month,
+                ':cumulative_as_of_end_of_month' => $Cumulative_as_of_End_of_Month,
+                ':sf_add_data_id' => $sf_add_data_id
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => ($stmt->rowCount() > 0)
+                    ? 'SF4 updated successfully'
+                    : 'No changes were made (data is already up-to-date)'
+            ]);
+
+        } else {
+            // INSERT query
+            $stmt = $this->db->prepare("
+                INSERT INTO sf_add_data (
+                    school_id, school_name, Division, region, sy_id, district,
+                    report_for_the_month_of, Previous_Month, For_the_month, Cumulative_as_of_End_of_Month
+                ) VALUES (
+                    :school_id, :school_name, :division, :region, :sy_id, :district,
+                    :report_for_the_month_of, :previous_month, :for_the_month, :cumulative_as_of_end_of_month
+                )
+            ");
+
+            $stmt->execute([
+                ':school_id' => $school_id,
+                ':school_name' => $school_name,
+                ':division' => $division,
+                ':region' => $region,
+                ':sy_id' => $school_year_id,
+                ':district' => $district,
+                ':report_for_the_month_of' => $report_for_the_month_of,
+                ':previous_month' => $Previous_Month,
+                ':for_the_month' => $For_the_month,
+                ':cumulative_as_of_end_of_month' => $Cumulative_as_of_End_of_Month
+            ]);
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'SF4 inserted successfully',
+                'inserted_id' => $this->db->lastInsertId()
+            ]);
+        }
 
     } catch (PDOException $e) {
         return json_encode([
@@ -1757,5 +1799,6 @@ class Action
         ]);
     }
 }
+
 
 }
