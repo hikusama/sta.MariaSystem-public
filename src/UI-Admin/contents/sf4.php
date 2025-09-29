@@ -103,7 +103,13 @@ input {
 }
  </style>
  <main>
-     <form class="main-container" id="sfFour-form">
+    <?php
+        $stmt = $pdo->prepare("SELECT * FROM sf_add_data WHERE sf_add_data_id = 1");
+        $stmt->execute();
+        $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
+    ?>
+    <form class="main-container" id="sfFour-form">
+        <input type="hidden" name="id" value="<?= htmlspecialchars($data_sf_four["sf_add_data_id"]) ?>">
          <div class="form-title text-center w-100">
              <h2>School Form 4 (SF4) Monthly Learner's Movement and Attendance</h2>
              <p class="text-muted">(this replaces Form 3 & STS Form 4-Absenteeism and Dropout Profile)</p>
@@ -114,20 +120,20 @@ input {
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">School ID</label>
-                         <input type="text" name="school_id" class="me-2 flex-grow-1">
-                         <input type="text" name="region" class="flex-grow-1" placeholder="Region">
+                         <input type="text" name="school_id" value="<?= htmlspecialchars($data_sf_four["school_id"]) ?>" class="me-2 flex-grow-1">
+                         <input type="text" name="region" value="<?= htmlspecialchars($data_sf_four["region"]) ?>" class="flex-grow-1" placeholder="Region">
                      </div>
                  </div>
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">Division</label>
-                         <input type="text" name="Division" class="flex-grow-1">
+                         <input type="text" name="Division" value="<?= htmlspecialchars($data_sf_four["Division"]) ?>" class="flex-grow-1">
                      </div>
                  </div>
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">District</label>
-                         <input type="text" name="district" class="flex-grow-1">
+                         <input type="text" name="district" value="<?= htmlspecialchars($data_sf_four["district"]) ?>" class="flex-grow-1">
                      </div>
                  </div>
              </div>
@@ -136,7 +142,7 @@ input {
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">School Name</label>
-                         <input type="text" name="school_name" class="flex-grow-1">
+                         <input type="text" name="school_name" value="<?= htmlspecialchars($data_sf_four["school_name"]) ?>" class="flex-grow-1">
                      </div>
                  </div>
                  <div class="col-md-4">
@@ -147,13 +153,13 @@ input {
                                 $stmt->execute();
                                 $sy = $stmt->fetch(PDO::FETCH_ASSOC);
                             ?>
-                           <input readonly class="form-control" type="text" value="<?= $sy["school_year_name"] ?>">
+                           <input readonly class="form-control" type="text" name="school_year_name" value="<?= $sy["school_year_name"] ?>">
                      </div>
                  </div>
                  <div class="col-md-4">
                      <div class="d-flex align-items-center mb-2">
                          <label class="me-2 col-4">Report for the month of</label>
-                         <input type="text" name="report_for_the_month_of" class="flex-grow-1">
+                         <input type="date" name="report_for_the_month_of" value="<?= htmlspecialchars($data_sf_four["report_for_the_month_of"]) ?>" class="flex-grow-1">
                      </div>
                  </div>
              </div>
@@ -697,19 +703,231 @@ input {
                         <thead>
                             <tr>
                                 <th>Previous Month</th>
-                                <th><input type="text" name="Previous_Month" class="form-control"></th>
+                                <th><input type="text" name="Previous_Month" value="<?= htmlspecialchars($data_sf_four["Previous_Month"]) ?>" class="form-control"></th>
                                 <th>For the month</th>
-                                <th><input type="text" name="For_the_month" class="form-control"></th>
+                                <th><input type="text" name="For_the_month" value="<?= htmlspecialchars($data_sf_four["For_the_month"]) ?>" class="form-control"></th>
                                 <th>Cumulative as of End of Month</th>
-                                <th><input type="text" name="Cumulative_as_of_End_of_Month" class="form-control"></th>
+                                <th><input type="text" name="Cumulative_as_of_End_of_Month" value="<?= htmlspecialchars($data_sf_four["Cumulative_as_of_End_of_Month"]) ?>" class="form-control"></th>
                             </tr>
                         </thead>
                     </table>
                 </div>
          <div class="mt-3 text-start">
-             <button class="btn btn-primary">Save Data</button>
+             <button type="submit" class="btn btn-primary">Save Data</button>
              <button class="btn btn-secondary">Generate Report</button>
          </div>
     </form>
 
  </main>
+ <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the Generate Report button
+    const generateReportBtn = document.querySelector('.btn-secondary');
+    
+    // Add click event listener
+    generateReportBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        generatePrintableReport();
+    });
+    
+    function generatePrintableReport() {
+        // Store original content
+        const originalContent = document.querySelector('.main-container').innerHTML;
+        
+        // Create a print-friendly version
+        const printContent = createPrintFriendlyContent();
+        
+        // Open print window
+        const printWindow = window.open('', '_blank', 'width=1000,height=600');
+        
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>School Form 4 (SF4) Monthly Learner's Movement and Attendance</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        margin: 20px;
+                        color: #000;
+                    }
+                    .print-container {
+                        width: 100%;
+                    }
+                    .form-title {
+                        text-align: center;
+                        border-bottom: 2px solid #0d6efd;
+                        padding-bottom: 10px;
+                        margin-bottom: 20px;
+                    }
+                    .form-title h2 {
+                        margin: 0;
+                        font-size: 18px;
+                    }
+                    .form-title p {
+                        margin: 5px 0 0 0;
+                        font-size: 12px;
+                        color: #666;
+                    }
+                    .school-info {
+                        margin-bottom: 20px;
+                        font-size: 12px;
+                    }
+                    .school-info table {
+                        width: 100%;
+                        border-collapse: collapse;
+                    }
+                    .school-info td {
+                        padding: 2px 5px;
+                        vertical-align: top;
+                    }
+                    table.data-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-size: 10px;
+                        margin-top: 10px;
+                    }
+                    table.data-table th,
+                    table.data-table td {
+                        border: 1px solid #000;
+                        padding: 4px;
+                        text-align: center;
+                        vertical-align: middle;
+                    }
+                    table.data-table th {
+                        background-color: #f8f9fa !important;
+                        font-weight: bold;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    .section-header {
+                        background-color: #e9ecef !important;
+                        font-weight: bold;
+                        text-align: left;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    .mortality-section {
+                        margin-top: 20px;
+                        font-size: 12px;
+                    }
+                    .mortality-section table {
+                        width: auto;
+                        border-collapse: collapse;
+                    }
+                    .mortality-section th,
+                    .mortality-section td {
+                        border: 1px solid #000;
+                        padding: 4px 8px;
+                        text-align: left;
+                    }
+                    @media print {
+                        body { margin: 0; }
+                        .print-container { width: 100%; }
+                        table.data-table { font-size: 9px; }
+                    }
+                    @page {
+                        size: landscape;
+                        margin: 10mm;
+                    }
+                </style>
+            </head>
+            <body>
+                ${printContent}
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(function() {
+                            window.close();
+                        }, 500);
+                    };
+                <\/script>
+            </body>
+            </html>
+        `);
+        
+        printWindow.document.close();
+    }
+    
+    function createPrintFriendlyContent() {
+        // Clone the main container
+        const mainContainer = document.querySelector('.main-container').cloneNode(true);
+        
+        // Remove form elements and buttons
+        const form = mainContainer.querySelector('form');
+        if (form) {
+            form.removeAttribute('id');
+            form.removeAttribute('class');
+        }
+        
+        // Remove input fields and replace with display values
+        const inputs = mainContainer.querySelectorAll('input');
+        inputs.forEach(input => {
+            const span = document.createElement('span');
+            span.textContent = input.value;
+            span.style.padding = '0 5px';
+            input.parentNode.replaceChild(span, input);
+        });
+        
+        // Remove the save and generate buttons
+        const buttons = mainContainer.querySelectorAll('button');
+        buttons.forEach(button => button.remove());
+        
+        // Get school information for the header
+        const schoolInfo = `
+            <div class="school-info">
+                <table>
+                    <tr>
+                        <td style="width: 30%;"><strong>School ID:</strong> ${document.querySelector('input[name="school_id"]')?.value || ''}</td>
+                        <td style="width: 30%;"><strong>Region:</strong> ${document.querySelector('input[name="region"]')?.value || ''}</td>
+                        <td style="width: 40%;"><strong>Division:</strong> ${document.querySelector('input[name="Division"]')?.value || ''}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>School Name:</strong> ${document.querySelector('input[name="school_name"]')?.value || ''}</td>
+                        <td><strong>School Year:</strong> ${document.querySelector('input[name="school_year_name"]')?.value || ''}</td>
+                        <td><strong>Report Month:</strong> ${formatDate(document.querySelector('input[name="report_for_the_month_of"]')?.value || '')}</td>
+                    </tr>
+                </table>
+            </div>
+        `;
+        
+        return `
+            <div class="print-container">
+                <div class="form-title">
+                    <h2>School Form 4 (SF4) Monthly Learner's Movement and Attendance</h2>
+                    <p>(this replaces Form 3 & STS Form 4-Absenteeism and Dropout Profile)</p>
+                </div>
+                ${schoolInfo}
+                ${mainContainer.querySelector('.scroll-container').outerHTML}
+                <div class="mortality-section">
+                    <strong>Mortality Death</strong>
+                    <table style="margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th>Previous Month</th>
+                                <th>${document.querySelector('input[name="Previous_Month"]')?.value || ''}</th>
+                                <th>For the month</th>
+                                <th>${document.querySelector('input[name="For_the_month"]')?.value || ''}</th>
+                                <th>Cumulative as of End of Month</th>
+                                <th>${document.querySelector('input[name="Cumulative_as_of_End_of_Month"]')?.value || ''}</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div style="margin-top: 20px; font-size: 11px; text-align: center;">
+                    <p>Generated on: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+                </div>
+            </div>
+        `;
+    }
+    
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long' 
+        });
+    }
+});
+</script>

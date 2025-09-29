@@ -261,3 +261,10 @@ if($action === 'feedback_form'){
     }
     exit();
 }
+if($action === 'sfFour_form'){
+    $registration = $crud->sfFour_form();
+    if($registration){
+        echo $registration;
+    }
+    exit();
+}
