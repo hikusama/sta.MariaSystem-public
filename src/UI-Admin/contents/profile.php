@@ -1,8 +1,9 @@
 <?php
     isset($_GET["student_id"]) ? $student_id = $_GET["student_id"] : '';
-    $query = "SELECT student.*, users.*, stuenrolmentinfo.* FROM student
+    $query = "SELECT student.*, users.*, stuenrolmentinfo.*, parents_info.* FROM student
     INNER JOIN users ON student.guardian_id = users.user_id
     INNER JOIN stuenrolmentinfo ON student.student_id = stuenrolmentinfo.student_id 
+    INNER JOIN parents_info ON student.student_id = parents_info.student_id 
     WHERE student.student_id = '$student_id'";
     $stmt = $pdo->prepare($query);
     $stmt->execute();
@@ -217,7 +218,64 @@
                         Others</option>
                 </select>
             </div>
+            <!-- PARENTS INFORMATIONS -->
+             <div class="col-md-12">
+                <strong class="fs-5">Parent Information</strong>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Father's First Name</label>
+                <input type="text" name="f_firstname" class="form-control" value="<?= htmlspecialchars($student_info["f_firstname"] ?? '') ?>">
+            </div>
+             <div class="col-md-3">
+                <label class="form-label">Father's Middle Name</label>
+                <input type="text" name="f_middlename" class="form-control" value="<?= htmlspecialchars($student_info["f_middlename"] ?? '') ?>">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Father's Last Name</label>
+                <input type="text" name="f_lastname" class="form-control" value="<?= htmlspecialchars($student_info["f_lastname"] ?? '') ?>">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Father's suffix</label>
+                <input type="text" name="f_suffix" class="form-control" value="<?= htmlspecialchars($student_info["f_suffix"] ?? '') ?>">
+            </div>
 
+             <div class="col-md-3">
+                <label class="form-label">Mothers's Maiden First Name</label>
+                <input type="text" name="m_firstname" class="form-control" value="<?= htmlspecialchars($student_info["m_firstname"] ?? '') ?>">
+            </div>
+             <div class="col-md-3">
+                <label class="form-label">Mothers's Maiden Middle Name</label>
+                <input type="text" name="m_middlename" class="form-control" value="<?= htmlspecialchars($student_info["m_middlename"] ?? '') ?>">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Mothers's Maiden Last Name</label>
+                <input type="text" name="m_lastname" class="form-control" value="<?= htmlspecialchars($student_info["m_lastname"] ?? '') ?>">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Guardian's First Name</label>
+                <input type="text" name="g_firstname" class="form-control" value="<?= htmlspecialchars($student_info["g_firstname"] ?? '') ?>">
+            </div>
+             <div class="col-md-3">
+                <label class="form-label">Guardian's Middle Name</label>
+                <input type="text" name="g_middlename" class="form-control" value="<?= htmlspecialchars($student_info["g_middlename"] ?? '') ?>">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Guardian's Last Name</label>
+                <input type="text" name="g_lastname" class="form-control" value="<?= htmlspecialchars($student_info["g_lastname"] ?? '') ?>">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Guardian's suffix</label>
+                <input type="text" name="g_suffix" class="form-control" value="<?= htmlspecialchars($student_info["g_suffix"] ?? '') ?>">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Guardian Relationship</label>
+                <input type="text" name="g_relationship" class="form-control" value="<?= htmlspecialchars($student_info["g_relationship"] ?? '') ?>">
+            </div>
+             <div class="col-md-4">
+                <label class="form-label">Contact NUmber (Parent/Guardian)</label>
+                <input type="text" name="p_contact" class="form-control" value="<?= htmlspecialchars($student_info["p_contact"] ?? '') ?>">
+            </div>
+            
             <div class="col-md-12">
                 <strong class="fs-5">Student Address</strong>
             </div>

@@ -479,6 +479,9 @@ class Action
             $stmt = $this->db->prepare($query);
             $stmt->execute();
 
+            $stmtParentInfo = $this->db->prepare("INSERT INTO parents_info (student_id) VALUES ('$student_id')");
+            $stmtParentInfo->execute();
+
             return json_encode([
                 'status' => 1,
                 'message' => 'Account created successfully!'
@@ -747,6 +750,19 @@ class Action
     }
     function displayStudentInfo() {
         $student_id = $_POST["student_id"] ?? null;
+        $f_firstname = $_POST["f_firstname"];
+        $f_middlename = $_POST["f_middlename"];
+        $f_lastname = $_POST["f_lastname"];
+        $f_suffix = $_POST["f_suffix"];
+        $m_firstname = $_POST["m_firstname"];
+        $m_middlename = $_POST["m_middlename"];
+        $m_lastname = $_POST["m_lastname"];
+        $g_firstname = $_POST["g_firstname"];
+        $g_middlename = $_POST["g_middlename"];
+        $g_lastname = $_POST["g_lastname"];
+        $g_suffix = $_POST["g_suffix"];
+        $p_contact = $_POST["p_contact"];
+        $g_relationship = $_POST["g_relationship"];
         
         if (!$student_id) {
             return json_encode([
@@ -766,8 +782,7 @@ class Action
                 sex = :sex,
                 birthdate = :birthdate,
                 birthplace = :birthplace,
-                religion = :religion,
-                enrolment_status = 'pending'
+                religion = :religion
                 WHERE student_id = :student_id";
 
             $student_stmt = $this->db->prepare($student_query);
@@ -808,6 +823,12 @@ class Action
                 ':zip_code' => $_POST['zip_code'] ?? '',
                 ':student_id' => $student_id
             ]);
+
+            $stmtUpdateParentInfo = $this->db->prepare("UPDATE parents_info SET f_firstname = '$f_firstname', f_middlename = '$f_middlename',
+                f_suffix = '$f_suffix', m_firstname = '$m_firstname', m_middlename = '$m_middlename', m_lastname = '$m_lastname',
+                f_lastname = '$f_lastname', g_firstname = '$g_firstname', g_middlename = '$g_middlename', g_lastname = '$g_lastname', g_suffix = '$g_suffix',
+                p_contact = '$p_contact', g_relationship = '$g_relationship' WHERE student_id = '$student_id'");
+            $stmtUpdateParentInfo->execute();
 
             return json_encode([
                 'status' => 1,

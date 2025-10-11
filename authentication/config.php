@@ -193,6 +193,25 @@ function db_connect()
                 Cumulative_as_of_End_of_Month VARCHAR(12),
                 FOREIGN KEY (sy_id) REFERENCES school_year(school_year_id) ON DELETE CASCADE
             )",
+            "CREATE TABLE IF NOT EXISTS parents_info (
+                parents_info_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                student_id INT(11) NOT NULL,
+                f_firstname VARCHAR(50),
+                f_middlename VARCHAR(50),
+                f_lastname VARCHAR(50),
+                f_suffix VARCHAR(50),
+                m_firstname VARCHAR(50),
+                m_middlename VARCHAR(50),
+                m_lastname VARCHAR(50),
+                g_firstname VARCHAR(50),
+                g_middlename VARCHAR(50),
+                g_lastname VARCHAR(50),
+                g_suffix VARCHAR(50),
+                g_relationship VARCHAR(50),
+                p_contact VARCHAR(50),
+                FOREIGN KEY (student_id) REFERENCES student(student_id) ON DELETE CASCADE
+            )",
+
 
             
         ];
