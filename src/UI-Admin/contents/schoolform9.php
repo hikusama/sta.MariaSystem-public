@@ -509,7 +509,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="text-center mt-2 mb-4 d-flex justify-content-center gap-2">
           <!-- Generate SF9 -->
-          <button type="submit" class="btn btn-primary btn-lg">Generate SF9</button>
+          <button type="submit" class="btn btn-primary btn-lg">Save SF9</button>
 
           <!-- Download SF9 (same script download action) -->
           <?php if ($student): 
@@ -814,3 +814,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 </body>
 </html>
+
