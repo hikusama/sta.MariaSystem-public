@@ -22,16 +22,6 @@ if ($student_id) {
     $student = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-function getFullName($student) {
-    if (!$student) return '';
-    return trim(implode(' ', [
-        $student['fname'] ?? '',
-        $student['mname'] ?? '',
-        $student['lname'] ?? '',
-        $student['suffix'] ?? ''
-    ]));
-}
-
 $saveDir = 'C:/xampp/htdocs/sta.MariaSystem/sf10_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
 
@@ -127,12 +117,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sheet->setCellValue('M19', $testing_center_address);
         $sheet->setCellValue('AJ19', $remark);
 
-        // Corrected Scholastic Records Mapping (1 → Excel 1st, 2 → 2nd, etc.)
+        // Corrected Scholastic Records Mapping
         $scholastic_positions = [
             1 => ['grade'=>'F25','section'=>'J25','sy'=>'S25','adviser'=>'H26','start_row'=>30,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S'],
-            2 => ['grade'=>'Z25','section'=>'AE25','sy'=>'AU25','adviser'=>'AC26','start_row'=>30,'start_col'=>'V','q1'=>'W','q2'=>'X','q3'=>'Y','q4'=>'Z','final'=>'AA','remarks'=>'AW'],
+            2 => ['grade'=>'Z25','section'=>'AE25','sy'=>'AU25','adviser'=>'AC26','start_row'=>30,'start_col'=>'V','q1'=>'AJ','q2'=>'AM','q3'=>'AO','q4'=>'AR','final'=>'AT','remarks'=>'AW'],
             3 => ['grade'=>'F54','section'=>'J54','sy'=>'S54','adviser'=>'H55','start_row'=>60,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S'],
-            4 => ['grade'=>'Z54','section'=>'AE54','sy'=>'AU54','adviser'=>'AC55','start_row'=>60,'start_col'=>'V','q1'=>'W','q2'=>'X','q3'=>'Y','q4'=>'Z','final'=>'AA','remarks'=>'AW'],
+            4 => ['grade'=>'Z54','section'=>'AE54','sy'=>'AU54','adviser'=>'AC55','start_row'=>60,'start_col'=>'V','q1'=>'AJ','q2'=>'AM','q3'=>'AO','q4'=>'AR','final'=>'AT','remarks'=>'AW'],
         ];
 
         for($i=1;$i<=4;$i++){
@@ -253,6 +243,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
           </div>
         </div>
       </div>
+
       <div class="col-md-4 col-sm-12">
         <div class="eligibility-container">
           <h5>Elementary School Eligibility</h5>
@@ -356,9 +347,11 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
           </div>
         </div>
       </div>
+
     </div>
   </form>
 </div>
+
 <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-success">
@@ -368,6 +361,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
     </div>
   </div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <?php if($showSuccess): ?>
 <script>
