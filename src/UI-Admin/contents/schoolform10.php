@@ -64,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $q4_all = [];
     $final_ratings_all = [];
     $remarks_all = [];
+    $general_averages = [];
 
     for($i=1;$i<=4;$i++){
         $grades[$i] = $_POST['grade'.$i] ?? '';
@@ -77,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $q4_all[$i] = $_POST['q4_'.$i] ?? [];
         $final_ratings_all[$i] = $_POST['final_rating_'.$i] ?? [];
         $remarks_all[$i] = $_POST['remarks_table_'.$i] ?? [];
+        $general_averages[$i] = $_POST['general_average_'.$i] ?? '';
     }
 
     try {
@@ -117,12 +119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sheet->setCellValue('M19', $testing_center_address);
         $sheet->setCellValue('AJ19', $remark);
 
-        // Corrected Scholastic Records Mapping
+        // Scholastic Records Mapping
         $scholastic_positions = [
-            1 => ['grade'=>'F25','section'=>'J25','sy'=>'S25','adviser'=>'H26','start_row'=>30,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S'],
-            2 => ['grade'=>'Z25','section'=>'AE25','sy'=>'AU25','adviser'=>'AC26','start_row'=>30,'start_col'=>'V','q1'=>'AJ','q2'=>'AM','q3'=>'AO','q4'=>'AR','final'=>'AT','remarks'=>'AW'],
-            3 => ['grade'=>'F54','section'=>'J54','sy'=>'S54','adviser'=>'H55','start_row'=>60,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S'],
-            4 => ['grade'=>'Z54','section'=>'AE54','sy'=>'AU54','adviser'=>'AC55','start_row'=>60,'start_col'=>'V','q1'=>'AJ','q2'=>'AM','q3'=>'AO','q4'=>'AR','final'=>'AT','remarks'=>'AW'],
+            1 => ['grade'=>'F25','section'=>'J25','sy'=>'S25','adviser'=>'H26','start_row'=>30,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S','gen_avg'=>'S45'],
+            2 => ['grade'=>'Z25','section'=>'AE25','sy'=>'AU25','adviser'=>'AC26','start_row'=>30,'start_col'=>'V','q1'=>'AJ','q2'=>'AM','q3'=>'AO','q4'=>'AR','final'=>'AT','remarks'=>'AW','gen_avg'=>'AW45'],
+            3 => ['grade'=>'F54','section'=>'J54','sy'=>'S54','adviser'=>'H55','start_row'=>60,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S','gen_avg'=>'S75'],
+            4 => ['grade'=>'Z54','section'=>'AE54','sy'=>'AU54','adviser'=>'AC55','start_row'=>60,'start_col'=>'V','q1'=>'W','q2'=>'X','q3'=>'Y','q4'=>'Z','final'=>'AA','remarks'=>'AW','gen_avg'=>'AJ75'],
         ];
 
         for($i=1;$i<=4;$i++){
@@ -141,6 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sheet->setCellValue($pos['final'].$row,$final_ratings_all[$i][$r] ?? '');
                 $sheet->setCellValue($pos['remarks'].$row,$remarks_all[$i][$r] ?? '');
             }
+            $sheet->setCellValue($pos['gen_avg'],$general_averages[$i]);
         }
 
         // DepEd Logo
@@ -183,6 +186,7 @@ if (isset($_GET['download']) && $_GET['download'] == '1' && $student) {
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -213,6 +217,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
 <div class="container-fluid p-3">
   <form method="post">
     <div class="row">
+      <!-- Sidebar -->
       <div class="col-md-4 col-sm-12">
         <div class="sidebar">
           <h5>Learner's Personal Information</h5>
@@ -244,6 +249,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
         </div>
       </div>
 
+      <!-- Eligibility -->
       <div class="col-md-4 col-sm-12">
         <div class="eligibility-container">
           <h5>Elementary School Eligibility</h5>
@@ -289,7 +295,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
         </div>
       </div>
 
-      <!-- Scholastic Records Tabs -->
+      <!-- Scholastic Records -->
       <div class="col-md-4 col-sm-12">
         <div class="scholastic-container">
           <h5>Scholastic Records</h5>
@@ -342,6 +348,8 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
                     </tbody>
                   </table>
                 </div>
+                <label class="form-label">General Average</label>
+                <input type="text" class="form-control form-control-sm" name="general_average_<?=$i?>" value="<?= htmlspecialchars($_POST['general_average_'.$i] ?? '') ?>">
               </div>
             <?php endfor; ?>
           </div>
