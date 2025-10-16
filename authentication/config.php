@@ -252,6 +252,36 @@ function db_connect()
     learners LONGTEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )",
+
+             "CREATE TABLE IF NOT EXISTS sf10_data (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT,
+        last_name VARCHAR(100),
+        first_name VARCHAR(100),
+        middle_name VARCHAR(100),
+        suffix VARCHAR(20),
+        lrn VARCHAR(50),
+        birthdate DATE,
+        sex VARCHAR(10),
+        school_name VARCHAR(255),
+        school_id VARCHAR(50),
+        school_address VARCHAR(255),
+        kinder_progress_report TINYINT(1),
+        eccd_checklist TINYINT(1),
+        kinder_certificate TINYINT(1),
+        pept_passer TINYINT(1),
+        pept_text VARCHAR(50),
+        exam_date DATE,
+        others_check TINYINT(1),
+        others_text VARCHAR(255),
+        testing_center_name VARCHAR(255),
+        testing_center_address VARCHAR(255),
+        remark VARCHAR(255),
+        scholastic_records JSON,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );";
+
+            
             "CREATE TABLE IF NOT EXISTS sf9_data (
     id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     student_id INT(11),
