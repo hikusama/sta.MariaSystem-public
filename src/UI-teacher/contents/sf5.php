@@ -80,7 +80,7 @@ body {
     border-radius: 8px;
 }
 .header-bar {
-    background-color: #e13a3aff;
+    background-color: #FF3860;
     color: white;
     padding: 14px 18px;
     border-radius: 10px;
