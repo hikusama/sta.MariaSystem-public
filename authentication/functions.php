@@ -4,36 +4,54 @@ include "config.php";
 
 $pdo = db_connect();
 
+// function base_url()
+// {
+//     $pdo = db_connect();
+
+
+//     if (isset($_SERVER['HTTPS'])) {
+//         $protocol = ($_SERVER['HTTPS'] && $_SERVER['HTTPS'] != "off") ? "https" : "http";
+//     } else {
+//         $protocol = 'http';
+//     }
+
+//     $whitelist = array(
+//         '127.0.0.1',
+//         '192.168.100.12', 
+//         '192.168.100.49',
+//         '::1'
+//     );
+//     $local_hosts = ['localhost', '127.0.0.1', '::1'];
+//     if (in_array($_SERVER['HTTP_HOST'], $local_hosts)) {
+//         return $protocol . "://" . $_SERVER['HTTP_HOST'] . '/sta.MariaSystem/';
+//     }
+//     return $protocol . "://" . $_SERVER['HTTP_HOST'] . '/';
+
+
+//     // if (in_array($_SERVER['REMOTE_ADDR'], $whitelist)) {
+//     //     return $base_url = $protocol . "://" . $_SERVER['SERVER_NAME'] . '/template/';
+//     // }
+//     // return $base_url = $protocol . "://" . $_SERVER['SERVER_NAME'] . '/';
+// }
+// function base_url()
+// {
+//     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+//     $path = explode('/', trim($_SERVER['SCRIPT_NAME'], '/'))[0];
+//     return $protocol . '://' . $_SERVER['SERVER_NAME'] . '/' . $path . '/';
+// }
 function base_url()
 {
-    $pdo = db_connect();
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'];
 
+    $isLocal = in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']);
 
-    if (isset($_SERVER['HTTPS'])) {
-        $protocol = ($_SERVER['HTTPS'] && $_SERVER['HTTPS'] != "off") ? "https" : "http";
+    if ($isLocal) {
+        return $protocol . '://' . $host . '/sta.MariaSystem/';
     } else {
-        $protocol = 'http';
+        return $protocol . '://' . $host . '/';
     }
-
-    $whitelist = array(
-        '127.0.0.1',
-        '192.168.100.12', 
-        '192.168.100.49',
-        '::1'
-    );
-    $local_hosts = ['localhost', '127.0.0.1', '::1'];
-    if (in_array($_SERVER['HTTP_HOST'], $local_hosts)) {
-        return $protocol . "://" . $_SERVER['HTTP_HOST'] . '/sta.MariaSystem/';
-    }
-    return $protocol . "://" . $_SERVER['HTTP_HOST'] . '/';
-
-
-    // if (in_array($_SERVER['REMOTE_ADDR'], $whitelist)) {
-    //     return $base_url = $protocol . "://" . $_SERVER['SERVER_NAME'] . '/template/';
-    // }
-    // return $base_url = $protocol . "://" . $_SERVER['SERVER_NAME'] . '/';
 }
-
 
 function get_current_page()
 {
