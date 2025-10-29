@@ -29,8 +29,32 @@ $grades = $sections = $school_years = $advisers = [];
 $learning_areas_all = $q1_all = $q2_all = $q3_all = $q4_all = [];
 $final_ratings_all = $remarks_all = $general_averages = [];
 
+if (isset($_GET['student_id'])) {
+    $stmt = $pdo->prepare("SELECT * FROM sf10_data WHERE student_id = ? ORDER BY id DESC LIMIT 1");
+    $stmt->execute([$_GET['student_id']]);
+    $sf10_data = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($sf10_data && !empty($sf10_data['scholastic_records'])) {
+        $scholastic_data = json_decode($sf10_data['scholastic_records'], true);
+
+       
+        if (!empty($scholastic_data)) {
+            $scholastic_data['grade'] = $scholastic_data['grades'] ?? [];
+            $scholastic_data['section'] = $scholastic_data['sections'] ?? [];
+            $scholastic_data['school_year'] = $scholastic_data['school_years'] ?? [];
+            $scholastic_data['adviser_name'] = $scholastic_data['advisers'] ?? [];
+            $scholastic_data['learning_area'] = $scholastic_data['learning_areas'] ?? [];
+            $scholastic_data['remarks_table'] = $scholastic_data['remarks'] ?? [];
+            $scholastic_data['final_rating'] = $scholastic_data['final_ratings'] ?? [];
+            $scholastic_data['general_average'] = $scholastic_data['general_averages'] ?? [];
+        }
+    } else {
+        $scholastic_data = [];
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // --- Personal / Eligibility ---
+   
     $last_name = $_POST['last_name'] ?? ($student['lname'] ?? '');
     $first_name = $_POST['first_name'] ?? ($student['fname'] ?? '');
     $middle_name = $_POST['middle_name'] ?? ($student['mname'] ?? '');
@@ -53,38 +77,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $testing_center_address = $_POST['testing_center_address'] ?? '';
     $remark = $_POST['remark'] ?? '';
 
-    // --- Scholastic Records ---
-    for($i=1;$i<=4;$i++){
-        $grades[$i] = $_POST['grade'.$i] ?? '';
-        $sections[$i] = $_POST['section'.$i] ?? '';
-        $school_years[$i] = $_POST['school_year'.$i] ?? '';
-        $advisers[$i] = $_POST['adviser_name'.$i] ?? '';
-        $learning_areas_all[$i] = $_POST['learning_area'.$i] ?? [];
-        $q1_all[$i] = $_POST['q1_'.$i] ?? [];
-        $q2_all[$i] = $_POST['q2_'.$i] ?? [];
-        $q3_all[$i] = $_POST['q3_'.$i] ?? [];
-        $q4_all[$i] = $_POST['q4_'.$i] ?? [];
-        $remarks_all[$i] = $_POST['remarks_table_'.$i] ?? [];
+    
+    for ($i = 1; $i <= 4; $i++) {
+        $grades[$i] = $_POST['grade' . $i] ?? '';
+        $sections[$i] = $_POST['section' . $i] ?? '';
+        $school_years[$i] = $_POST['school_year' . $i] ?? '';
+        $advisers[$i] = $_POST['adviser_name' . $i] ?? '';
+        $learning_areas_all[$i] = $_POST['learning_area' . $i] ?? [];
+        $q1_all[$i] = $_POST['q1_' . $i] ?? [];
+        $q2_all[$i] = $_POST['q2_' . $i] ?? [];
+        $q3_all[$i] = $_POST['q3_' . $i] ?? [];
+        $q4_all[$i] = $_POST['q4_' . $i] ?? [];
+        $remarks_all[$i] = $_POST['remarks_table_' . $i] ?? [];
 
         $final_ratings_all[$i] = [];
         $total = 0; $count = 0;
-        for($r=0;$r<15;$r++){
+        for ($r = 0; $r < 15; $r++) {
             $q1 = is_numeric($q1_all[$i][$r] ?? null) ? floatval($q1_all[$i][$r]) : 0;
             $q2 = is_numeric($q2_all[$i][$r] ?? null) ? floatval($q2_all[$i][$r]) : 0;
             $q3 = is_numeric($q3_all[$i][$r] ?? null) ? floatval($q3_all[$i][$r]) : 0;
             $q4 = is_numeric($q4_all[$i][$r] ?? null) ? floatval($q4_all[$i][$r]) : 0;
-            if($q1 || $q2 || $q3 || $q4){
-                $final = round(($q1+$q2+$q3+$q4)/4, 2);
+            if ($q1 || $q2 || $q3 || $q4) {
+                $final = round(($q1 + $q2 + $q3 + $q4) / 4, 2);
                 $final_ratings_all[$i][$r] = $final;
                 $total += $final; $count++;
             } else {
                 $final_ratings_all[$i][$r] = '';
             }
         }
-        $general_averages[$i] = $count ? round($total/$count, 2) : '';
+        $general_averages[$i] = $count ? round($total / $count, 2) : '';
     }
 
-    // --- Insert into sf10_data ---
     $personal_data = [
         'student_id' => $student_id,
         'last_name' => $last_name,
@@ -97,13 +120,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'school_name' => $school_name,
         'school_id' => $school_id,
         'school_address' => $school_address,
-        'kinder_progress_report' => !empty($kinder_progress_report)?1:0,
-        'eccd_checklist' => !empty($eccd_checklist)?1:0,
-        'kinder_certificate' => !empty($kinder_certificate)?1:0,
-        'pept_passer' => !empty($pept_passer)?1:0,
+        'kinder_progress_report' => !empty($kinder_progress_report) ? 1 : 0,
+        'eccd_checklist' => !empty($eccd_checklist) ? 1 : 0,
+        'kinder_certificate' => !empty($kinder_certificate) ? 1 : 0,
+        'pept_passer' => !empty($pept_passer) ? 1 : 0,
         'pept_text' => $pept_text,
         'exam_date' => $exam_date,
-        'others_check' => !empty($others_check)?1:0,
+        'others_check' => !empty($others_check) ? 1 : 0,
         'others_text' => $others_text,
         'testing_center_name' => $testing_center_name,
         'testing_center_address' => $testing_center_address,
@@ -129,13 +152,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $pdo->prepare("INSERT INTO sf10_data ($columns) VALUES ($placeholders)");
     $stmt->execute(array_values($personal_data));
 
-    // --- Load Excel template ---
+   
     try {
         $template_path = 'C:/xampp/htdocs/sta.MariaSystem/src/UI-Admin/contents/sf10/sf10.xlsx';
         $spreadsheet = IOFactory::load($template_path);
         $sheet = $spreadsheet->getSheet(0);
 
-        // --- Personal Info ---
+       
         $sheet->setCellValue('E9', $last_name);
         $sheet->setCellValue('R9', $first_name);
         $sheet->setCellValue('AD9', $suffix);
@@ -144,56 +167,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sheet->setCellValue('V10', $birthdate);
         $sheet->setCellValue('AT10', $sex);
 
-        // --- Eligibility ---
+       
         $sheet->setCellValue('K14', $kinder_progress_report);
         $sheet->setCellValue('U14', $eccd_checklist);
         $sheet->setCellValue('AE14', $kinder_certificate);
-        $sheet->getStyle('K14')->getFont()->setSize(18)->setBold(true);
-        $sheet->getStyle('U14')->getFont()->setSize(18)->setBold(true);
-        $sheet->getStyle('AE14')->getFont()->setSize(18)->setBold(true);
         $sheet->setCellValue('F15', $school_name);
         $sheet->setCellValue('T15', $school_id);
         $sheet->setCellValue('Z15', $school_address);
         $sheet->setCellValue('B18', $pept_passer);
-        $sheet->getStyle('B18')->getFont()->setSize(18)->setBold(true);
         $sheet->setCellValue('J18', $pept_text);
-        $sheet->getStyle('J18')->getFont()->setSize(11)->setBold(false);
         $sheet->setCellValue('W18', $exam_date);
         $sheet->setCellValue('AC18', $others_check);
-        $sheet->getStyle('AC18')->getFont()->setSize(18)->setBold(true);
         $sheet->setCellValue('AQ18', $others_text);
         $sheet->setCellValue('L19', $testing_center_name);
         $sheet->setCellValue('M19', $testing_center_address);
         $sheet->setCellValue('AJ19', $remark);
 
-        // --- Scholastic Records Mapping ---
+       
         $scholastic_positions = [
             1 => ['grade'=>'F25','section'=>'J25','sy'=>'S25','adviser'=>'H26','start_row'=>30,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S','gen_avg'=>'S45'],
             2 => ['grade'=>'Z25','section'=>'AE25','sy'=>'AU25','adviser'=>'AC26','start_row'=>30,'start_col'=>'V','q1'=>'AJ','q2'=>'AM','q3'=>'AO','q4'=>'AR','final'=>'AT','remarks'=>'AW','gen_avg'=>'AW45'],
             3 => ['grade'=>'F54','section'=>'J54','sy'=>'S54','adviser'=>'H55','start_row'=>60,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S','gen_avg'=>'S75'],
-            4 => ['grade'=>'Z54','section'=>'AE54','sy'=>'AU54','adviser'=>'AC55','start_row'=>60,'start_col'=>'V','q1'=>'W','q2'=>'X','q3'=>'Y','q4'=>'Z','final'=>'AA','remarks'=>'AW','gen_avg'=>'AJ75'],
+            4 => ['grade'=>'Z54','section'=>'AE54','sy'=>'AU54','adviser'=>'AC55','start_row'=>60,'start_col'=>'V','q1'=>'AJ','q2'=>'AM','q3'=>'AO','q4'=>'AR','final'=>'AT','remarks'=>'AW','gen_avg'=>'AW75']
         ];
 
-        for($i=1;$i<=4;$i++){
+        for ($i = 1; $i <= 4; $i++) {
             $pos = $scholastic_positions[$i];
-            $sheet->setCellValue($pos['grade'],$grades[$i]);
-            $sheet->setCellValue($pos['section'],$sections[$i]);
-            $sheet->setCellValue($pos['sy'],$school_years[$i]);
-            $sheet->setCellValue($pos['adviser'],$advisers[$i]);
-            for($r=0;$r<15;$r++){
-                $row = $pos['start_row']+$r;
-                $sheet->setCellValue($pos['start_col'].$row,$learning_areas_all[$i][$r] ?? '');
-                $sheet->setCellValue($pos['q1'].$row,$q1_all[$i][$r] ?? '');
-                $sheet->setCellValue($pos['q2'].$row,$q2_all[$i][$r] ?? '');
-                $sheet->setCellValue($pos['q3'].$row,$q3_all[$i][$r] ?? '');
-                $sheet->setCellValue($pos['q4'].$row,$q4_all[$i][$r] ?? '');
-                $sheet->setCellValue($pos['final'].$row,$final_ratings_all[$i][$r] ?? '');
-                $sheet->setCellValue($pos['remarks'].$row,$remarks_all[$i][$r] ?? '');
+            $sheet->setCellValue($pos['grade'], $grades[$i]);
+            $sheet->setCellValue($pos['section'], $sections[$i]);
+            $sheet->setCellValue($pos['sy'], $school_years[$i]);
+            $sheet->setCellValue($pos['adviser'], $advisers[$i]);
+            for ($r = 0; $r < 15; $r++) {
+                $row = $pos['start_row'] + $r;
+                $sheet->setCellValue($pos['start_col'] . $row, $learning_areas_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['q1'] . $row, $q1_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['q2'] . $row, $q2_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['q3'] . $row, $q3_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['q4'] . $row, $q4_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['final'] . $row, $final_ratings_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['remarks'] . $row, $remarks_all[$i][$r] ?? '');
             }
-            $sheet->setCellValue($pos['gen_avg'],$general_averages[$i]);
+            $sheet->setCellValue($pos['gen_avg'], $general_averages[$i]);
         }
 
-        // --- DepEd Logo ---
+        
         $drawing = new Drawing();
         $drawing->setName('DepEd Logo');
         $drawing->setDescription('DepEd Logo');
@@ -203,16 +220,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $drawing->setHeight(80);
         $drawing->setWorksheet($sheet);
 
-        // --- Build filename and save ---
+      
         $filename = build_sf10_filename($lrn, $first_name, $last_name);
         $savePath = $saveDir . DIRECTORY_SEPARATOR . $filename;
         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
         $writer->save($savePath);
 
-        // --- Force download ---
+       
         header('Content-Description: File Transfer');
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment; filename="'.basename($filename).'"');
+        header('Content-Disposition: attachment; filename="' . basename($filename) . '"');
         header('Expires: 0');
         header('Cache-Control: must-revalidate');
         header('Pragma: public');
@@ -226,7 +243,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -263,80 +279,73 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
         <div class="sidebar">
           <h5>Learner's Personal Information</h5>
           <label class="form-label">Last Name</label>
-          <input type="text" class="form-control form-control-sm" name="last_name" value="<?= htmlspecialchars($_POST['last_name'] ?? $student['lname'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="last_name" value="<?= htmlspecialchars($_POST['last_name'] ?? ($student['lname'] ?? ($sf10_data['last_name'] ?? ''))) ?>">
           <label class="form-label">First Name</label>
-          <input type="text" class="form-control form-control-sm" name="first_name" value="<?= htmlspecialchars($_POST['first_name'] ?? $student['fname'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="first_name" value="<?= htmlspecialchars($_POST['first_name'] ?? ($student['fname'] ?? ($sf10_data['first_name'] ?? ''))) ?>">
           <label class="form-label">Middle Name</label>
-          <input type="text" class="form-control form-control-sm" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? $student['mname'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? ($student['mname'] ?? ($sf10_data['middle_name'] ?? ''))) ?>">
           <label class="form-label">Name Ext.</label>
-          <input type="text" class="form-control form-control-sm" name="suffix" value="<?= htmlspecialchars($_POST['suffix'] ?? $student['suffix'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="suffix" value="<?= htmlspecialchars($_POST['suffix'] ?? ($student['suffix'] ?? ($sf10_data['suffix'] ?? ''))) ?>">
           <label class="form-label">LRN</label>
-          <input type="text" class="form-control form-control-sm" name="lrn" value="<?= htmlspecialchars($_POST['lrn'] ?? $student['lrn'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="lrn" value="<?= htmlspecialchars($_POST['lrn'] ?? ($student['lrn'] ?? ($sf10_data['lrn'] ?? ''))) ?>">
           <label class="form-label">Birthdate (MM/DD/YY)</label>
-          <input type="text" class="form-control form-control-sm" name="birthdate" value="<?= htmlspecialchars($_POST['birthdate'] ?? $student['birthdate'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="birthdate" value="<?= htmlspecialchars($_POST['birthdate'] ?? ($student['birthdate'] ?? ($sf10_data['birthdate'] ?? ''))) ?>">
           <label class="form-label">Sex</label>
-          <input type="text" class="form-control form-control-sm" name="sex" value="<?= htmlspecialchars($_POST['sex'] ?? $student['sex'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="sex" value="<?= htmlspecialchars($_POST['sex'] ?? ($student['sex'] ?? ($sf10_data['sex'] ?? ''))) ?>">
           <div class="text-center mt-3 d-flex justify-content-center gap-2 flex-wrap">
             <button type="submit" class="btn btn-primary btn-lg">Save and Download</button>
-            <?php /* if ($student):
-                  $downloadUrl = htmlspecialchars($_SERVER['PHP_SELF']) . '?student_id=' . urlencode($student_id) . '&download=1';
-            ?>
-              <a href="<?= $downloadUrl ?>" class="btn btn-success btn-lg">Download</a>
-            <?php else: ?>
-             <a href="#" class="btn btn-success btn-lg disabled">Download</a>
-            <?php endif;*/?> 
             <button type="button" class="btn btn-secondary btn-lg" onclick="window.history.back();">Back</button>
           </div>
         </div>
       </div>
 
-      <!-- Eligibility -->
+  
       <div class="col-md-4 col-sm-12">
         <div class="eligibility-container">
           <h5>Elementary School Eligibility</h5>
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="kinder_progress_report" id="kinder_progress_report" value="1" <?= isset($_POST['kinder_progress_report']) ? 'checked' : '' ?>>
+            <input class="form-check-input" type="checkbox" name="kinder_progress_report" id="kinder_progress_report" value="1" <?= (!empty($_POST['kinder_progress_report']) || (!empty($sf10_data['kinder_progress_report']) && $sf10_data['kinder_progress_report'])) ? 'checked' : '' ?>>
             <label class="form-check-label" for="kinder_progress_report">Kinder Progress Report</label>
           </div>
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="eccd_checklist" id="eccd_checklist" value="1" <?= isset($_POST['eccd_checklist']) ? 'checked' : '' ?>>
+            <input class="form-check-input" type="checkbox" name="eccd_checklist" id="eccd_checklist" value="1" <?= (!empty($_POST['eccd_checklist']) || (!empty($sf10_data['eccd_checklist']) && $sf10_data['eccd_checklist'])) ? 'checked' : '' ?>>
             <label class="form-check-label" for="eccd_checklist">ECCD Checklist</label>
           </div>
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="kinder_certificate" id="kinder_certificate" value="1" <?= isset($_POST['kinder_certificate']) ? 'checked' : '' ?>>
+            <input class="form-check-input" type="checkbox" name="kinder_certificate" id="kinder_certificate" value="1" <?= (!empty($_POST['kinder_certificate']) || (!empty($sf10_data['kinder_certificate']) && $sf10_data['kinder_certificate'])) ? 'checked' : '' ?>>
             <label class="form-check-label" for="kinder_certificate">Kindergarten Certificate of Completion</label>
           </div>
           <label class="form-label">Name of School</label>
-          <input type="text" class="form-control form-control-sm" name="school_name" value="<?= htmlspecialchars($_POST['school_name'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="school_name" value="<?= htmlspecialchars($_POST['school_name'] ?? ($sf10_data['school_name'] ?? '')) ?>">
           <label class="form-label">School ID</label>
-          <input type="text" class="form-control form-control-sm" name="school_id" value="<?= htmlspecialchars($_POST['school_id'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="school_id" value="<?= htmlspecialchars($_POST['school_id'] ?? ($sf10_data['school_id'] ?? '')) ?>">
           <label class="form-label">Address of School</label>
-          <input type="text" class="form-control form-control-sm" name="school_address" value="<?= htmlspecialchars($_POST['school_address'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="school_address" value="<?= htmlspecialchars($_POST['school_address'] ?? ($sf10_data['school_address'] ?? '')) ?>">
           <h6 class="mt-3">Other Credential Presented</h6>
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="pept_passer" id="pept_passer" value="1" <?= isset($_POST['pept_passer']) ? 'checked' : '' ?>>
+            <input class="form-check-input" type="checkbox" name="pept_passer" id="pept_passer" value="1" <?= (!empty($_POST['pept_passer']) || (!empty($sf10_data['pept_passer']) && $sf10_data['pept_passer'])) ? 'checked' : '' ?>>
             <label class="form-check-label" for="pept_passer">PEPT Passer Rating</label>
           </div>
           <label class="form-label">PEPT Passer Rating (text)</label>
-          <input type="text" class="form-control form-control-sm" name="pept_text" value="<?= htmlspecialchars($_POST['pept_text'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="pept_text" value="<?= htmlspecialchars($_POST['pept_text'] ?? ($sf10_data['pept_text'] ?? '')) ?>">
           <label class="form-label">Date of Examination/Assessment (dd/mm/yyyy)</label>
-          <input type="text" class="form-control form-control-sm" name="exam_date" value="<?= htmlspecialchars($_POST['exam_date'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="exam_date" value="<?= htmlspecialchars($_POST['exam_date'] ?? ($sf10_data['exam_date'] ?? '')) ?>">
           <div class="form-check mt-2">
-            <input class="form-check-input" type="checkbox" name="others_check" id="others_check" value="1" <?= isset($_POST['others_check']) ? 'checked' : '' ?>>
+            <input class="form-check-input" type="checkbox" name="others_check" id="others_check" value="1" <?= (!empty($_POST['others_check']) || (!empty($sf10_data['others_check']) && $sf10_data['others_check'])) ? 'checked' : '' ?>>
             <label class="form-check-label" for="others_check">Others, pls specify</label>
           </div>
           <label class="form-label">Others (text)</label>
-          <input type="text" class="form-control form-control-sm" name="others_text" value="<?= htmlspecialchars($_POST['others_text'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="others_text" value="<?= htmlspecialchars($_POST['others_text'] ?? ($sf10_data['others_text'] ?? '')) ?>">
           <label class="form-label">Name of Testing Center</label>
-          <input type="text" class="form-control form-control-sm" name="testing_center_name" value="<?= htmlspecialchars($_POST['testing_center_name'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="testing_center_name" value="<?= htmlspecialchars($_POST['testing_center_name'] ?? ($sf10_data['testing_center_name'] ?? '')) ?>">
           <label class="form-label">Address of Testing Center</label>
-          <input type="text" class="form-control form-control-sm" name="testing_center_address" value="<?= htmlspecialchars($_POST['testing_center_address'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="testing_center_address" value="<?= htmlspecialchars($_POST['testing_center_address'] ?? ($sf10_data['testing_center_address'] ?? '')) ?>">
           <label class="form-label">Remark</label>
-          <input type="text" class="form-control form-control-sm" name="remark" value="<?= htmlspecialchars($_POST['remark'] ?? '') ?>">
+          <input type="text" class="form-control form-control-sm" name="remark" value="<?= htmlspecialchars($_POST['remark'] ?? ($sf10_data['remark'] ?? '')) ?>">
         </div>
       </div>
 
-      <!-- Scholastic Records -->
+     
       <div class="col-md-4 col-sm-12">
         <div class="scholastic-container">
           <h5>Scholastic Records</h5>
@@ -353,13 +362,13 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
             <?php for($i=1;$i<=4;$i++): ?>
               <div class="tab-pane fade <?= $i===1?'show active':'' ?>" id="sr<?=$i?>" role="tabpanel">
                 <label class="form-label">Grade</label>
-                <input type="text" class="form-control form-control-sm" name="grade<?=$i?>" value="<?= htmlspecialchars($_POST['grade'.$i] ?? '') ?>">
+                <input type="text" class="form-control form-control-sm" name="grade<?=$i?>" value="<?= htmlspecialchars($_POST['grade'.$i] ?? ($sf10_data['grade'.$i] ?? '')) ?>">
                 <label class="form-label">Section</label>
-                <input type="text" class="form-control form-control-sm" name="section<?=$i?>" value="<?= htmlspecialchars($_POST['section'.$i] ?? '') ?>">
+                <input type="text" class="form-control form-control-sm" name="section<?=$i?>" value="<?= htmlspecialchars($_POST['section'.$i] ?? ($sf10_data['section'.$i] ?? '')) ?>">
                 <label class="form-label">School Year</label>
-                <input type="text" class="form-control form-control-sm" name="school_year<?=$i?>" value="<?= htmlspecialchars($_POST['school_year'.$i] ?? '') ?>">
+                <input type="text" class="form-control form-control-sm" name="school_year<?=$i?>" value="<?= htmlspecialchars($_POST['school_year'.$i] ?? ($sf10_data['school_year'.$i] ?? '')) ?>">
                 <label class="form-label">Name of Adviser</label>
-                <input type="text" class="form-control form-control-sm" name="adviser_name<?=$i?>" value="<?= htmlspecialchars($_POST['adviser_name'.$i] ?? '') ?>">
+                <input type="text" class="form-control form-control-sm" name="adviser_name<?=$i?>" value="<?= htmlspecialchars($_POST['adviser_name'.$i] ?? ($sf10_data['adviser_name'.$i] ?? '')) ?>">
                 <h6 class="mt-3">Grades Table</h6>
                 <div class="table-responsive">
                   <table class="table table-bordered table-sm">
@@ -377,20 +386,20 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
                     <tbody>
                       <?php for($r=0;$r<15;$r++): ?>
                         <tr>
-                          <td><input type="text" class="form-control form-control-sm" name="learning_area<?=$i?>[]" value="<?= htmlspecialchars($_POST['learning_area'.$i][$r] ?? '') ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="q1_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q1_'.$i][$r] ?? '') ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="q2_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q2_'.$i][$r] ?? '') ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="q3_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q3_'.$i][$r] ?? '') ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="q4_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q4_'.$i][$r] ?? '') ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="final_rating_<?=$i?>[]" value="<?= htmlspecialchars($_POST['final_rating_'.$i][$r] ?? '') ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="remarks_table_<?=$i?>[]" value="<?= htmlspecialchars($_POST['remarks_table_'.$i][$r] ?? '') ?>"></td>
+                          <td><input type="text" class="form-control form-control-sm" name="learning_area<?=$i?>[]" value="<?= htmlspecialchars($_POST['learning_area'.$i][$r] ?? ($scholastic_data['learning_area'][$i][$r] ?? '')) ?>"></td>
+                          <td><input type="text" class="form-control form-control-sm" name="q1_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q1_'.$i][$r] ?? ($scholastic_data['q1'][$i][$r] ?? '')) ?>"></td>
+                          <td><input type="text" class="form-control form-control-sm" name="q2_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q2_'.$i][$r] ?? ($scholastic_data['q2'][$i][$r] ?? '')) ?>"></td>
+                          <td><input type="text" class="form-control form-control-sm" name="q3_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q3_'.$i][$r] ?? ($scholastic_data['q3'][$i][$r] ?? '')) ?>"></td>
+                          <td><input type="text" class="form-control form-control-sm" name="q4_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q4_'.$i][$r] ?? ($scholastic_data['q4'][$i][$r] ?? '')) ?>"></td>
+                          <td><input type="text" class="form-control form-control-sm" name="final_rating_<?=$i?>[]" value="<?= htmlspecialchars($_POST['final_rating_'.$i][$r] ?? ($scholastic_data['final_rating'][$i][$r] ?? '')) ?>"></td>
+                          <td><input type="text" class="form-control form-control-sm" name="remarks_table_<?=$i?>[]" value="<?= htmlspecialchars($_POST['remarks_table_'.$i][$r] ?? ($scholastic_data['remarks_table'][$i][$r] ?? '')) ?>"></td>
                         </tr>
                       <?php endfor; ?>
                     </tbody>
                   </table>
                 </div>
                 <label class="form-label">General Average</label>
-                <input type="text" class="form-control form-control-sm" name="general_average_<?=$i?>" value="<?= htmlspecialchars($_POST['general_average_'.$i] ?? '') ?>">
+                <input type="text" class="form-control form-control-sm" name="general_average_<?=$i?>" value="<?= htmlspecialchars($_POST['general_average_'.$i] ?? ($scholastic_data['general_average'][$i] ?? '')) ?>">
               </div>
             <?php endfor; ?>
           </div>
@@ -444,7 +453,6 @@ function recalc(i){
     document.querySelector(`[name='general_average_${i}']`).value=count?(total/count).toFixed(2):'';
 }
 
-// Attach listeners
 for(let i=1;i<=4;i++){
     let qInputs = document.querySelectorAll(`[name^='q1_${i}'],[name^='q2_${i}'],[name^='q3_${i}'],[name^='q4_${i}']`);
     qInputs.forEach(input=>{
@@ -452,6 +460,5 @@ for(let i=1;i<=4;i++){
     });
 }
 
-// Initial calculation on page load
 for(let i=1;i<=4;i++) recalc(i);
 </script>
