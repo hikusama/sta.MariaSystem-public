@@ -179,9 +179,13 @@
                     if (file_exists($reportFile)) {
                         $webPath = "../../sf9_files/{$lrn}_{$fname}_{$lname}_{$grade}.xlsx";
                 ?>
-                    <a href="<?= $webPath ?>" download>
+                    <!--  <a href="<?= $webPath ?>" download>
                         <button class="btn btn-sm m-0 btn-success">Download Report Card</button>
-                    </a>
+                    </a> -->
+                <a href="index.php?page=contents/sf9_view&student_id=<?= htmlspecialchars($student['student_id']) ?>">
+    <button class="btn btn-sm m-0 btn-primary">View Report Card</button>
+</a>
+
                 <?php
                     } else {
                 ?>
