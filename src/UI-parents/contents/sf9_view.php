@@ -72,18 +72,32 @@ body {
     box-shadow: 0 6px 14px rgba(220, 53, 69, 0.5);
 }
 .header-info {
-    margin-bottom: 30px;
+    margin-bottom: 35px;
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
+    line-height: 1.7;
 }
+
 .header-info div {
     width: 48%;
 }
+
 .header-info span {
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
+    font-size: 15.5px;
+    color: #000;
+    font-weight: 500;
+    letter-spacing: 0.2px;
 }
+
+.header-info strong {
+    color: #000;
+    font-weight: 700;
+    font-size: 16px;
+}
+
 h5 {
     margin-top: 50px;
     margin-bottom: 20px;
@@ -146,6 +160,38 @@ h5 {
     body { background: white; }
 }
 
+.legend-box {
+    background: #fff3f3;
+    border: 1px solid #dc3545;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 14px;
+    color: #212529;
+    box-shadow: 0 3px 8px rgba(220, 53, 69, 0.1);
+    max-width: 95%;
+    margin: auto;
+}
+.legend-box strong {
+    color: #dc3545;
+}
+.legend-row {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 5px;
+}
+.legend-item {
+    display: inline-block;
+    font-weight: 500;
+}
+@media print {
+    .legend-box {
+        background: #ffffff;
+        border: 1px solid #000;
+        box-shadow: none;
+    }
+}
 </style>
 </head>
 <body>
@@ -206,6 +252,15 @@ for ($i = 1; $i <= 15; $i++) {
 </tr>
 </tbody>
 </table>
+<div class="legend-box text-center mt-4 mb-4">
+    <strong>LEGEND:</strong><br>
+    <span class="legend-item"><strong>90–100</strong> = Outstanding│</span>
+    <span class="legend-item"><strong>85–89</strong> = Very Satisfactory│</span>
+    <span class="legend-item"><strong>80–84</strong> = Satisfactory│</span>
+    <span class="legend-item"><strong>75–79</strong> = Fairly Satisfactory│</span>
+    <span class="legend-item"><strong>Below 75</strong> = Did Not Meet Expectation</span>
+</div>
+
 
 <h5>Observed Values / Behavior</h5>
 <table class="table behavior-table">
@@ -235,6 +290,16 @@ for ($b = 1; $b <= 7; $b++) {
 ?>
 </tbody>
 </table>
+
+</table>
+
+<div class="legend-box text-center mt-3 mb-4">
+    <strong>LEGEND:</strong>
+    <span class="legend-item">AO = <strong>Always Observed│</strong></span>
+    <span class="legend-item">SO = <strong>Sometimes Observed│</strong></span>
+    <span class="legend-item">RO = <strong>Rarely Observed│</strong></span>
+    <span class="legend-item">NO = <strong>Not Observed</strong></span>
+</div>
 
 <h5>Attendance Record</h5>
 <table class="table">
