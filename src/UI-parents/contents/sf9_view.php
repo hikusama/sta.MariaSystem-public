@@ -114,7 +114,7 @@ h5 {
     background-color: #fff;
 }
 .table thead {
-    background-color: #dc3545;
+    background-color: #ffffffff;
     color: white;
 }
 .table th, .table td {
