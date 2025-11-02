@@ -360,7 +360,7 @@ function db_connect()
             $pdo->exec($sql);
         }
 
-        // Insert default librarian
+       
         $count = $pdo->query("SELECT COUNT(*) FROM admin")->fetchColumn();
         if ($count == 0) {
             $stmt = $pdo->prepare("INSERT INTO admin (
@@ -380,7 +380,7 @@ function db_connect()
                 ''
             ]);
         }
-            // Check and insert SF1 if it doesn't exist
+           
         $checkSF1 = $pdo->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_type = 'sf_1'");
         $checkSF1->execute();
         if ($checkSF1->fetchColumn() == 0) {
@@ -388,7 +388,7 @@ function db_connect()
             $stmtSF1->execute();
         }
 
-        // Check and insert SF2 if it doesn't exist
+       
         $checkSF2 = $pdo->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_type = 'sf_2'");
         $checkSF2->execute();
         if ($checkSF2->fetchColumn() == 0) {
@@ -396,7 +396,7 @@ function db_connect()
             $stmtSF2->execute();
         }
 
-        // Check and insert SF4 if it doesn't exist
+       
         $checkSF4 = $pdo->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_type = 'sf_4'");
         $checkSF4->execute();
         if ($checkSF4->fetchColumn() == 0) {
@@ -404,7 +404,7 @@ function db_connect()
             $stmtSF4->execute();
         }
 
-        // Check and insert SF8 if it doesn't exist
+       
         $checkSF8 = $pdo->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_type = 'sf_8'");
         $checkSF8->execute();
         if ($checkSF8->fetchColumn() == 0) {
@@ -412,11 +412,38 @@ function db_connect()
             $stmtSF8->execute();
         }
 
+        try {
+   
+    $pdo->exec("ALTER TABLE sections ADD UNIQUE (section_name, section_grade_level)");
+} catch (PDOException $e) {
+    
+}
+
+try {
+   
+    $pdo->exec("DROP TRIGGER IF EXISTS after_section_update");
+    $pdo->exec("
+        CREATE TRIGGER after_section_update
+        AFTER UPDATE ON sections
+        FOR EACH ROW
+        BEGIN
+            IF NEW.section_name <> OLD.section_name THEN
+                UPDATE sf9_data
+                SET section = NEW.section_name
+                WHERE section = OLD.section_name
+                AND grade = NEW.section_grade_level;
+            END IF;
+        END;
+    ");
+} catch (PDOException $e) {
+   
+}
+
         return $pdo;
     } catch (PDOException $e) {
         die("Database error: " . $e->getMessage());
     }
 }
 
-// Initialize database
+
 $pdo = db_connect();
