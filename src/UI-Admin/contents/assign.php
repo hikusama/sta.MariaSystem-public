@@ -1,5 +1,8 @@
  <?php
-    $stmt = $pdo->prepare("SELECT * FROM classrooms ORDER BY room_name ASC");
+    $stmt = $pdo->prepare("SELECT * FROM classrooms
+    LEFT JOIN  classes ON classrooms.room_id = classes.classroom_id
+    LEFT JOIN users ON classes.adviser_id = users.user_id
+    ORDER BY room_name ASC");
     $stmt->execute();
     $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -44,6 +47,10 @@
          <div class="d-flex mt-2">
              <span class="form-span text-dark m-0">Classroom Status: </label>
                  <strong class="text-dark"><?= $classroom["room_status"] ?></strong>
+         </div>
+         <div class="d-flex mt-2">
+             <span class="form-span text-dark m-0">Teacher Assigned: </label>
+                 <strong class="text-dark"><?= $classroom["firstname"] . " " . $classroom["lastname"] ?></strong>
          </div>
          <div class="w-100 d-flex justify-content-center mt-2">
             <button 

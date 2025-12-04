@@ -375,10 +375,10 @@ class Action
             $section_name = $section['section_name'];
 
             // ✅ Insert new class record
-            $query = "INSERT INTO classes (section_id, adviser_id, sy_id, section_name, grade_level) 
-                    VALUES (?, ?, ?, ?, ?)";
+            $query = "INSERT INTO classes (section_id, adviser_id, sy_id, classroom_id, section_name, grade_level) 
+                    VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $this->db->prepare($query);
-            $stmt->execute([$section_id, $teacher_id, $schoolYear_id, $section_name, $grade_level]);
+            $stmt->execute([$section_id, $teacher_id, $schoolYear_id, $classroom_id, $section_name, $grade_level]);
 
             // ✅ Update classroom availability
             $roomStmt = $this->db->prepare("UPDATE classrooms SET room_status = 'Unavailable' WHERE room_id = ?");
