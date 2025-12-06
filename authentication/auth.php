@@ -203,9 +203,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
     if (isset($_POST['teacherSettings']) && $_POST['teacherSettings'] === 'true') {
         $user_id  = $_POST["user_id"] ?? null;
-        $lname      = $_POST["lname"] ?? '';
-        $fname      = $_POST["fname"] ?? '';
-        $mname      = $_POST["mname"] ?? '';
+        $lname      = $_POST["firstname"] ?? '';
+        $fname      = $_POST["firstname"] ?? '';
+        $mname      = $_POST["middlename"] ?? '';
         $suffix     = $_POST["suffix"] ?? '';
         $email      = $_POST["email"] ?? '';
         $profile    = '';

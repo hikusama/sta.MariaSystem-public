@@ -38,11 +38,19 @@
                     <div class="profile-picture-section text-center p-4 rounded-3 border bg-light">
                         <div class="profile-image-container mb-3 position-relative mx-auto" 
                              style="width: 180px; height: 180px;">
-                            <?php if(!empty($LibrarianInfo["student_profile"])) { ?>
-                                <img src="../../authentication/uploads/<?= $LibrarianInfo["student_profile"] ?>"
-                                     class="rounded-circle w-100 h-100 object-fit-cover border shadow-sm"
-                                     id="settingsProfile"
-                                     alt="Profile Picture">
+                            <?php 
+                            $imageData = $LibrarianInfo["student_profile"];
+                            $baseImage = base64_encode($imageData);
+
+                            $finfo = new finfo(FILEINFO_MIME_TYPE);
+                            $mineType = $finfo->buffer($imageData);
+
+                            if(!empty($LibrarianInfo["student_profile"])) { ?>
+                               <img src="data:<?= $mimeType ?>;base64,<?= $base64Image ?>"
+                                    class="rounded-circle profile-img"
+                                    id="profileImage"
+                                    alt="Profile Picture"
+                                    style="width: 200px; height: 200px; object-fit: cover;">
                             <?php } else { ?>
                                 <div class="rounded-circle w-100 h-100 bg-primary d-flex align-items-center justify-content-center border shadow-sm">
                                     <i class="fas fa-user text-white fa-4x"></i>
