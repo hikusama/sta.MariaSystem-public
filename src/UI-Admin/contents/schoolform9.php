@@ -1,4 +1,5 @@
 <?php
+
 require_once 'C:/xampp/htdocs/sta.MariaSystem/vendor/autoload.php'; 
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -6,8 +7,10 @@ use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 
+
 $pdo = new PDO("mysql:host=localhost;dbname=stamariadb;charset=utf8", "root", "");
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
 
 function build_sf9_filename($lrn, $first, $last, $grade) {
     $safe_lrn = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$lrn);
@@ -27,6 +30,7 @@ $grades = $gradeQuery->fetchAll(PDO::FETCH_COLUMN);
 $sectionQuery = $pdo->query("SELECT section_id, section_name, section_grade_level FROM sections ORDER BY section_name");
 $sections = $sectionQuery->fetchAll(PDO::FETCH_ASSOC);
 
+
 $student_id = isset($_GET['student_id']) ? trim($_GET['student_id']) : null;
 $student = null;
 if ($student_id) {
@@ -34,6 +38,8 @@ if ($student_id) {
     $stmt->execute([$student_id]);
     $student = $stmt->fetch(PDO::FETCH_ASSOC);
 }
+
+
 
 function getFullName($person) {
     if (!$person) return "Unknown";
@@ -45,7 +51,6 @@ function getFullName($person) {
     return $fullName ?: 'Unknown';
 }
 
-// Guardian
 $guardian_name = 'N/A';
 if (!empty($student['guardian_id'])) {
     $stmt = $pdo->prepare("SELECT firstname, middlename, lastname, suffix FROM users WHERE user_id = ?");
@@ -62,11 +67,13 @@ if (!empty($student['guardian_id'])) {
     }
 }
 
+
 $default_photo = "assets/image/users.png";
 $student_photo_path = $default_photo;
 if (!empty($student['student_profile']) && file_exists(__DIR__ . "/assets/image/" . $student['student_profile'])) {
     $student_photo_path = "assets/image/" . $student['student_profile'];
 }
+
 
 $saveDir = 'C:/xampp/htdocs/sta.MariaSystem/sf9_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
@@ -99,7 +106,6 @@ if ($existingSf9) {
     }
 }
 
-// Attendance existing
 $months = ['june','july','aug','sep','oct','nov','dec','jan','feb','mar','apr'];
 $existing_attendance = [];
 foreach ($months as $m) {
@@ -107,8 +113,6 @@ foreach ($months as $m) {
     $existing_attendance["days_present_{$m}"] = $existingSf9["days_present_{$m}"] ?? '';
     $existing_attendance["days_absent_{$m}"] = $existingSf9["days_absent_{$m}"] ?? '';
 }
-
-// Behavior existing (7 items)
 $existing_behavior = [];
 for ($i=0;$i<7;$i++){
     $idx = $i+1;
@@ -117,22 +121,17 @@ for ($i=0;$i<7;$i++){
     $existing_behavior["b{$idx}_q3"] = $existingSf9["b{$idx}_q3"] ?? '';
     $existing_behavior["b{$idx}_q4"] = $existingSf9["b{$idx}_q4"] ?? '';
 }
-
-// === DOWNLOAD SF9 FILE AUTOMATICALLY ===
 if (isset($_GET['download']) && $_GET['download'] === '1') {
     if (!$student) {
         die("Error: Student not found.");
     }
-
-    // Build safe filename
+    // file name saving as excel file based sa student info
     $fileName = build_sf9_filename($student['lrn'] ?? '', $student['fname'] ?? '', $student['lname'] ?? '', $student['gradeLevel'] ?? '');
     $filePath = 'C:/xampp/htdocs/sta.MariaSystem/sf9_files/' . $fileName;
 
     if (!file_exists($filePath)) {
         die("Error: File not found on server. Path: " . htmlspecialchars($filePath));
     }
-
-    // Force download
     header('Content-Description: File Transfer');
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     header('Content-Disposition: attachment; filename="' . basename($fileName) . '"');
@@ -145,24 +144,40 @@ if (isset($_GET['download']) && $_GET['download'] === '1') {
     exit;
 }
 
-// Flags for UI (POST will set showSuccess or errorMessage)
 $showSuccess = false;
 $successMessage = '';
 $errorMessage = '';
 
-// HANDLE FORM SUBMISSION
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Collect input (fall back to existing DB student values if needed)
+   
     $name_input    = $_POST['student_name']    ?? getFullName($student);
     $lrn_input     = $_POST['student_lrn']     ?? ($student['lrn'] ?? '');
     $age_input     = $_POST['student_age']     ?? ($student['age'] ?? '');
     $sex_input     = $_POST['student_sex']     ?? ($student['sex'] ?? '');
     $grade_input   = $_POST['student_grade']   ?? ($student['gradeLevel'] ?? '');
+   
+$subjects_for_grade = [];
+if ($grade_input !== '') {
+    $stmt = $pdo->prepare("SELECT subject_name FROM subjects WHERE grade_level = ?");
+    $stmt->execute([$grade_input]);
+    $subjects_for_grade = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $subjects = $_POST['subject'] ?? $subjects;
+
+}
+
+$subjects = array_fill(0, 15, '');
+foreach ($subjects_for_grade as $i => $subject_name) {
+    if ($i >= 15) break;
+    $subjects[$i] = $subject_name;
+}
+
     $section_input = $_POST['student_section'] ?? ($student['section'] ?? '');
     $sy_input      = $_POST['student_sy']      ?? '';
     $teacher_input = $_POST['student_teacher'] ?? '';
 
-    // Load template and fill spreadsheet
+  
+
+    
     $template_path = 'C:/xampp/htdocs/sta.MariaSystem/src/UI-Admin/contents/sf9/sf9.xlsx';
     $spreadsheet = IOFactory::load($template_path);
 
@@ -174,7 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER]
     ];
 
-    // Student info in sheet
+    // dito naka lagay yung mga cells saan papasok mga data like q22 for name input
     $sheet->setCellValue('Q22', $name_input)->getStyle('Q22')->applyFromArray($dataStyle);
     $sheet->setCellValueExplicit('S24', $lrn_input, DataType::TYPE_STRING)
           ->getStyle('S24')->applyFromArray(['alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER]]);
@@ -184,22 +199,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sheet->setCellValue('T28', $section_input)->getStyle('T28')->applyFromArray($dataStyle);
     $sheet->setCellValue('R30', $sy_input)->getStyle('R30')->applyFromArray($dataStyle);
     $sheet->setCellValue('S40', $teacher_input)->getStyle('S40')
+    
           ->applyFromArray(['alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER]]);
+         
+$startRow = 34; 
+$subjectColumn = 'B'; 
 
-    // Attendance records (Front)
+for ($i = 0; $i < 15; $i++) {
+    $cell = $subjectColumn . ($startRow + $i);
+    $sheet->setCellValue($cell, $subjects[$i] ?? '');
+}
+
+
+      $targetCells = ['Q22','T26','T28'];
+
+foreach ($targetCells as $cell) {
+    
+    $sheet->getStyle($cell)->applyFromArray([
+        'font' => [
+            'name' => 'Times New Roman',
+            'size' => 10,
+            'bold' => false,
+            'underline' => \PhpOffice\PhpSpreadsheet\Style\Font::UNDERLINE_SINGLE,
+        ],
+        'alignment' => [
+            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
+            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+        ],
+    ]);
+}
+
+
+  
     foreach ($months as $i => $month) {
-        $col = chr(66 + $i); // B=66
+        $col = chr(66 + $i); 
         $sheet->setCellValue($col.'7', $_POST['days_school_'.$month] ?? '');
         $sheet->setCellValue($col.'9', $_POST['days_present_'.$month] ?? '');
         $sheet->setCellValue($col.'12', $_POST['days_absent_'.$month] ?? '');
     }
 
-    // Totals (Front)
     $sheet->setCellValue('M7', '=SUM(B7:L7)');
     $sheet->setCellValue('M9', '=SUM(B9:L9)');
     $sheet->setCellValue('M12', '=SUM(B12:L12)');
 
-    // Add logo (Front) - absolute path
     $drawing = new Drawing();
     $drawing->setName('DepEd Logo');
     $drawing->setDescription('DepEd Logo');
@@ -209,10 +251,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $drawing->setHeight(80);
     $drawing->setWorksheet($sheet);
 
-    // BACK SHEET (Grades + Behavior)
+    
     $backSheet = $spreadsheet->getSheetByName('back');
     if ($backSheet) {
-        // Headers (Back)
+       
         $backSheet->setCellValue('A6', 'Learning Areas');
         $backSheet->setCellValue('N6', '1st Quarter');
         $backSheet->setCellValue('O6', '2nd Quarter');
@@ -221,24 +263,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $backSheet->setCellValue('R6', 'Final Rating');
         $backSheet->setCellValue('S6', 'Remarks');
 
-        // Grades rows (A7..A21 and N..Q)
-        for ($row = 7; $row <= 21; $row++) {
-            $i = $row - 7;
-            $backSheet->setCellValue("A{$row}", $_POST['subject'][$i] ?? '');
-            $backSheet->setCellValue("N{$row}", $_POST['q1'][$i] ?? '');
-            $backSheet->setCellValue("O{$row}", $_POST['q2'][$i] ?? '');
-            $backSheet->setCellValue("P{$row}", $_POST['q3'][$i] ?? '');
-            $backSheet->setCellValue("Q{$row}", $_POST['q4'][$i] ?? '');
-            // Final Rating: keep as Excel formula
-            $backSheet->setCellValue("R{$row}", "=IF(A{$row}<>\"\", AVERAGE(N{$row}:Q{$row}), \"\")");
-            $backSheet->setCellValue("S{$row}", $_POST['remarks'][$i] ?? '');
-        }
+      for ($row = 7; $row <= 21; $row++) {
+    $i = $row - 7;
+    $subject_name = $subjects_for_grade[$i] ?? ''; 
+$backSheet->setCellValue("A{$row}", $subjects[$i] ?? '');
 
-        // General Average label & formula
+    $backSheet->setCellValue("N{$row}", $_POST['q1'][$i] ?? '');
+    $backSheet->setCellValue("O{$row}", $_POST['q2'][$i] ?? '');
+    $backSheet->setCellValue("P{$row}", $_POST['q3'][$i] ?? '');
+    $backSheet->setCellValue("Q{$row}", $_POST['q4'][$i] ?? '');
+    $backSheet->setCellValue("R{$row}", "=IF(A{$row}<>\"\", AVERAGE(N{$row}:Q{$row}), \"\")");
+    $backSheet->setCellValue("S{$row}", $_POST['remarks'][$i] ?? '');
+}
+
+      
         $backSheet->setCellValue('Q22', 'General Average:');
         $backSheet->setCellValue('R22', '=IFERROR(AVERAGEIF(A7:A21,"<>",R7:R21),"")');
 
-        // Behavior mapping rows -> columns Y, Z, AA, AB
         $behaviorRows = [7,10,13,16,18,20,22];
         foreach ($behaviorRows as $idx => $row) {
             $val1 = $_POST['behavior_q1'][$idx] ?? '';
@@ -253,13 +294,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Build filename and save path
+    
     $fname_first = $student['fname'] ?? '';
     $fname_last  = $student['lname'] ?? '';
     $filename = build_sf9_filename($lrn_input, $fname_first, $fname_last, $grade_input);
     $savePath = $saveDir . DIRECTORY_SEPARATOR . $filename;
 
-    // Prepare data array for sf9_data
+    
     $data = [
         'student_id' => $student_id,
         'student_name' => $name_input,
@@ -273,14 +314,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'guardian' => $guardian_name
     ];
 
-    // Attendance fields
+ 
     foreach ($months as $m) {
         $data["days_school_{$m}"] = isset($_POST["days_school_{$m}"]) && $_POST["days_school_{$m}"] !== '' ? (int)$_POST["days_school_{$m}"] : 0;
         $data["days_present_{$m}"] = isset($_POST["days_present_{$m}"]) && $_POST["days_present_{$m}"] !== '' ? (int)$_POST["days_present_{$m}"] : 0;
         $data["days_absent_{$m}"] = isset($_POST["days_absent_{$m}"]) && $_POST["days_absent_{$m}"] !== '' ? (int)$_POST["days_absent_{$m}"] : 0;
     }
 
-    // Grades: 1..15
+   
     $subjects = $_POST['subject'] ?? [];
     $q1 = $_POST['q1'] ?? [];
     $q2 = $_POST['q2'] ?? [];
@@ -300,10 +341,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data["remarks_{$idx}"] = isset($remarks[$i]) && $remarks[$i] !== '' ? $remarks[$i] : null;
     }
 
-    // General average
+    
     $data['general_average'] = isset($_POST['general_average']) && $_POST['general_average'] !== '' ? (float)$_POST['general_average'] : null;
 
-    // Behavior mapping (7 items)
     $behavior_texts = [
         "Expresses one’s spiritual beliefs while respecting the spiritual beliefs of others.",
         "Shows adherence to ethical principles by upholding truth in all undertakings.",
@@ -328,7 +368,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data["b{$idx}_q4"] = $bq4[$i] ?? null;
     }
 
-    // Insert or update: attempt to find existing row for same student_id & grade
+   
     try {
         $existingId = null;
         if (!empty($student_id) && $grade_input !== '') {
@@ -339,7 +379,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($existingId) {
-            // UPDATE
+            
             $setParts = [];
             foreach ($data as $col => $val) {
                 $setParts[] = "`{$col}` = :{$col}";
@@ -358,7 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bindValue(':existing_id', $existingId, PDO::PARAM_INT);
             $stmt->execute();
         } else {
-            // INSERT
+           
             $columns = array_keys($data);
             $placeholders = array_map(function($c){ return ':' . $c; }, $columns);
             $sql = "INSERT INTO sf9_data (" . implode(',', $columns) . ", created_at)
@@ -376,19 +416,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
         }
 
-        // Save Excel file to disk
         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
         $writer->save($savePath);
 
         $showSuccess = true;
         $successMessage = "SF9 saved and file created: {$filename}";
 
-        // After successful save, refresh $existingSf9 so page shows saved values (so user sees persisted data)
+       
         $q = $pdo->prepare("SELECT * FROM sf9_data WHERE student_id = ? ORDER BY created_at DESC LIMIT 1");
         $q->execute([$student_id]);
         $existingSf9 = $q->fetch(PDO::FETCH_ASSOC) ?: null;
 
-        // repopulate arrays from fresh DB row
+       
         if ($existingSf9) {
             for ($i = 0; $i < 15; $i++) {
                 $idx = $i + 1;
@@ -416,7 +455,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } catch (Exception $e) {
         $errorMessage = "Save failed: " . $e->getMessage();
-        // still attempt to save file
         try {
             $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
             $writer->save($savePath);
@@ -450,7 +488,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   .table-behavior select { width:72px; height:32px; text-align:center; }
   .table-behavior td:first-child { text-align:left; font-weight:600; font-size:13px; max-width:220px; }
   .btn-lg { padding:10px 18px; font-size:16px; }
-  .header-brand { border-bottom: solid 1px, color: #FF3860, height: 75px; }
+ .header-brand {
+  background-color: #f5365c;
+  border-bottom: solid 1px #FF3860;
+  height: 75px;
+}
+
   
   @media (max-width: 767px) {
     .sidebar img { width:86px; height:104px; }
@@ -460,23 +503,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
 
-<!-- HEADER -->
-<div class="text-white d-flex align-items-center justify-content-between col-12 m-0 p-0 bg-danger header-brand">
+
+<div class="text-white d-flex align-items-center justify-content-between col-12 m-0 p-0 header-brand">
   <div class="d-flex align-items-center ps-4">
     <img src="/sta.MariaSystem/assets/image/logo2.png" alt="Logo"
          style="width: 65px; height: 65px; border-radius: 50%; margin-right: 15px; object-fit: cover;">
     <h4 class="card-title text-white m-0 fw-bold" style="font-size: 1.3rem;">STA.MARIA WEB SYSTEM</h4>
   </div>
-  <div class="pe-4 text-white">
-    <!-- optional right area -->
-  </div>
 </div>
 
-<!-- PAGE -->
+
 <div class="container-fluid p-3">
   <form method="post" class="row g-0">
 
-    <!-- Narrow sidebar with student info -->
+ 
     <div class="col-md-2 col-sm-12 p-2">
       <div class="sidebar">
        
@@ -527,10 +567,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <div class="text-center mt-2 mb-4 d-flex justify-content-center gap-2">
-          <!-- Generate SF9 -->
+          <!-- SAVE funtion sa SF9 -->
           <button type="submit" class="btn btn-primary btn-lg">Save</button>
 
-          <!-- Download SF9 (same script download action) -->
+          
           <?php if ($student): 
                 $downloadUrl = htmlspecialchars($_SERVER['PHP_SELF']) . '?student_id=' . urlencode($student_id) . '&download=1';
           ?>
@@ -538,16 +578,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <?php else: ?>
             <a href="#" class="btn btn-success btn-lg disabled" title="No student selected">Download</a>
           <?php endif; ?>
+
+          
         </div>
 <a href="javascript:history.back()" class="btn btn-secondary btn-lg">Back</a>
 
       </div>
+      
     </div>
 
-    <!-- Main content -->
+ 
     <div class="col-md-10 col-sm-12 p-3">
 
-      <!-- Attendance -->
+     
       <div class="bg-white p-3 rounded shadow-sm mb-3">
         <div class="section-title">Attendance Record</div>
         <table class="table table-bordered table-sm table-attendance text-center align-middle">
@@ -591,7 +634,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </table>
       </div>
 
-      <!-- Grades -->
       <div class="bg-white p-3 rounded shadow-sm mb-3">
         <div class="section-title">Grades</div>
         <table class="table table-bordered table-sm table-grades text-center align-middle">
@@ -633,7 +675,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </table>
       </div>
 
-      <!-- Behavior -->
+     
       <div class="bg-white p-3 rounded shadow-sm mb-3">
         <div class="section-title">Behavior</div>
         <table class="table table-bordered table-sm table-behavior text-center align-middle">
@@ -666,12 +708,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   "Demonstrates appropriate behavior in carrying out activities in school, community and country."
                 ]
               ];
-              // behavior rows mapping order for saving is 7 items -> we saved earlier in order b1..b7
+              
               $behIndex = 0;
               foreach ($core_values as $core => $behaviors):
                 $rowspan = count($behaviors);
                 foreach ($behaviors as $i => $behavior):
-                  // present values come from POST or existing_behavior
+                  
                   $bq1_val = $_POST['behavior_q1'][$behIndex] ?? ($existing_behavior["b".($behIndex+1)."_q1"] ?? '');
                   $bq2_val = $_POST['behavior_q2'][$behIndex] ?? ($existing_behavior["b".($behIndex+1)."_q2"] ?? '');
                   $bq3_val = $_POST['behavior_q3'][$behIndex] ?? ($existing_behavior["b".($behIndex+1)."_q3"] ?? '');
@@ -728,13 +770,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </table>
       </div>
 
-    </div> <!-- end main content -->
+    </div> 
 
   </form>
-</div> <!-- end container -->
+</div> 
 
-
-<!-- SUCCESS / ERROR MODAL -->
 <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content text-center p-4">
@@ -747,7 +787,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-  // Auto-calc "Absent" = SchoolDays - Present
+  
   (function(){
     const schoolInputs = Array.from(document.querySelectorAll("input[name^='days_school_']"));
     const presentInputs = Array.from(document.querySelectorAll("input[name^='days_present_']"));
@@ -762,13 +802,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     schoolInputs.forEach((el, idx) => el.addEventListener('input', () => updateAbsent(idx)));
     presentInputs.forEach((el, idx) => el.addEventListener('input', () => updateAbsent(idx)));
 
-    // initialize absent fields on page load
     document.addEventListener('DOMContentLoaded', function(){ 
       for (let i=0;i<schoolInputs.length;i++) updateAbsent(i);
     });
   })();
 
-  // Auto-calc Final Rating and General Average (grades only)
   (function(){
     function computeGradesRow(row){
       const qEls = row.querySelectorAll("input.q");
@@ -800,16 +838,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     document.querySelectorAll(".table-grades input.q").forEach(i => i.addEventListener("input", computeAllGrades));
-    // initial compute on load
+    
     document.addEventListener('DOMContentLoaded', computeAllGrades);
   })();
 
-  // show success/error modal if PHP set flags
+  
   <?php if ($showSuccess || !empty($errorMessage)): ?>
   document.addEventListener('DOMContentLoaded', function() {
     const modalEl = document.getElementById('successModal');
     const bsModal = new bootstrap.Modal(modalEl);
-    // change title color for error
+    
     <?php if (!empty($errorMessage)): ?>
       document.getElementById('modalTitle').classList.remove('text-success');
       document.getElementById('modalTitle').classList.add('text-danger');
@@ -818,7 +856,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php if ($showSuccess): ?>
       setTimeout(function(){
         bsModal.hide();
-        // reload page with student_id param so form is ready again (preserve student)
+       
         const params = new URLSearchParams(window.location.search);
         <?php if (!empty($student_id)): ?>
           window.location.href = window.location.pathname + '?student_id=' + <?= json_encode($student_id) ?>;
@@ -844,6 +882,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             opt.style.display = 'none';
         }
     });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const gradeSelect = document.getElementById('grade_level');
+    const subjectInputs = document.querySelectorAll('input[name="subject[]"]');
+    gradeSelect.addEventListener('change', function() {
+        const grade = this.value;
+        if (!grade) return;
+        fetch('fetch_subjects.php?grade=' + encodeURIComponent(grade))
+        .then(res => res.json())
+        .then(data => {
+            subjectInputs.forEach((input, i) => {
+                input.value = data[i] || '';
+            });
+        })
+        .catch(err => console.error(err));
+    });
+});
+document.getElementById('grade_level').addEventListener('change', function() {
+    const grade = this.value;
+    const sectionSelect = document.getElementById('section');
+    const options = sectionSelect.querySelectorAll('option');
+
+    options.forEach(opt => {
+        if (opt.value === "" || opt.dataset.grade === grade) {
+            opt.style.display = 'block';
+        } else {
+            opt.style.display = 'none';
+        }
+    });
+
+   
+    sectionSelect.value = "";
+});
+
+
+const subjectsMapping = {
+    "Grade 7": ["Math", "English", "Science", "Filipino", "Edukasyon sa Pagpapakatao"],
+    "Grade 8": ["Math", "English", "Science", "Filipino", "Edukasyon sa Pagpapakatao"],
+   
+};
+
+document.getElementById('grade_level').addEventListener('change', function() {
+    const grade = this.value;
+
+    fetch(`get_subjects.php?grade=${encodeURIComponent(grade)}`)
+        .then(response => response.json())
+        .then(subjects => {
+            const subjectInputs = document.querySelectorAll('input[name="subject[]"]');
+            subjectInputs.forEach((input, index) => {
+                input.value = subjects[index] || '';
+            });
+        })
+        .catch(err => console.error('Error fetching subjects:', err));
 });
 </script>
 
