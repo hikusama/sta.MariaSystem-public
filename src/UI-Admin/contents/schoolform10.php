@@ -4,6 +4,9 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 
+if (!isset($showSuccess)) $showSuccess = false;
+if (!isset($successMessage)) $successMessage = '';
+
 $pdo = new PDO("mysql:host=localhost;dbname=stamariadb;charset=utf8", "root", "");
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
@@ -13,7 +16,6 @@ function build_sf10_filename($lrn, $first, $last) {
     $safe_last = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$last);
     return trim($safe_lrn . '_' . $safe_first . '_' . $safe_last . '_SF10.xlsx', '_');
 }
-
 $student_id = $_GET['student_id'] ?? null;
 $student = null;
 if ($student_id) {
@@ -21,7 +23,6 @@ if ($student_id) {
     $stmt->execute([$student_id]);
     $student = $stmt->fetch(PDO::FETCH_ASSOC);
 }
-
 $saveDir = 'C:/xampp/htdocs/sta.MariaSystem/sf10_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
 
@@ -54,7 +55,7 @@ if (isset($_GET['student_id'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-   
+
     $last_name = $_POST['last_name'] ?? ($student['lname'] ?? '');
     $first_name = $_POST['first_name'] ?? ($student['fname'] ?? '');
     $middle_name = $_POST['middle_name'] ?? ($student['mname'] ?? '');
@@ -78,7 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $remark = $_POST['remark'] ?? '';
 
     
-    for ($i = 1; $i <= 4; $i++) {
+    for ($i = 1; $i <= 8; $i++) {
+
         $grades[$i] = $_POST['grade' . $i] ?? '';
         $sections[$i] = $_POST['section' . $i] ?? '';
         $school_years[$i] = $_POST['school_year' . $i] ?? '';
@@ -107,6 +109,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $general_averages[$i] = $count ? round($total / $count, 2) : '';
     }
+
+$remedials_db = [];
+for ($i = 1; $i <= 8; $i++) {
+  $areas = $_POST["rem{$i}_area"] ?? [];
+    $finals = $_POST["rem{$i}_final"] ?? [];
+    $class_marks = $_POST["rem{$i}_class_mark"] ?? [];
+    $recomputeds = $_POST["rem{$i}_recomputed"] ?? [];
+    $remarks = $_POST["rem{$i}_remarks"] ?? [];
+
+
+    $remedials_db[$i] = [
+        'area' => implode('|', $areas),
+        'final' => implode('|', $finals),
+        'class_mark' => implode('|', $class_marks),
+        'recomputed' => implode('|', $recomputeds),
+        'remarks' => implode('|', $remarks),
+    ];
+}
+for ($i = 1; $i <= 8; $i++) {
+    $personal_data["rem{$i}_area"] = $remedials_db[$i]['area'];
+    $personal_data["rem{$i}_final"] = $remedials_db[$i]['final'];
+    $personal_data["rem{$i}_class_mark"] = $remedials_db[$i]['class_mark'];
+    $personal_data["rem{$i}_recomputed"] = $remedials_db[$i]['recomputed'];
+    $personal_data["rem{$i}_remarks"] = $remedials_db[$i]['remarks'];
+}
 
     $personal_data = [
         'student_id' => $student_id,
@@ -147,16 +174,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ])
     ];
 
+for ($i = 1; $i <= 8; $i++) {
+    $personal_data["rem{$i}_area"] = $remedials_db[$i]['area'];
+    $personal_data["rem{$i}_final"] = $remedials_db[$i]['final'];
+    $personal_data["rem{$i}_class_mark"] = $remedials_db[$i]['class_mark'];
+    $personal_data["rem{$i}_recomputed"] = $remedials_db[$i]['recomputed'];
+    $personal_data["rem{$i}_remarks"] = $remedials_db[$i]['remarks'];
+}
+
+
+
     $columns = implode(',', array_keys($personal_data));
-    $placeholders = implode(',', array_fill(0, count($personal_data), '?'));
-    $stmt = $pdo->prepare("INSERT INTO sf10_data ($columns) VALUES ($placeholders)");
-    $stmt->execute(array_values($personal_data));
+$placeholders = implode(',', array_fill(0, count($personal_data), '?'));
+$stmt = $pdo->prepare("INSERT INTO sf10_data ($columns) VALUES ($placeholders)");
+$stmt->execute(array_values($personal_data));
 
    
     try {
         $template_path = 'C:/xampp/htdocs/sta.MariaSystem/src/UI-Admin/contents/sf10/sf10.xlsx';
         $spreadsheet = IOFactory::load($template_path);
         $sheet = $spreadsheet->getSheet(0);
+        $sheet_back = $spreadsheet->getSheet(1);
+
 
        
         $sheet->setCellValue('E9', $last_name);
@@ -190,6 +229,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             3 => ['grade'=>'F54','section'=>'J54','sy'=>'S54','adviser'=>'H55','start_row'=>60,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S','gen_avg'=>'S75'],
             4 => ['grade'=>'Z54','section'=>'AE54','sy'=>'AU54','adviser'=>'AC55','start_row'=>60,'start_col'=>'V','q1'=>'AJ','q2'=>'AM','q3'=>'AO','q4'=>'AR','final'=>'AT','remarks'=>'AW','gen_avg'=>'AW75']
         ];
+    $scholastic_positions_back = [
+    5 => ['grade'=>'D5','section'=>'H5','sy'=>'O5','adviser'=>'F6','start_row'=>10,'start_col'=>'B','q1'=>'H','q2'=>'I','q3'=>'J','q4'=>'K','final'=>'L','remarks'=>'O','gen_avg'=>'O25'],
+    6 => ['grade'=>'V5','section'=>'AB5','sy'=>'AG5','adviser'=>'V6','start_row'=>10,'start_col'=>'S','q1'=>'AB','q2'=>'AD','q3'=>'AE','q4'=>'AF','final'=>'AG','remarks'=>'AH','gen_avg'=>'AH25'],
+    7 => ['grade'=>'E34','section'=>'H34','sy'=>'O34','adviser'=>'F35','start_row'=>39,'start_col'=>'B','q1'=>'H','q2'=>'I','q3'=>'J','q4'=>'K','final'=>'L','remarks'=>'O','gen_avg'=>'O54'],
+    8 => ['grade'=>'V34','section'=>'AA34','sy'=>'V35','adviser'=>'AC40','start_row'=>39,'start_col'=>'S','q1'=>'AB','q2'=>'AD','q3'=>'AE','q4'=>'AF','final'=>'AG','remarks'=>'AH','gen_avg'=>'AH54']
+];
+
+
 
         for ($i = 1; $i <= 4; $i++) {
             $pos = $scholastic_positions[$i];
@@ -209,8 +256,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $sheet->setCellValue($pos['gen_avg'], $general_averages[$i]);
         }
+for ($i = 5; $i <= 8; $i++) {
+    $pos = $scholastic_positions_back[$i];
+    $sheet_back->setCellValue($pos['grade'], $grades[$i]);
+    $sheet_back->setCellValue($pos['section'], $sections[$i]);
+    $sheet_back->setCellValue($pos['sy'], $school_years[$i]);
+    $sheet_back->setCellValue($pos['adviser'], $advisers[$i]);
+    for ($r = 0; $r < 15; $r++) {
+        $row = $pos['start_row'] + $r;
+        $sheet_back->setCellValue($pos['start_col'] . $row, $learning_areas_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['q1'] . $row, $q1_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['q2'] . $row, $q2_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['q3'] . $row, $q3_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['q4'] . $row, $q4_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['final'] . $row, $final_ratings_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['remarks'] . $row, $remarks_all[$i][$r] ?? '');
+    }
+    $sheet_back->setCellValue($pos['gen_avg'], $general_averages[$i]);
+}
 
-        
+$remedial_positions_front = [
+    1 => ['subject' => ['B49','G49','K49','O49','S49'], 'grade' => ['B50','G50','K50','O50','S50']],
+    2 => ['subject' => ['V49','AA49','AJ49','AQ49','AW49'], 'grade' => ['V50','AA50','AJ50','AQ50','AW50']],
+    3 => ['subject' => ['B79','G79','K79','O79','S79'], 'grade' => ['B80','G80','K80','O80','S80']],
+    4 => ['subject' => ['V79','AA79','AJ79','AQ79','AW79'], 'grade' => ['V80','AA80','AJ80','AQ80','AW80']]
+];
+
+
+$remedial_positions_back = [
+    5 => ['subject' => ['B29','F29','H29','K29','O29'], 'grade' => ['B30','F30','H30','K30','O30']],
+    6 => ['subject' => ['S29','W29','AC29','AF29','AH29'], 'grade' => ['S30','W30','AC30','AF30','AH30']],
+    7 => ['subject' => ['B58','F58','H58','K58','O58'], 'grade' => ['B59','F59','H59','K59','O59']],
+    8 => ['subject' => ['S58','W58','AC58','AF58','AH58'], 'grade' => ['S59','W59','AC59','AF59','AH59']]
+];
+
+
+for ($i = 1; $i <= 4; $i++) {
+    $pos = $remedial_positions_front[$i];
+    for ($c = 0; $c < 5; $c++) {
+        $sheet->setCellValue($pos['subject'][$c], $learning_areas_all[$i]['remedial_subject'][$c] ?? '');
+        $sheet->setCellValue($pos['grade'][$c], $final_ratings_all[$i]['remedial'][$c] ?? '');
+    }
+}
+
+
+for ($i = 5; $i <= 8; $i++) {
+    $pos = $remedial_positions_back[$i];
+    for ($c = 0; $c < 5; $c++) {
+        $sheet_back->setCellValue($pos['subject'][$c], $learning_areas_all[$i]['remedial_subject'][$c] ?? '');
+        $sheet_back->setCellValue($pos['grade'][$c], $final_ratings_all[$i]['remedial'][$c] ?? '');
+    }
+}
+
+$full_name = trim($last_name . ', ' . $first_name . ' ' . $middle_name . ' ' . $suffix);
+
+$certifications = [
+    ['name_cell' => 'H62', 'lrn_cell' => 'S62'],
+    ['name_cell' => 'H69', 'lrn_cell' => 'S69'],
+    ['name_cell' => 'H76', 'lrn_cell' => 'S76']
+];
+
+foreach ($certifications as $cert) {
+    $sheet_back->setCellValue($cert['name_cell'], $full_name);
+    $sheet_back->setCellValueExplicit($cert['lrn_cell'], $lrn, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+}   
         $drawing = new Drawing();
         $drawing->setName('DepEd Logo');
         $drawing->setDescription('DepEd Logo');
@@ -253,7 +362,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; padding:0; }
-.header-brand { border-bottom:1px solid rgba(0,0,0,.2); height:75px; background:#d32f2f; }
+.header-brand { border-bottom:1px solid rgba(0,0,0,.2); height:75px; background:#f5365c; }
 .header-brand img { width:65px; height:65px; border-radius:50%; margin-right:15px; object-fit:cover; }
 .header-brand h4 { font-size:1.3rem; font-weight:700; color:#fff; margin:0; }
 .sidebar, .eligibility-container, .scholastic-container { background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.08); margin-bottom:20px; }
@@ -262,6 +371,62 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
 .form-control.form-control-sm { font-weight:500; padding:8px 10px; border-radius:6px; border:1px solid #ccc; }
 .btn-lg { padding:10px 18px; font-size:16px; border-radius:6px; }
 .table input { width:100%; }
+.remedial-carousel-container {
+    position: relative;
+    width: 100%;
+    max-width: 1000px;
+    margin: 20px auto;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 15px;
+    background: #f9f9f9;
+    transform: translate(-3in, -4in);
+}
+
+.remedial-wrapper {
+    overflow: hidden;
+    position: relative;
+}
+
+.remedial-slide {
+    display: none;
+    width: 100%;
+}
+
+.remedial-slide.active {
+    display: block;
+}
+
+.remedial-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.remedial-table th, .remedial-table td {
+    border: 1px solid #ccc;
+    padding: 5px;
+    text-align: center;
+}
+
+.arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #8c2b2b;
+    color: white;
+    border: none;
+    font-size: 24px;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.arrow.prev { left: -40px; }
+.arrow.next { right: -40px; }
+
+.arrow:hover { background: #b03a3a; }
+
 </style>
 </head>
 <body>
@@ -350,7 +515,8 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
         <div class="scholastic-container">
           <h5>Scholastic Records</h5>
           <ul class="nav nav-tabs mb-3" id="srTabs" role="tablist">
-            <?php for($i=1;$i<=4;$i++): ?>
+            <?php for($i=1;$i<=8;$i++): ?>
+
               <li class="nav-item" role="presentation">
                 <button class="nav-link <?= $i===1?'active':'' ?>" id="tab<?=$i?>" data-bs-toggle="tab" data-bs-target="#sr<?=$i?>" type="button" role="tab">
                   Scholastic <?=$i?>
@@ -358,8 +524,11 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
               </li>
             <?php endfor; ?>
           </ul>
+
+          
           <div class="tab-content">
-            <?php for($i=1;$i<=4;$i++): ?>
+           <?php for($i=1;$i<=8;$i++): ?>
+
               <div class="tab-pane fade <?= $i===1?'show active':'' ?>" id="sr<?=$i?>" role="tabpanel">
                 <label class="form-label">Grade</label>
                 <input type="text" class="form-control form-control-sm" name="grade<?=$i?>" value="<?= htmlspecialchars($_POST['grade'.$i] ?? ($sf10_data['grade'.$i] ?? '')) ?>">
@@ -401,6 +570,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
                 <label class="form-label">General Average</label>
                 <input type="text" class="form-control form-control-sm" name="general_average_<?=$i?>" value="<?= htmlspecialchars($_POST['general_average_'.$i] ?? ($scholastic_data['general_average'][$i] ?? '')) ?>">
               </div>
+              
             <?php endfor; ?>
           </div>
         </div>
@@ -408,6 +578,59 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
 
     </div>
   </form>
+</div>
+<div class="remedial-carousel-container">
+    <button type="button" class="arrow prev" onclick="prevRemedial()">&#10094;</button>
+    <div class="remedial-wrapper">
+        <?php for ($i = 1; $i <= 8; $i++): ?>
+        <div class="remedial-slide <?php echo $i === 1 ? 'active' : ''; ?>" id="remedial-<?php echo $i; ?>">
+            <h3>Remedial Class <?php echo $i; ?></h3>
+            <table class="remedial-table">
+                <thead>
+                    <tr>
+                        <th>Learning Areas</th>
+                        <th>Final Rating</th>
+                        <th>Remedial Class Mark</th>
+                        <th>Recomputed Final Grade</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php for ($c = 0; $c < 2; $c++):  ?>
+                    <tr>
+                        <td>
+                            <input type="text" 
+                                   name="rem<?php echo $i; ?>_area[]" 
+                                   value="<?php echo htmlspecialchars($learning_areas_all[$i]['remedial_subject'][$c] ?? ''); ?>">
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   name="rem<?php echo $i; ?>_final[]" 
+                                   value="<?php echo htmlspecialchars($final_ratings_all[$i]['final'][$c] ?? ''); ?>">
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   name="rem<?php echo $i; ?>_class_mark[]" 
+                                   value="<?php echo htmlspecialchars($final_ratings_all[$i]['remedial'][$c] ?? ''); ?>">
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   name="rem<?php echo $i; ?>_recomputed[]" 
+                                   value="<?php echo htmlspecialchars($final_ratings_all[$i]['recomputed'][$c] ?? ''); ?>">
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   name="rem<?php echo $i; ?>_remarks[]" 
+                                   value="<?php echo htmlspecialchars($remarks_all[$i][$c] ?? ''); ?>">
+                        </td>
+                    </tr>
+                    <?php endfor; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endfor; ?>
+    </div>
+    <button type="button" class="arrow next" onclick="nextRemedial()">&#10095;</button>
 </div>
 
 <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
@@ -428,8 +651,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
   setTimeout(() => { successModal.hide(); }, 2000);
 </script>
 <?php endif; ?>
-</body>
-</html>
+
 <script>
 function recalc(i){
     let total = 0, count = 0;
@@ -453,12 +675,30 @@ function recalc(i){
     document.querySelector(`[name='general_average_${i}']`).value=count?(total/count).toFixed(2):'';
 }
 
-for(let i=1;i<=4;i++){
+for(let i=1;i<=8;i++){
     let qInputs = document.querySelectorAll(`[name^='q1_${i}'],[name^='q2_${i}'],[name^='q3_${i}'],[name^='q4_${i}']`);
     qInputs.forEach(input=>{
         input.addEventListener('input',()=>recalc(i));
     });
 }
 
-for(let i=1;i<=4;i++) recalc(i);
+for(let i=1;i<=8;i++) recalc(i);
+
+let currentSlide = 1;
+const totalSlides = 8;
+
+function showSlide(n) {
+    const slides = document.querySelectorAll('.remedial-slide');
+    slides.forEach(slide => slide.classList.remove('active'));
+    if (n < 1) currentSlide = totalSlides;
+    else if (n > totalSlides) currentSlide = 1;
+    else currentSlide = n;
+    document.getElementById('remedial-' + currentSlide).classList.add('active');
+}
+
+function nextRemedial() { showSlide(currentSlide + 1); }
+function prevRemedial() { showSlide(currentSlide - 1); }
+
 </script>
+</body>
+</html>
