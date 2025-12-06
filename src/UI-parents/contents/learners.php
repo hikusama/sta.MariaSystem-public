@@ -79,7 +79,7 @@
                         <div class="col-md-3">
                             <label class="form-label">Suffix</label>
                             <select class="form-select" name="suffix">
-                                <option value="" disabled selected>Select suffix (optional)</option>
+                                <option value="" selected>Select suffix (optional)</option>
                                 <option value="Jr">Jr</option>
                                 <option value="Sr">Sr</option>
                                 <option value="II">II</option>

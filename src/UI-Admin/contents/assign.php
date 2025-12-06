@@ -53,13 +53,17 @@
                  <strong class="text-dark"><?= $classroom["firstname"] . " " . $classroom["lastname"] ?></strong>
          </div>
          <div class="w-100 d-flex justify-content-center mt-2">
+            <?php
+                if($classroom["room_status"] == "Unavailable"){    
+                }else{
+            ?>
             <button 
                 type="button" 
                 class="btn btn-danger btn-sm m-0 w-100 text-white assign-teacher-btn" 
                 data-id="<?= $classroom["room_id"] ?>">
                 Assign Teacher
             </button>
-
+            <?php } ?>
          </div>
      </div>
      <?php endforeach ?>

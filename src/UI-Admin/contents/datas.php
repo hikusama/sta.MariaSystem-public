@@ -56,13 +56,8 @@
         <h4>Quick Actions</h4>
         <div class="action-grid">
             <a href="index.php?page=contents/sf1" class="action" id="SF1"><i class="fa fa-folder-open fs-2"></i><p class="text-dark">SF1</p><span style="font-size: .8rem;">School Register</span></a>
-            <a href="index.php?page=contents/sf2" class="action" id="SF2"><i class="fa fa-folder-open fs-2"></i><p class="text-dark">SF2</p><span style="font-size: .8rem;">Daily Attendance Report Of Learners</span></a>
             <a href="index.php?page=contents/sf4" class="action" id="SF4"><i class="fa fa-folder-open fs-2"></i><p class="text-dark">SF4</p><span style="font-size: .8rem;">Monthly Learners movement and attendance form</span></a>
-            <a href="index.php?page=contents/sf5" class="action" id="SF5"><i class="fa fa-folder-open fs-2"></i><p class="text-dark">SF5</p><span style="font-size: .8rem;">Report on Promotion and Level of Progress & Achievement</span></a>
-            <a  href="index.php?page=contents/sf8" class="action" id="SF8"><i class="fa fa-folder-open fs-2"></i><p class="text-dark">SF8</p><span style="font-size: .8rem;">Learner's Basic Health and Nutrition Report</span></a>
-            <a  href="index.php?page=contents/sf9" class="action" id="SF9"><i class="fa fa-folder-open fs-2"></i><p class="text-dark">SF9</p><span style="font-size: .8rem;">Learner's Progress Report Card</span></a>
-            <a  href="index.php?page=contents/sf10" class="action" id="SF10"><i class="fa fa-folder-open fs-2"></i><p class="text-dark">SF10</p><span style="font-size: .8rem;">Learner's Permanent Academic Record</span></a>
-        </div>
+            </div>
     </section>
 
     

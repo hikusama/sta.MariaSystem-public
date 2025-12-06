@@ -26,140 +26,140 @@ $stmtStudents->execute();
 $studentsEnrolled = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <style>
-main {
-    font-family: Arial, sans-serif;
-    background-color: #f8f9fa;
-    padding: 20px;
-    max-width: 80vw;
-    max-height: 88vh !important;
-    overflow: auto !important;
-}
+    main {
+        font-family: Arial, sans-serif;
+        background-color: #f8f9fa;
+        padding: 20px;
+        max-width: 80vw;
+        max-height: 88vh !important;
+        overflow: auto !important;
+    }
 
-.main-container {
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    padding: 20px;
-    margin: 0 auto;
-    min-width: 1500px !important;
-}
+    .main-container {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin: 0 auto;
+        min-width: 1500px !important;
+    }
 
-.scroll-container {
-    width: 100%;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    margin-top: 20px;
-    overflow-x: auto;
-}
+    .scroll-container {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        margin-top: 20px;
+        overflow-x: auto;
+    }
 
-.form-table {
-    min-width: 2500px;
-    width: 100%;
-}
+    .form-table {
+        min-width: 2500px;
+        width: 100%;
+    }
 
-.form-table>div {
-    display: flex;
-    border-bottom: 1px solid #dee2e6;
-}
+    .form-table>div {
+        display: flex;
+        border-bottom: 1px solid #dee2e6;
+    }
 
-.form-table>div>div {
-    padding: 8px;
-    border-right: 1px solid #dee2e6;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-}
+    .form-table>div>div {
+        padding: 8px;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
 
-.form-table>div>div:last-child {
-    border-right: none;
-}
+    .form-table>div>div:last-child {
+        border-right: none;
+    }
 
-.header-row {
-    background-color: #f8f9fa;
-    font-weight: bold;
-}
+    .header-row {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
 
-input {
-    border: 1px solid #ced4da;
-    padding: 4px 8px;
-    border-radius: 4px;
-    width: 100%;
-    box-sizing: border-box;
-}
+    input {
+        border: 1px solid #ced4da;
+        padding: 4px 8px;
+        border-radius: 4px;
+        width: 100%;
+        box-sizing: border-box;
+    }
 
-.nested-columns {
-    display: flex;
-    flex-direction: column;
-}
+    .nested-columns {
+        display: flex;
+        flex-direction: column;
+    }
 
-.nested-row {
-    display: flex;
-    flex: 1;
-}
+    .nested-row {
+        display: flex;
+        flex: 1;
+    }
 
-.nested-cell {
-    flex: 1;
-    border-right: 1px solid #dee2e6;
-    padding: 4px;
-    text-align: center;
-    font-size: 0.85rem;
-}
+    .nested-cell {
+        flex: 1;
+        border-right: 1px solid #dee2e6;
+        padding: 4px;
+        text-align: center;
+        font-size: 0.85rem;
+    }
 
-.nested-cell:last-child {
-    border-right: none;
-}
+    .nested-cell:last-child {
+        border-right: none;
+    }
 
-.scroll-indicator {
-    text-align: center;
-    color: #6c757d;
-    font-size: 0.9rem;
-    margin-top: 5px;
-}
+    .scroll-indicator {
+        text-align: center;
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-top: 5px;
+    }
 
-.form-title {
-    border-bottom: 2px solid #0d6efd;
-    padding-bottom: 10px;
-    margin-bottom: 20px;
-}
+    .form-title {
+        border-bottom: 2px solid #0d6efd;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
 
-.form-section {
-    margin-bottom: 15px;
-}
+    .form-section {
+        margin-bottom: 15px;
+    }
 
-.table-bordered {
-    border: 1px solid #000;
-    width: 100%;
-}
+    .table-bordered {
+        border: 1px solid #000;
+        width: 100%;
+    }
 
-.table-bordered th,
-.table-bordered td {
-    border: 1px solid #000;
-    padding: 4px;
-    text-align: center;
-    vertical-align: middle;
-    font-weight: bold;
-}
+    .table-bordered th,
+    .table-bordered td {
+        border: 1px solid #000;
+        padding: 4px;
+        text-align: center;
+        vertical-align: middle;
+        font-weight: bold;
+    }
 
-.table-bordered th {
-    background-color: #f8f9fa;
-    font-weight: bold;
-}
+    .table-bordered th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
 
-.table-bordered td {
-    font-weight: normal;
-    height: 35px;
-}
+    .table-bordered td {
+        font-weight: normal;
+        height: 35px;
+    }
 
-.responsive-table {
-    overflow-x: auto;
-    width: 100%;
-}
+    .responsive-table {
+        overflow-x: auto;
+        width: 100%;
+    }
 
-.loading {
-    opacity: 0.6;
-    pointer-events: none;
-}
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
 </style>
 <main>
     <?php
@@ -174,6 +174,10 @@ input {
         $adviser_data = $stmtAdviser_data->fetch(PDO::FETCH_ASSOC);
     ?>
     <form class="main-container" id="sfEight-form">
+        <div class="mt-3 text-start">
+            <button type="submit" class="btn btn-danger">Save Data</button>
+            <button type="button" class="btn btn-secondary" onclick="generateReport()">Generate Report</button>
+        </div>
         <input type="hidden" name="id" value="<?= htmlspecialchars($data_sf_eight["sf_add_data_id"] ?? '') ?>">
         <div class="col-md-12 d-flex justify-content-between">
             <div class="col-md-3 d-flex align-items-center justify-content-start">
@@ -417,11 +421,6 @@ input {
                     </tbody>
                 </table>
             </div>
-        </div>
-
-        <div class="mt-3 text-start">
-            <button type="submit" class="btn btn-danger">Save Data</button>
-            <button type="button" class="btn btn-secondary" onclick="generateReport()">Generate Report</button>
         </div>
     </form>
 </main>
@@ -1414,9 +1413,9 @@ function generateReport() {
                     <div class="report-container">
                         <!-- Header -->
                         <div class="report-header">
-                            <div class="logo-section">
-                                <div style="width: 100px; height: 80px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 1px solid #ccc;">
-                                    School Logo
+                            <div >
+                                <div>
+                                    <img src="../../assets/image/logo.png" alt="No Image" style="width: auto; height: 80px;">
                                 </div>
                             </div>
                             <div class="school-info">
@@ -1424,9 +1423,10 @@ function generateReport() {
                                 <h3>School Form 8 Learner's Basic Health and Nutrition Report (SF8)</h3>
                                 <p class="text-muted">(this replaces Form 1, Master List & STS Form 2-Family Background and Profile)</p>
                             </div>
-                            <div class="logo-section">
-                                <div style="width: 100px; height: 80px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 1px solid #ccc;">
-                                    DepEd Logo
+                            <div>
+                                <div>
+                                    <img src="../../assets/image/deped.png" alt="No Image"
+                                            style="width: 150px; height: 70px; transform: translateX(-30px);">
                                 </div>
                             </div>
                         </div>

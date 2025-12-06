@@ -1,112 +1,112 @@
 <style>
-main {
-    font-family: Arial, sans-serif;
-    background-color: #f8f9fa;
-    padding: 20px;
-    max-width: 80vw;
-    max-height: 88vh !important;
-    overflow: auto !important;
-}
+    main {
+        font-family: Arial, sans-serif;
+        background-color: #f8f9fa;
+        padding: 20px;
+        max-width: 80vw;
+        max-height: 88vh !important;
+        overflow: auto !important;
+    }
 
-.main-container {
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    padding: 20px;
-    margin: 0 auto;
-    min-width: 2500px !important;
-    /* overflow: auto !important; */
-}
+    .main-container {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin: 0 auto;
+        min-width: 2500px !important;
+        /* overflow: auto !important; */
+    }
 
-.scroll-container {
-    width: 100%;
-    /* overflow-x: auto; */
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    margin-top: 20px;
-}
+    .scroll-container {
+        width: 100%;
+        /* overflow-x: auto; */
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        margin-top: 20px;
+    }
 
-.form-table {
-    min-width: 2500px;
-    /* Increased to ensure scrolling */
-    width: 100%;
-}
+    .form-table {
+        min-width: 2500px;
+        /* Increased to ensure scrolling */
+        width: 100%;
+    }
 
-.form-table>div {
-    display: flex;
-    border-bottom: 1px solid #dee2e6;
-}
+    .form-table>div {
+        display: flex;
+        border-bottom: 1px solid #dee2e6;
+    }
 
-.form-table>div>div {
-    padding: 8px;
-    border-right: 1px solid #dee2e6;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-}
+    .form-table>div>div {
+        padding: 8px;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
 
-.form-table>div>div:last-child {
-    border-right: none;
-}
+    .form-table>div>div:last-child {
+        border-right: none;
+    }
 
-.header-row {
-    background-color: #f8f9fa;
-    font-weight: bold;
-}
+    .header-row {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
 
-input {
-    border: 1px solid #ced4da;
-    padding: 4px 8px;
-    border-radius: 4px;
-    width: 100%;
-    box-sizing: border-box;
-}
+    input {
+        border: 1px solid #ced4da;
+        padding: 4px 8px;
+        border-radius: 4px;
+        width: 100%;
+        box-sizing: border-box;
+    }
 
-.nested-columns {
-    display: flex;
-    flex-direction: column;
-}
+    .nested-columns {
+        display: flex;
+        flex-direction: column;
+    }
 
-.nested-row {
-    display: flex;
-    flex: 1;
-}
+    .nested-row {
+        display: flex;
+        flex: 1;
+    }
 
-.nested-cell {
-    flex: 1;
-    border-right: 1px solid #dee2e6;
-    padding: 4px;
-    text-align: center;
-    font-size: 0.85rem;
-}
+    .nested-cell {
+        flex: 1;
+        border-right: 1px solid #dee2e6;
+        padding: 4px;
+        text-align: center;
+        font-size: 0.85rem;
+    }
 
-.nested-cell:last-child {
-    border-right: none;
-}
+    .nested-cell:last-child {
+        border-right: none;
+    }
 
-.scroll-indicator {
-    text-align: center;
-    color: #6c757d;
-    font-size: 0.9rem;
-    margin-top: 5px;
-}
+    .scroll-indicator {
+        text-align: center;
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-top: 5px;
+    }
 
-.form-title {
-    border-bottom: 2px solid #0d6efd;
-    padding-bottom: 10px;
-    margin-bottom: 20px;
-}
+    .form-title {
+        border-bottom: 2px solid #0d6efd;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
 
-.form-section {
-    margin-bottom: 15px;
-}
+    .form-section {
+        margin-bottom: 15px;
+    }
 </style>
 <main>
-    <?php
-$stmt = $pdo->prepare("SELECT * FROM sf_add_data");
-$stmt->execute();
-$data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
+<?php
+    $stmt = $pdo->prepare("SELECT * FROM sf_add_data");
+    $stmt->execute();
+    $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
 ?>
 
     <form class="main-container" id="sfFour-form">
@@ -177,22 +177,22 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
 
         <div class="scroll-container">
             <style>
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                text-align: center;
-            }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    text-align: center;
+                }
 
-            th,
-            td {
-                border: 1px solid #000;
-                padding: 5px;
-                vertical-align: middle;
-            }
+                th,
+                td {
+                    border: 1px solid #000;
+                    padding: 5px;
+                    vertical-align: middle;
+                }
 
-            th {
-                background: #f8f8f8;
-            }
+                th {
+                    background: #f8f8f8;
+                }
             </style>
 
             <div class="">
@@ -273,6 +273,7 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                         INNER JOIN student st ON e.student_id = st.student_id
                         WHERE e.enrolment_status = 'Approved'
                         GROUP BY s.section_name, e.Grade_level, u.user_id, u.firstname, u.lastname
+                        ORDER BY e.Grade_level ASC
                     ");
                     $stmt->execute();
                     $advisers = $stmt->fetchAll(PDO::FETCH_ASSOC);

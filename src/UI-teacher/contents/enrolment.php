@@ -20,7 +20,7 @@
 <!-- Search and Filters -->
 
 <div class="row g-2  justify-content-between">
-    <div class="row mb-3  justify-content-between">
+    <div class="row mb-3  justify-content-start">
         <div class="col-md-4">
             <input type="text" id="searchInput" name="search" class="form-control"
                 placeholder="Search by name, role, status, or date...">
@@ -35,23 +35,21 @@
                 <option value="rejected">Rejected</option>
             </select>
         </div>
-        <div class="col-md-4">
-            <select id="categoryFilter" name="gradeLevelCategory" class="form-select">
-                <option value="">Grade Level</option>
-                <option value="Grade 1">Grade 1</option>
-                <option value="Grade 2">Grade 2</option>
-                <option value="Grade 3">Grade 3</option>
-                <option value="Grade 4">Grade 4</option>
-                <option value="Grade 5">Grade 5</option>
-                <option value="Grade 6">Grade 6</option>
-            </select>
-        </div>
     </div>
     <!-- Accounts Displays -->
     <div class="table-container-wrapper">
         <?php
-            $stmt = $pdo->prepare("SELECT * FROM student ORDER BY fname ASC");
-            $stmt->execute();
+            $stmt = $pdo->prepare("SELECT DISTINCT grade_level FROM classes WHERE adviser_id = :adviser_id");
+            $stmt->execute([
+                ':adviser_id' => $user_id
+            ]);
+            $getgrade_lelvel = $stmt->fetch(PDO::FETCH_ASSOC);
+            $grade_level = $getgrade_lelvel["grade_level"];
+            $stmt = $pdo->prepare("SELECT * FROM student WHERE gradeLevel = :gradeLevel
+            ORDER BY fname ASC");
+            $stmt->execute([
+                ':gradeLevel' => $grade_level
+            ]);
             $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $count = 1;
         ?>
@@ -289,7 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
         subjectListContainer.appendChild(listGroup);
     }
 });
-</script><script>
+</script>
+<script>
 document.addEventListener("DOMContentLoaded", function () {
     const searchInput = document.getElementById("searchInput");
     const statusFilter = document.querySelector("select[name='statusCategory']");
@@ -328,5 +327,50 @@ document.addEventListener("DOMContentLoaded", function () {
     searchInput.addEventListener("input", filterTable);
     statusFilter.addEventListener("change", filterTable);
     gradeFilter.addEventListener("change", filterTable);
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const tableRows = document.querySelectorAll('table tbody tr');
+    
+    function filterTable() {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const filterValue = categoryFilter.value.toLowerCase();
+        
+        tableRows.forEach(row => {
+            let showRow = true;
+            
+            // Search filter
+            if (searchTerm) {
+                const rowText = row.textContent.toLowerCase();
+                if (!rowText.includes(searchTerm)) {
+                    showRow = false;
+                }
+            }
+            
+            // Status filter
+            if (filterValue && showRow) {
+                const statusBadge = row.querySelector('.badge');
+                if (statusBadge) {
+                    const statusText = statusBadge.textContent.toLowerCase().trim();
+                    if (statusText !== filterValue) {
+                        showRow = false;
+                    }
+                }
+            }
+            
+            // Show/hide row
+            row.style.display = showRow ? '' : 'none';
+        });
+    }
+    
+    // Add event listeners
+    searchInput.addEventListener('input', filterTable);
+    categoryFilter.addEventListener('change', filterTable);
+    
+    // Initial filter
+    filterTable();
 });
 </script>
