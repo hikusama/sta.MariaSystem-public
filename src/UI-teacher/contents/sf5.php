@@ -176,7 +176,7 @@ function attachRowClickEvents() {
             const gradeLevel = this.dataset.grade;
             const sectionName = this.dataset.section;
             if (sectionId && gradeLevel && sectionName) {
-                window.location.href = `/sta.MariaSystem/src/UI-Admin/contents/schoolform5.php`
+                window.location.href = `/sta.MariaSystem-main/src/UI-Admin/contents/schoolform5.php`
                     + `?section_id=${encodeURIComponent(sectionId)}`
                     + `&grade=${encodeURIComponent(gradeLevel)}`
                     + `&section=${encodeURIComponent(sectionName)}`;
