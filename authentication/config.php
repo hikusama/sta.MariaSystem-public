@@ -362,6 +362,173 @@ function db_connect()
             $pdo->exec($sql);
         }
 
+        try {
+    $pdo->exec("DROP TRIGGER IF EXISTS trg_update_sf9_after_attendance_insert");
+
+    $triggerSQL = "
+        CREATE TRIGGER trg_update_sf9_after_attendance_insert
+        AFTER INSERT ON attendance
+        FOR EACH ROW
+        BEGIN
+            DECLARE attend_month INT;
+
+            IF NEW.morning_attendance IS NOT NULL THEN
+                SET attend_month = MONTH(NEW.morning_attendance);
+            ELSE
+                SET attend_month = MONTH(NEW.afternoon_attendance);
+            END IF;
+
+            IF NEW.attendance_type IN ('Present', 'Late') THEN
+
+                CASE attend_month
+                    WHEN 6 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_june = days_present_june + 1,
+                            days_school_june = days_school_june + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 7 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_july = days_present_july + 1,
+                            days_school_july = days_school_july + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 8 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_aug = days_present_aug + 1,
+                            days_school_aug = days_school_aug + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 9 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_sep = days_present_sep + 1,
+                            days_school_sep = days_school_sep + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 10 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_oct = days_present_oct + 1,
+                            days_school_oct = days_school_oct + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 11 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_nov = days_present_nov + 1,
+                            days_school_nov = days_school_nov + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 12 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_dec = days_present_dec + 1,
+                            days_school_dec = days_school_dec + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 1 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_jan = days_present_jan + 1,
+                            days_school_jan = days_school_jan + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 2 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_feb = days_present_feb + 1,
+                            days_school_feb = days_school_feb + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 3 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_mar = days_present_mar + 1,
+                            days_school_mar = days_school_mar + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 4 THEN 
+                        UPDATE sf9_data SET 
+                            days_present_apr = days_present_apr + 1,
+                            days_school_apr = days_school_apr + 1
+                        WHERE student_id = NEW.student_id;
+                END CASE;
+
+            ELSE
+
+                CASE attend_month
+                    WHEN 6 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_june = days_absent_june + 1,
+                            days_school_june = days_school_june + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 7 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_july = days_absent_july + 1,
+                            days_school_july = days_school_july + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 8 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_aug = days_absent_aug + 1,
+                            days_school_aug = days_school_aug + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 9 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_sep = days_absent_sep + 1,
+                            days_school_sep = days_school_sep + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 10 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_oct = days_absent_oct + 1,
+                            days_school_oct = days_school_oct + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 11 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_nov = days_absent_nov + 1,
+                            days_school_nov = days_school_nov + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 12 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_dec = days_absent_dec + 1,
+                            days_school_dec = days_school_dec + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 1 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_jan = days_absent_jan + 1,
+                            days_school_jan = days_school_jan + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 2 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_feb = days_absent_feb + 1,
+                            days_school_feb = days_school_feb + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 3 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_mar = days_absent_mar + 1,
+                            days_school_mar = days_school_mar + 1
+                        WHERE student_id = NEW.student_id;
+
+                    WHEN 4 THEN 
+                        UPDATE sf9_data SET 
+                            days_absent_apr = days_absent_apr + 1,
+                            days_school_apr = days_school_apr + 1
+                        WHERE student_id = NEW.student_id;
+                END CASE;
+
+            END IF;
+
+        END;
+    ";
+
+    $pdo->exec($triggerSQL);
+
+} catch (PDOException $e) {
+    // Optional: log error
+}
+
        
         $count = $pdo->query("SELECT COUNT(*) FROM admin")->fetchColumn();
         if ($count == 0) {

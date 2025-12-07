@@ -47,31 +47,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
 }
 ?>
 
-<style>
-/* Make SF9 header look like the SF5 header */
-.d-flex.justify-content-between.align-items-center.mb-3 {
-    background-color: #FF3860;
-    color: #fff;
-    padding: 14px 18px;
-    border-radius: 10px;
-    margin-bottom: 15px !important;
-}
-
-/* Header title styling */
-.d-flex.justify-content-between.align-items-center.mb-3 h4 {
-    margin: 0;
-    font-weight: 600;
-    font-size: 1.2rem;
-    color: white;
-}
-
-/* Search input styling */
-.d-flex.justify-content-between.align-items-center.mb-3 input {
-    border-radius: 10px;
-    border: 1px solid #ced4da;
-}
-
-    </style>
 
 <div class="container mt-3">
 
@@ -125,15 +100,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
                     ?>
                 </tbody>
             </table>
-        </div>
-
-        <!-- Empty State -->
-        <div id="noResults" class="text-center py-5 d-none">
-            <div class="empty-state">
-                <i class="fa-solid fa-user-graduate fa-3x text-muted mb-3"></i>
-                <h5>No students found</h5>
-                <p class="text-muted">Try adjusting your search</p>
-            </div>
         </div>
     </div>
 
