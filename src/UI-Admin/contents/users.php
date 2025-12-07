@@ -129,10 +129,10 @@
             $count = 1;
         ?>
 
-        <!-- Fixed Header -->
-        <div class="table-responsive-lg modern-table">
-            <table class="table table-hover table-bordered align-middle text-center text-dark">
-                <thead>
+        <!-- Replace your table containers with this: -->
+        <div class="table-responsive text-center">
+            <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
+                <thead class="sticky-top bg-white" style="top: 0;">
                     <tr>
                         <th width="5%">#</th>
                         <th width="20%">Name</th>
@@ -142,72 +142,72 @@
                         <th width="25%">Action</th>
                     </tr>
                 </thead>
-            </table>
-        </div>
-
-        <!-- Scrollable Body -->
-        <div class="table-body-scroll">
-            <table class="table table-bordered table-sm text-center mb-0">
                 <tbody>
                     <?php
-                    if($users){
-                        foreach($users as $user) : ?>
-                        <tr>
-                            <td width="5%"><?= $count++ ?></td>
-                            <td width="20%">
-                                <?= htmlspecialchars($user["firstname"]) . " " . 
-                                (!empty($user["middlename"]) ? htmlspecialchars(substr($user["middlename"], 0, 1)) . ". " : "") . 
-                                htmlspecialchars($user["lastname"]) ?>
-                            </td>
-                            <td width="15%"><?= htmlspecialchars($user["user_role"]) ?></td>
-                            <td width="15%">
-                                <span class="badge bg-<?= ($user["status"] == 'Active') ? 'success' : 'secondary' ?>">
-                                    <?= htmlspecialchars($user["status"] ?? 'Inactive') ?>
-                                </span>
-                            </td>
-                            <td width="20%"><?= htmlspecialchars($user["created_date"]) ?></td>
-                            <td width="25%">
-                                <div class="d-flex gap-1 justify-content-center">
-                                    <a href="index.php?page=contents/usersProfile&user_id=<?= $user["user_id"] ?>"><button
-                                            type="button" class="btn m-0 btn-info ">View</button></a>
-                                    <form class="status-form">
-                                        <select name="status" class="status-select form-select">
-                                            <option value="">Select Status</option>
-                                            <option value="Active" <?= ($user["status"] === "Active") ? "selected" : "" ?>>
-                                                Active</option>
-                                            <option value="Inactive"
-                                                <?= ($user["status"] === "Inactive") ? "selected" : "" ?>>Inactive</option>
-                                        </select>
-                                        <input type="hidden" name="user_id" value="<?= $user['user_id'] ?>">
-                                    </form>
-
-                                </div>
-                            </td>
-                        </tr>
+            if($users){
+                $count = 1;
+                foreach($users as $user) : ?>
+                    <tr>
+                        <td width="5%"><?= $count++ ?></td>
+                        <td width="20%">
+                            <?= htmlspecialchars($user["firstname"]) . " " . 
+                        (!empty($user["middlename"]) ? htmlspecialchars(substr($user["middlename"], 0, 1)) . ". " : "") . 
+                        htmlspecialchars($user["lastname"]) ?>
+                        </td>
+                        <td width="15%"><?= htmlspecialchars($user["user_role"]) ?></td>
+                        <td width="15%">
+                            <span class="badge bg-<?= ($user["status"] == 'Active') ? 'success' : 'secondary' ?>">
+                                <?= htmlspecialchars($user["status"] ?? 'Inactive') ?>
+                            </span>
+                        </td>
+                        <td width="20%"><?= htmlspecialchars($user["created_date"]) ?></td>
+                        <td width="25%">
+                            <div class="d-flex gap-1 justify-content-center">
+                                <a href="index.php?page=contents/usersProfile&user_id=<?= $user["user_id"] ?>">
+                                    <button type="button" class="btn m-0 btn-info btn-sm">View</button>
+                                </a>
+                                <form class="status-form">
+                                    <select name="status" class="status-select form-select form-select-sm">
+                                        <option value="">Select Status</option>
+                                        <option value="Active" <?= ($user["status"] === "Active") ? "selected" : "" ?>>
+                                            Active</option>
+                                        <option value="Inactive"
+                                            <?= ($user["status"] === "Inactive") ? "selected" : "" ?>>Inactive</option>
+                                    </select>
+                                    <input type="hidden" name="user_id" value="<?= $user['user_id'] ?>">
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
                     <?php endforeach;
-                    }else{
-                            echo '<tr><td colspan="6">No users found.</td></tr>';
-                    } ?>
+            } else {
+                echo '<tr><td colspan="6" class="text-center py-3">No users found.</td></tr>';
+            } ?>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     const categoryFilter = document.getElementById('categoryFilter');
-    const tableBody = document.querySelector('.table-body-scroll tbody');
-    const originalRows = Array.from(tableBody.querySelectorAll('tr'));
+    
+    // Get the correct table body - updated selector
+    const tableBody = document.querySelector('.table-responsive:last-child tbody');
+    
+    // Store original rows for filtering
+    let originalRows = Array.from(tableBody.querySelectorAll('tr'));
 
+    // Extract row data for filtering
     const rowData = originalRows.map(row => {
         const cells = row.querySelectorAll('td');
         return {
             element: row,
-            name: cells[1].textContent.toLowerCase(),
-            role: cells[2].textContent.toLowerCase(),
-            status: cells[3].textContent.toLowerCase(),
-            date: cells[4].textContent.toLowerCase()
+            name: cells[1]?.textContent?.toLowerCase() || '',
+            role: cells[2]?.textContent?.toLowerCase() || '',
+            status: cells[3]?.textContent?.toLowerCase() || '',
+            date: cells[4]?.textContent?.toLowerCase() || ''
         };
     });
 
@@ -215,6 +215,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchTerm = searchInput.value.toLowerCase();
         const categoryValue = categoryFilter.value.toLowerCase();
 
+        let visibleCount = 1;
+        
         rowData.forEach((data, index) => {
             const matchesSearch = searchTerm === '' ||
                 data.name.includes(searchTerm) ||
@@ -227,26 +229,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (matchesSearch && matchesCategory) {
                 data.element.style.display = '';
-                data.element.querySelector('td:first-child').textContent = index + 1;
+                // Update the row number
+                data.element.querySelector('td:first-child').textContent = visibleCount++;
             } else {
                 data.element.style.display = 'none';
             }
         });
 
-        renumberVisibleRows();
-    }
-
-    function renumberVisibleRows() {
-        let visibleCount = 1;
-        rowData.forEach(data => {
-            if (data.element.style.display !== 'none') {
-                data.element.querySelector('td:first-child').textContent = visibleCount++;
+        // Handle empty results
+        const visibleRows = rowData.filter(data => data.element.style.display !== 'none');
+        if (visibleRows.length === 0) {
+            // Add a "no results" row if needed
+            let noResultsRow = tableBody.querySelector('.no-results-row');
+            if (!noResultsRow) {
+                noResultsRow = document.createElement('tr');
+                noResultsRow.className = 'no-results-row';
+                noResultsRow.innerHTML = '<td colspan="6" class="text-center py-3">No users found matching your criteria.</td>';
+                tableBody.appendChild(noResultsRow);
             }
-        });
+            noResultsRow.style.display = '';
+        } else {
+            // Remove "no results" row if it exists
+            const noResultsRow = tableBody.querySelector('.no-results-row');
+            if (noResultsRow) {
+                noResultsRow.style.display = 'none';
+            }
+        }
     }
-
-    searchInput.addEventListener('input', filterTable);
-    categoryFilter.addEventListener('change', filterTable);
 
     function clearFilters() {
         searchInput.value = '';
@@ -254,10 +263,20 @@ document.addEventListener('DOMContentLoaded', function() {
         filterTable();
     }
 
-    clearButton.className = 'btn btn-secondary btn-sm';
-    clearButton.addEventListener('click', clearFilters);
+    // Create clear button if you want one (optional)
+    // const clearButton = document.createElement('button');
+    // clearButton.textContent = 'Clear';
+    // clearButton.className = 'btn btn-secondary btn-sm mt-2';
+    // clearButton.addEventListener('click', clearFilters);
+    
+    // Add clear button near the category filter if needed
+    // categoryFilter.parentNode.appendChild(clearButton);
 
-    categoryFilter.parentNode.appendChild(clearButton);
+    // Add event listeners
+    searchInput.addEventListener('input', filterTable);
+    categoryFilter.addEventListener('change', filterTable);
 
+    // Initial filter (in case there are any default values)
+    filterTable();
 });
 </script>

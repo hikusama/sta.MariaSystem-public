@@ -55,8 +55,8 @@
         ?>
 
         <!-- Fixed Header -->
-        <div class="table-header">
-            <table class="table table-bordered table-sm text-center mb-0">
+        <div class="table-responsive text-center">
+            <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
                 <thead>
                     <tr>
                         <th width="5%">#</th>
@@ -67,12 +67,6 @@
                         <th width="25%">Action</th>
                     </tr>
                 </thead>
-            </table>
-        </div>
-
-        <!-- Scrollable Body -->
-        <div class="table-body-scroll">
-            <table class="table table-bordered table-sm text-center mb-0">
                 <tbody>
                     <?php foreach($classrooms as $user) : ?>
                     <tr>
@@ -205,24 +199,85 @@
     </div>
 </div>
 <script>
-    // Simple Search Implementation
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.querySelector('input[name="search"]');
-    const tableBody = document.querySelector('.table-body-scroll tbody');
+    const searchInput = document.getElementById('searchInput');
+    const tableBody = document.querySelector('.table-container-wrapper tbody');
     
     if (!searchInput || !tableBody) return;
     
-    // Store original rows
+    // Store original rows (skip the header row)
     const originalRows = Array.from(tableBody.querySelectorAll('tr'));
     
-    searchInput.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase().trim();
+    // Extract row data for better filtering
+    const rowData = originalRows.map(row => {
+        const cells = row.querySelectorAll('td');
+        return {
+            element: row,
+            roomName: cells[1]?.textContent?.toLowerCase() || '',
+            roomType: cells[2]?.textContent?.toLowerCase() || '',
+            roomStatus: cells[3]?.textContent?.toLowerCase() || '',
+            createdDate: cells[4]?.textContent?.toLowerCase() || ''
+        };
+    });
+
+    function filterTable() {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        let visibleCount = 1;
         
-        originalRows.forEach(row => {
-            const rowText = row.textContent.toLowerCase();
-            row.style.display = searchTerm === '' || rowText.includes(searchTerm) 
-                ? '' 
-                : 'none';
+        rowData.forEach((data, index) => {
+            const matchesSearch = searchTerm === '' ||
+                data.roomName.includes(searchTerm) ||
+                data.roomType.includes(searchTerm) ||
+                data.roomStatus.includes(searchTerm) ||
+                data.createdDate.includes(searchTerm);
+
+            if (matchesSearch) {
+                data.element.style.display = '';
+                // Update the row number in first cell
+                data.element.querySelector('td:first-child').textContent = visibleCount++;
+            } else {
+                data.element.style.display = 'none';
+            }
+        });
+        
+        // Handle no results
+        const visibleRows = rowData.filter(data => data.element.style.display !== 'none');
+        if (visibleRows.length === 0) {
+            // Check if no results row already exists
+            let noResultsRow = tableBody.querySelector('.no-results-row');
+            if (!noResultsRow) {
+                noResultsRow = document.createElement('tr');
+                noResultsRow.className = 'no-results-row';
+                noResultsRow.innerHTML = '<td colspan="6" class="text-center py-3">No classrooms found matching your search.</td>';
+                tableBody.appendChild(noResultsRow);
+            }
+            noResultsRow.style.display = '';
+        } else {
+            // Remove no results row if it exists
+            const noResultsRow = tableBody.querySelector('.no-results-row');
+            if (noResultsRow) {
+                noResultsRow.style.display = 'none';
+            }
+        }
+    }
+
+    // Add event listener for search input
+    searchInput.addEventListener('input', filterTable);
+    
+    // Add event listeners for edit and delete buttons (optional but good practice)
+    document.querySelectorAll('.editClassroomsBtn').forEach(button => {
+        button.addEventListener('click', function() {
+            const classroomId = this.getAttribute('data-id');
+            // Add your edit functionality here
+            console.log('Edit classroom ID:', classroomId);
+        });
+    });
+
+    document.querySelectorAll('.deleteClassroomBtn').forEach(button => {
+        button.addEventListener('click', function() {
+            const classroomId = this.getAttribute('data-id');
+            // Add your delete functionality here
+            console.log('Delete classroom ID:', classroomId);
         });
     });
 });

@@ -12,7 +12,7 @@
         <div class="card-header bg-danger text-white text-center shadow p-2 py-3 rounded-top-2">
             <h4 class="card-title text-white mt-1 loginAccess">LOGIN</h4>
         </div>
-        <div class="card-body shadow loginBody">
+        <div class="card-body shadow loginBody p-2">
             <form action="../authentication/auth.php" class="form-floating mt-2 p-3" method="post">
                 <input type="hidden" name="csrf_token" value="<?= $csrf_token; ?>">
                 <input type="hidden" name="loginAuth" value="true">

@@ -48,8 +48,8 @@
         ?>
 
         <!-- Fixed Header -->
-        <div class="table-responsive-lg modern-table">
-            <table class="table table-hover table-bordered align-middle text-center text-dark">
+        <div class="table-responsive text-center">
+            <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
                 <thead>
                     <tr>
                         <th width="5%">#</th>
@@ -61,12 +61,6 @@
                         <th width="15%">Action</th>
                     </tr>
                 </thead>
-            </table>
-        </div>
-
-        <!-- Scrollable Body -->
-        <div class="table-responsive-lg modern-table">
-            <table class="table table-hover table-bordered align-middle text-center text-dark">
                 <tbody>
                     <?php
                         if($users){
