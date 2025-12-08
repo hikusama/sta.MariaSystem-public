@@ -40,20 +40,20 @@
                         ?>
                         <div class="col-md-4 col-6 mb-3">
                             <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($school_year) ?></h3>
-                                <small class="text-muted">Total School Years</small>
+                                <h3 class="text-white mb-1"><?= count($school_year) ?></h3>
+                                <small class="text-white">Total School Years</small>
                             </div>
                         </div>
                         <div class="col-md-4 col-6 mb-3">
                             <div class="p-3 bg-success bg-opacity-10 rounded">
-                                <h3 class="text-success mb-1"><?= count($activeCount) ?></h3>
-                                <small class="text-muted">Active</small>
+                                <h3 class="text-white mb-1"><?= count($activeCount) ?></h3>
+                                <small class="text-white">Active</small>
                             </div>
                         </div>
                         <div class="col-md-4 col-6 mb-3">
                             <div class="p-3 bg-secondary bg-opacity-10 rounded">
-                                <h3 class="text-secondary mb-1"><?= count($inactiveCount) ?></h3>
-                                <small class="text-muted">Inactive</small>
+                                <h3 class="text-white mb-1"><?= count($inactiveCount) ?></h3>
+                                <small class="text-white">Inactive</small>
                             </div>
                         </div>
                     </div>

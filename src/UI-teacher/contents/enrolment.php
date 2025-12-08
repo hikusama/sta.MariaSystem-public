@@ -79,26 +79,26 @@
                         ?>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($users) ?></h3>
-                                <small class="text-muted">Total Students</small>
+                                <h3 class="text-white mb-1"><?= count($users) ?></h3>
+                                <small class="text-white">Total Students</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-success bg-opacity-10 rounded">
-                                <h3 class="text-success mb-1"><?= count($enrolledCount) ?></h3>
-                                <small class="text-muted">Enrolled</small>
+                                <h3 class="text-white mb-1"><?= count($enrolledCount) ?></h3>
+                                <small class="text-white">Enrolled</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-secondary bg-opacity-10 rounded">
-                                <h3 class="text-secondary mb-1"><?= count($pendingCount) ?></h3>
-                                <small class="text-muted">Pending</small>
+                                <h3 class="text-white mb-1"><?= count($pendingCount) ?></h3>
+                                <small class="text-white">Pending</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-danger bg-opacity-10 rounded">
-                                <h3 class="text-danger mb-1"><?= count($rejectedCount) ?></h3>
-                                <small class="text-muted">Rejected</small>
+                                <h3 class="text-white mb-1"><?= count($rejectedCount) ?></h3>
+                                <small class="text-white">Rejected</small>
                             </div>
                         </div>
                     </div>

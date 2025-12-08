@@ -182,6 +182,7 @@ function db_connect()
                 parent_id INT(11) NOT NULL,
                 title VARCHAR(100) NOT NULL,
                 description TEXT NOT NULL,
+                feed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (parent_id) REFERENCES users(user_id) ON DELETE CASCADE
             )",
             "CREATE TABLE IF NOT EXISTS sf_add_data (

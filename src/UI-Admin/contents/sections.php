@@ -42,26 +42,26 @@
                         ?>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($sections) ?></h3>
-                                <small class="text-muted">Total Sections</small>
+                                <h3 class="text-white mb-1"><?= count($sections) ?></h3>
+                                <small class="text-white">Total Sections</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-success bg-opacity-10 rounded">
-                                <h3 class="text-success mb-1"><?= count($availableCount) ?></h3>
-                                <small class="text-muted">Available</small>
+                                <h3 class="text-white mb-1"><?= count($availableCount) ?></h3>
+                                <small class="text-white">Available</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-danger bg-opacity-10 rounded">
-                                <h3 class="text-danger mb-1"><?= count($unavailableCount) ?></h3>
-                                <small class="text-muted">Unavailable</small>
+                                <h3 class="text-white mb-1"><?= count($unavailableCount) ?></h3>
+                                <small class="text-white">Unavailable</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-info bg-opacity-10 rounded">
-                                <h3 class="text-info mb-1"><?= count($gradeLevels) ?></h3>
-                                <small class="text-muted">Grade Levels</small>
+                                <h3 class="text-white mb-1"><?= count($gradeLevels) ?></h3>
+                                <small class="text-white">Grade Levels</small>
                             </div>
                         </div>
                     </div>

@@ -282,3 +282,10 @@ if($action === 'sfEight_form'){
     }
     exit();
 }
+if($action === 'deleteFeedback_form'){
+    $registration = $crud->deleteFeedback_form();
+    if($registration){
+        echo $registration;
+    }
+    exit();
+}

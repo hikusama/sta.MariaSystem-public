@@ -1,5 +1,6 @@
 <?php
-    $stmt = $pdo->prepare("SELECT * FROM feeback");
+    $stmt = $pdo->prepare("SELECT feeback.*, users.* FROM feeback
+                INNER JOIN users ON feeback.parent_id = users.user_id");
             $stmt->execute();
             $feedbacks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -20,10 +21,6 @@
                 </div>
             </div>
             <div class="col-md-4 text-end">
-                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#createFeedback"
-                    id="createFeedbackBtn">
-                    <i class="fa-solid fa-plus me-2"></i> Create Feedback
-                </button>
             </div>
         </div>
 
@@ -120,10 +117,7 @@
                                 <div class="feedback-description" style="max-height: 60px; overflow: hidden; text-overflow: ellipsis;">
                                     <?= htmlspecialchars($feedback["description"]) ?>
                                 </div>
-                                <a href="#" class="text-primary read-more-link" style="font-size: 0.75rem;" 
-                                   data-description="<?= htmlspecialchars($feedback["description"]) ?>">
-                                    Read more
-                                </a>
+                                
                             </td>
                             <td width="15%">
                                 <span class="badge bg-secondary">
@@ -133,16 +127,20 @@
                             </td>
                             <td width="15%">
                                 <small>
-                                    <?= isset($feedback['created_at']) ? date('M d, Y', strtotime($feedback["created_at"])) : 'N/A' ?>
+                                    <?= isset($feedback['feed_at']) ? date('M d, Y', strtotime($feedback["feed_at"])) : 'N/A' ?>
                                 </small>
                             </td>
                             <td width="15%">
                                 <div class="d-flex gap-1 justify-content-center">
-                                    <button type="button" data-id="<?= $feedback['parent_id'] ?>"
-                                        class="btn btn-sm btn-info viewFeedbackBtn" title="View Details">
-                                        <i class="fa-solid fa-eye me-1"></i> View
-                                    </button>
-                                    <button type="button" data-id="<?= $feedback['parent_id'] ?>"
+                                    <a href="#" class="text-dark btn btn-sm btn-info read-more-link" style="font-size: 0.75rem;" 
+                                        data-title="<?= htmlspecialchars($feedback["title"]) ?>"
+                                        data-description="<?= htmlspecialchars($feedback["description"]) ?>"
+                                        data-feed_at="<?= htmlspecialchars($feedback["feed_at"]) ?>"
+                                        data-name="<?= htmlspecialchars($parentName ) ?>"
+                                        >
+                                        Read more
+                                    </a>
+                                    <button type="button" data-id="<?= $feedback['feeback_id'] ?>"
                                         class="btn btn-sm btn-danger deleteFeedbackBtn" title="Delete Feedback">
                                         <i class="fa-solid fa-trash me-1"></i> Delete
                                     </button>
@@ -171,40 +169,6 @@
     </div>
 </main>
 
-<!-- Create Feedback Modal -->
-<div class="modal fade" id="createFeedback" tabindex="-1" aria-labelledby="createFeedbackLabel" aria-hidden="true">
-    <div class="modal-dialog modal-md">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title text-white" id="createFeedbackLabel">
-                    <i class="fa-solid fa-plus me-2"></i>Create New Feedback
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                    aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form class="row g-3" id="feedback-form" method="post">
-                    <input type="hidden" name="parent_id" value="<?= $user_id ?>">
-                    <div class="my-2">
-                        <label class="form-label">Feedback Title <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="title" 
-                               placeholder="Title or concern, ex. cleanliness" required>
-                    </div>
-                    <div class="my-2">
-                        <label class="form-label">Description <span class="text-danger">*</span></label>
-                        <textarea name="description" class="form-control" rows="4" 
-                                  placeholder="Please provide detailed feedback..." required></textarea>
-                    </div>
-                    <div class="col-12 text-center mt-3">
-                        <button type="submit" class="btn btn-danger px-5">
-                            <i class="fa-solid fa-paper-plane me-2"></i>Submit Feedback
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- View Feedback Modal -->
 <div class="modal fade" id="viewFeedback" tabindex="-1" aria-labelledby="viewFeedbackLabel" aria-hidden="true">
@@ -220,22 +184,22 @@
             <div class="modal-body">
                 <div class="row">
                     <div class="col-md-12 mb-3">
-                        <h6 class="text-muted mb-1">Title</h6>
-                        <h5 id="feedbackViewTitle" class="text-primary"></h5>
+                        <h6 class="text-dark mb-1">Title</h6>
+                        <h5 id="feedbackViewTitle" class="text-dark"></h5>
                     </div>
                     <div class="col-md-12 mb-3">
-                        <h6 class="text-muted mb-1">Submitted By</h6>
-                        <p id="feedbackViewAuthor" class="mb-0"></p>
+                        <h6 class="text-dark mb-1">Submitted By</h6>
+                        <p id="feedbackViewAuthor" class="mb-0 text-dark"></p>
                     </div>
                     <div class="col-md-12 mb-3">
-                        <h6 class="text-muted mb-1">Submitted Date</h6>
-                        <p id="feedbackViewDate" class="mb-0"></p>
+                        <h6 class="text-dark mb-1">Submitted Date</h6>
+                        <p id="feedbackViewDate" class="mb-0 text-dark"></p>
                     </div>
                     <div class="col-md-12">
-                        <h6 class="text-muted mb-1">Description</h6>
+                        <h6 class="text-dark mb-1">Description</h6>
                         <div class="card bg-light">
                             <div class="card-body">
-                                <p id="feedbackViewDescription" class="mb-0"></p>
+                                <p id="feedbackViewDescription" class="mb-0 text-dark"></p>
                             </div>
                         </div>
                     </div>
@@ -262,8 +226,8 @@
                     aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form class="row g-3" id="deleteFeedback-form" method="post">
-                    <input type="hidden" name="feedback_id" id="feedback_id_delete">
+                <form class="row g-3" id="deleteFeedback-form">
+                    <input type="text" name="feedback_id" id="feedback_id_delete">
                     <div class="col-12 text-center mb-3">
                         <i class="fa-solid fa-triangle-exclamation fa-3x text-warning mb-3"></i>
                         <h5>Confirm Deletion</h5>
@@ -388,10 +352,15 @@ document.addEventListener('DOMContentLoaded', function() {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             const description = this.getAttribute('data-description');
+            const title = this.getAttribute('data-title');
+            const name = this.getAttribute('data-name');
+            const feed_at = this.getAttribute('data-feed_at');
             
             // Show description in modal
             document.getElementById('feedbackViewDescription').textContent = description;
-            document.getElementById('feedbackViewTitle').textContent = "Full Description";
+            document.getElementById('feedbackViewTitle').textContent = title;
+            document.getElementById('feedbackViewAuthor').textContent = name;
+            document.getElementById('feedbackViewDate').textContent = feed_at;
             
             const modal = new bootstrap.Modal(document.getElementById('viewFeedback'));
             modal.show();

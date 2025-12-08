@@ -2373,5 +2373,25 @@ class Action
         }
     }
 
+    function deleteFeedback_form(){
+        try {
+            $feedback_id = $_POST["feedback_id"];
+
+            $stmt = $this->db->prepare("DELETE FROM feeback WHERE feeback_id = :feeback_id");
+            $stmt->execute([
+                'feeback_id' => $feedback_id
+            ]);
+            return json_encode([
+                'status' => 1,
+                'message' => 'Feedback deleted successfully!'
+            ]);
+        } catch (PDOException $e) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'An error occured: ' . $e->getMessage()
+            ]);
+        }
+    }
+
 
 }
