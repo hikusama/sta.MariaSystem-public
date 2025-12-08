@@ -296,7 +296,7 @@ body { font-family:'Poppins',sans-serif; background:#f4f5f7; padding-bottom:120p
 </head>
 <body>
 <div class="header">
-<img src="/sta.MariaSystem/assets/image/logo2.png" alt="Logo">
+<img src="/sta.MariaSystem-main/assets/image/logo2.png" alt="Logo">
 <h4>STA. MARIA WEB SYSTEM</h4>
 </div>
 <div class="container-fluid mt-4">
@@ -503,5 +503,6 @@ updateSummaryTable();
 </script>
 </body>
 </html>
+
 
 
