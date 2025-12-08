@@ -32,6 +32,48 @@
         </div>
     </div>
 
+     <!-- Summary Statistics -->
+    <!-- <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="p-3 bg-primary bg-opacity-10 rounded">
+                                <h3 class="text-primary mb-1"><?= count($users) ?></h3>
+                                <small class="text-muted">Total Students</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <?php 
+                            $activeCount = array_filter($users, fn($u) => $u['enrolment_status'] === 'active');
+                            ?>
+                            <div class="p-3 bg-success bg-opacity-10 rounded">
+                                <h3 class="text-success mb-1"><?= count($activeCount) ?></h3>
+                                <small class="text-muted">Active Students</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <?php 
+                            $inactiveCount = array_filter($users, fn($u) => $u['enrolment_status'] !== 'active');
+                            ?>
+                            <div class="p-3 bg-secondary bg-opacity-10 rounded">
+                                <h3 class="text-secondary mb-1"><?= count($inactiveCount) ?></h3>
+                                <small class="text-muted">Inactive Students</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="p-3 bg-info bg-opacity-10 rounded">
+                                <h3 class="text-info mb-1"><?= count(array_unique(array_column($users, 'section_name'))) ?></h3>
+                                <small class="text-muted">Sections</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> -->
+
     <!-- Students Table -->
     <div class="table-container-wrapper p-0">
         <!-- Fixed Header -->
@@ -115,47 +157,7 @@
         </div>
     </div>
 
-    <!-- Summary Statistics -->
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-md-3 col-6 mb-3">
-                            <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($users) ?></h3>
-                                <small class="text-muted">Total Students</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <?php 
-                            $activeCount = array_filter($users, fn($u) => $u['enrolment_status'] === 'active');
-                            ?>
-                            <div class="p-3 bg-success bg-opacity-10 rounded">
-                                <h3 class="text-success mb-1"><?= count($activeCount) ?></h3>
-                                <small class="text-muted">Active Students</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <?php 
-                            $inactiveCount = array_filter($users, fn($u) => $u['enrolment_status'] !== 'active');
-                            ?>
-                            <div class="p-3 bg-secondary bg-opacity-10 rounded">
-                                <h3 class="text-secondary mb-1"><?= count($inactiveCount) ?></h3>
-                                <small class="text-muted">Inactive Students</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <div class="p-3 bg-info bg-opacity-10 rounded">
-                                <h3 class="text-info mb-1"><?= count(array_unique(array_column($users, 'section_name'))) ?></h3>
-                                <small class="text-muted">Sections</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+   
 </div>
 
 <script>

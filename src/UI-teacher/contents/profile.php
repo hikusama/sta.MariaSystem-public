@@ -1,7 +1,9 @@
 <?php
 // Use prepared statement with parameter binding
 $student_id = $_GET["student_id"] ?? '';
-$query = "SELECT student.*, users.*, stuenrolmentinfo.*, parents_info.* 
+$query = "SELECT student.*, 
+            student.student_profile AS student_profile_img,
+            users.*, stuenrolmentinfo.*, parents_info.* 
           FROM student
           LEFT JOIN users ON student.guardian_id = users.user_id
           LEFT JOIN stuenrolmentinfo ON student.student_id = stuenrolmentinfo.student_id 
@@ -19,17 +21,66 @@ if (!empty($student_info["birthdate"])) {
     $age = $birthDate->diff($today)->y;
 }
 
-// Fetch attendance data
+// Fetch attendance data with accurate summary
 $attendanceData = [];
+$attendanceSummary = ['present' => 0, 'absent' => 0, 'late' => 0, 'half_day' => 0, 'half_day_late' => 0];
+$attendanceList = []; // For list view
+
 if ($student_id) {
-    $stmt = $pdo->prepare("SELECT * FROM attendance WHERE student_id = :student_id");
+    $stmt = $pdo->prepare("SELECT * FROM attendance WHERE student_id = :student_id ORDER BY morning_attendance DESC");
     $stmt->execute([':student_id' => $student_id]);
-    $attendanceData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $attendanceRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Organize attendance by date
+    foreach ($attendanceRecords as $record) {
+        $date = date('Y-m-d', strtotime($record['morning_attendance']));
+        
+        // Determine daily status based on morning and afternoon
+        $morning_status = $record['attendance_type'] ?? null;
+        $afternoon_status = $record['A_attendance_type'] ?? null;
+        $summary = $record['attendance_summary'] ?? null;
+        
+        $attendanceData[$date] = [
+            'morning' => $morning_status,
+            'afternoon' => $afternoon_status,
+            'summary' => $summary,
+            'recorded_at' => $record['attendance_at'] ?? null
+        ];
+        
+        // For list view
+        $attendanceList[] = [
+            'date' => $date,
+            'morning' => $morning_status,
+            'afternoon' => $afternoon_status,
+            'summary' => $summary,
+            'recorded_at' => $record['attendance_at'] ?? null
+        ];
+        
+        // Update summary counts
+        if ($summary) {
+            switch(strtolower($summary)) {
+                case 'present':
+                    $attendanceSummary['present']++;
+                    break;
+                case 'absent':
+                    $attendanceSummary['absent']++;
+                    break;
+                case 'late':
+                    $attendanceSummary['late']++;
+                    break;
+                case 'half-day':
+                    $attendanceSummary['half_day']++;
+                    break;
+                case 'half-day-late':
+                    $attendanceSummary['half_day_late']++;
+                    break;
+            }
+        }
+    }
 }
 
-// Fetch grades data (you'll need to implement this based on your structure)
+// Fetch grades data
 $gradesData = [];
-// Add your grades query here
 ?>
 <!-- Main Container -->
 <div class="student-profile-container">
@@ -68,10 +119,12 @@ $gradesData = [];
                     <div class="text-center mb-4">
                         <div class="profile-avatar-container mx-auto mb-3">
                             <div class="profile-avatar position-relative">
-                                <img src="../../assets/image/users.png" 
-                                     class="rounded-circle border shadow-sm"
-                                     alt="Student Picture"
-                                     style="width: 180px; height: 180px; object-fit: cover;">
+                                <?php if($student_info["student_profile_img"] !== null): ?>
+                                    <img src="../../authentication/uploads/<?php echo htmlspecialchars($student_info["student_profile_img"]);?>" 
+                                         class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Profile Picture">
+                                <?php else: ?>
+                                    <img src="../../assets/image/users.png" class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Default Profile">
+                                <?php endif; ?>
                                 <span class="badge bg-primary position-absolute top-0 end-0 rounded-pill p-2">
                                     <i class="fas fa-graduation-cap"></i>
                                 </span>
@@ -105,16 +158,49 @@ $gradesData = [];
                         <?php endif; ?>
                     </div>
                     
-                    <!-- Quick Stats -->
+                    <!-- Attendance Summary Stats -->
                     <div class="profile-stats mt-4 pt-4 border-top">
                         <h6 class="fw-semibold mb-3 text-muted">
-                            <i class="fas fa-chart-line me-2"></i>Quick Overview
+                            <i class="fas fa-chart-line me-2"></i>Attendance Summary
+                        </h6>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="stat-card p-3 rounded-3" style="background: #d1e7dd;">
+                                    <small class="text-muted d-block">Present</small>
+                                    <div class="fw-bold fs-5 text-success"><?= $attendanceSummary['present'] ?></div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="stat-card p-3 rounded-3" style="background: #f8d7da;">
+                                    <small class="text-muted d-block">Absent</small>
+                                    <div class="fw-bold fs-5 text-danger"><?= $attendanceSummary['absent'] ?></div>
+                                </div>
+                            </div>
+                            <div class="col-6 mt-2">
+                                <div class="stat-card p-3 rounded-3" style="background: #fff3cd;">
+                                    <small class="text-muted d-block">Late</small>
+                                    <div class="fw-bold fs-5 text-warning"><?= $attendanceSummary['late'] ?></div>
+                                </div>
+                            </div>
+                            <div class="col-6 mt-2">
+                                <div class="stat-card p-3 rounded-3" style="background: #cff4fc;">
+                                    <small class="text-muted d-block">Half Day</small>
+                                    <div class="fw-bold fs-5 text-info"><?= $attendanceSummary['half_day'] + $attendanceSummary['half_day_late'] ?></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Stats -->
+                    <div class="quick-stats mt-4 pt-4 border-top">
+                        <h6 class="fw-semibold mb-3 text-muted">
+                            <i class="fas fa-info-circle me-2"></i>Quick Info
                         </h6>
                         <div class="row g-2">
                             <div class="col-6">
                                 <div class="stat-card p-3 rounded-3 bg-light">
                                     <small class="text-muted d-block">Grade Level</small>
-                                    <div  class="fw-bold fs-5">
+                                    <div class="fw-bold fs-5">
                                         <?= htmlspecialchars($student_info["gradeLevel"] ?? 'N/A') ?>
                                     </div>
                                 </div>
@@ -133,7 +219,11 @@ $gradesData = [];
                                         'active' => ['success', 'Enrolled'],
                                         'pending' => ['warning', 'Pending'],
                                         'transferred' => ['info', 'Transferred'],
-                                        'dropped' => ['danger', 'Dropped']
+                                        'dropped' => ['danger', 'Dropped'],
+                                        'not_active' => ['secondary', 'Not Active'],
+                                        'transferred_in' => ['primary', 'Transferred In'],
+                                        'transferred_out' => ['info', 'Transferred Out'],
+                                        'rejected' => ['danger', 'Rejected']
                                     ];
                                     $currentStatus = $student_info['enrolment_status'] ?? 'pending';
                                     $badgeClass = $statusMap[$currentStatus][0] ?? 'secondary';
@@ -175,10 +265,6 @@ $gradesData = [];
                                 data-bs-target="#medical-info" type="button">
                             <i class="fas fa-heartbeat me-2"></i>Medical
                         </button>
-                        <button class="nav-link-tab" id="grades-tab" data-bs-toggle="tab" 
-                                data-bs-target="#grades-info" type="button">
-                            <i class="fas fa-chart-bar me-2"></i>Grades
-                        </button>
                     </div>
                 </div>
             </div>
@@ -194,7 +280,7 @@ $gradesData = [];
                             </h5>
                         </div>
                         <div class="card-body p-4">
-                            <form id="student-update-form" class="row g-3">
+                            <form id="student-update-form" class="row g-3" enctype="multipart/form-data">
                                 <input type="hidden" name="student_id" value="<?= htmlspecialchars($student_info["student_id"] ?? '') ?>">
                                 
                                 <!-- Student Basic Info -->
@@ -203,7 +289,10 @@ $gradesData = [];
                                         <i class="fas fa-user me-2"></i>Student Information
                                     </h6>
                                 </div>
-                                
+                                <div class="col-md-12">
+                                    <label class="form-label">Upload / Update student profile</label>
+                                    <input type="file" class="form-control" name="student_profile">
+                                </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">First Name</label>
                                     <div class="input-group">
@@ -306,7 +395,6 @@ $gradesData = [];
                                         <!-- Add other options -->
                                     </select>
                                 </div>
-                                
                                 
                                 <!-- Parent Information -->
                                 <div class="col-12 mt-4">
@@ -449,96 +537,333 @@ $gradesData = [];
                 <div class="tab-pane fade" id="attendance-info" role="tabpanel">
                     <div class="card border-0 shadow-sm">
                         <div class="card-header bg-white border-bottom py-3">
-                            <h5 class="mb-0 fw-semibold">
-                                <i class="fas fa-calendar-check me-2 text-primary"></i>Attendance Record
-                            </h5>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0 fw-semibold">
+                                    <i class="fas fa-calendar-check me-2 text-primary"></i>Attendance Record
+                                </h5>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="toggleView">
+                                    <i class="fas fa-calendar-alt me-1"></i> Switch to List View
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body p-4">
-                            <?php if (!empty($attendanceData)): ?>
-                            <div class="attendance-container">
-                                <?php
+                            <!-- Calendar View -->
+                            <div id="calendarView">
+                                <?php 
                                 $currentYear = date("Y");
-                                $months = ["January","February","March","April","May","June",
-                                          "July","August","September","October","November","December"];
+                                $currentMonth = date("n");
+                                $monthsToShow = 6; // Show last 6 months including current
                                 
-                                foreach ($months as $monthIndex => $monthName) {
-                                    echo "<div class='month-card mb-4'>";
-                                    echo "<h6 class='fw-semibold mb-3 text-primary'>$monthName $currentYear</h6>";
-                                    echo "<div class='days-grid'>";
+                                for ($m = $currentMonth - ($monthsToShow - 1); $m <= $currentMonth; $m++):
+                                    $monthIndex = $m;
+                                    $year = $currentYear;
                                     
-                                    $daysInMonth = date("t", strtotime("$currentYear-" . ($monthIndex + 1) . "-01"));
-                                    
-                                    for ($day = 1; $day <= $daysInMonth; $day++) {
-                                        $dateStr = sprintf("%04d-%02d-%02d", $currentYear, $monthIndex + 1, $day);
-                                        $class = "day-cell";
-                                        
-                                        // Check attendance for this date
-                                        $attendanceFound = false;
-                                        foreach ($attendanceData as $record) {
-                                            $morning = !empty($record['morning_attendance']) && $record['morning_attendance'] !== "0000-00-00 00:00:00" 
-                                                       ? date("Y-m-d", strtotime($record['morning_attendance'])) : null;
-                                            $afternoon = !empty($record['afternoon_attendance']) && $record['afternoon_attendance'] !== "0000-00-00 00:00:00" 
-                                                         ? date("Y-m-d", strtotime($record['afternoon_attendance'])) : null;
-                                            $type = strtolower($record['attendance_type'] ?? '');
-                                            
-                                            if (($morning === $dateStr && $type === "present") || 
-                                                ($afternoon === $dateStr && $type === "present")) {
-                                                $class .= " present";
-                                                $attendanceFound = true;
-                                                break;
-                                            } elseif ($type === "absent") {
-                                                $class .= " absent";
-                                                $attendanceFound = true;
-                                                break;
-                                            } elseif ($type === "late") {
-                                                $class .= " late";
-                                                $attendanceFound = true;
-                                                break;
-                                            }
-                                        }
-                                        
-                                        if (!$attendanceFound) {
-                                            $class .= " no-record";
-                                        }
-                                        
-                                        echo "<div class='$class'>$day</div>";
+                                    // Handle year wrap-around
+                                    if ($monthIndex < 1) {
+                                        $monthIndex += 12;
+                                        $year -= 1;
                                     }
                                     
-                                    echo "</div></div>";
-                                }
-                                ?>
+                                    $monthName = date("F", mktime(0, 0, 0, $monthIndex, 1));
+                                    $daysInMonth = date("t", mktime(0, 0, 0, $monthIndex, 1, $year));
+                                    
+                                    // Get first day of the month (0=Sunday, 1=Monday, etc.)
+                                    $firstDay = date("w", mktime(0, 0, 0, $monthIndex, 1, $year));
+                                    
+                                    // Count days recorded in this month
+                                    $daysRecorded = 0;
+                                    foreach ($attendanceData as $date => $record) {
+                                        if (date('Y-m', strtotime($date)) == sprintf("%04d-%02d", $year, $monthIndex)) {
+                                            $daysRecorded++;
+                                        }
+                                    }
+                                    ?>
+                                    
+                                    <div class="month-card mb-5">
+                                        <h6 class="fw-semibold mb-3 text-primary d-flex justify-content-between align-items-center">
+                                            <span><?= $monthName ?> <?= $year ?></span>
+                                            <small class="text-muted fw-normal"><?= $daysRecorded ?> days recorded</small>
+                                        </h6>
+                                        
+                                        <!-- Day Headers -->
+                                        <div class="days-header mb-2">
+                                            <div class="d-flex">
+                                                <div class="day-header text-center" style="width: 14.28%;">Sun</div>
+                                                <div class="day-header text-center" style="width: 14.28%;">Mon</div>
+                                                <div class="day-header text-center" style="width: 14.28%;">Tue</div>
+                                                <div class="day-header text-center" style="width: 14.28%;">Wed</div>
+                                                <div class="day-header text-center" style="width: 14.28%;">Thu</div>
+                                                <div class="day-header text-center" style="width: 14.28%;">Fri</div>
+                                                <div class="day-header text-center" style="width: 14.28%;">Sat</div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Calendar Grid -->
+                                        <div class="calendar-grid mb-3">
+                                            <div class="d-flex flex-wrap">
+                                                <!-- Empty days for first week -->
+                                                <?php for ($i = 0; $i < $firstDay; $i++): ?>
+                                                <div class="day-cell empty" style="width: 14.28%;"></div>
+                                                <?php endfor; ?>
+                                                
+                                                <!-- Days of the month -->
+                                                <?php for ($day = 1; $day <= $daysInMonth; $day++): 
+                                                    $dateStr = sprintf("%04d-%02d-%02d", $year, $monthIndex, $day);
+                                                    $dayOfWeek = ($firstDay + $day - 1) % 7;
+                                                    
+                                                    // Determine cell class based on attendance
+                                                    $cellClass = "day-cell";
+                                                    $attendanceStatus = $attendanceData[$dateStr] ?? null;
+                                                    $tooltip = "";
+                                                    
+                                                    if ($attendanceStatus) {
+                                                        $summary = strtolower($attendanceStatus['summary'] ?? '');
+                                                        switch($summary) {
+                                                            case 'present':
+                                                                $cellClass .= " present";
+                                                                $tooltip = "Present - All Day";
+                                                                break;
+                                                            case 'absent':
+                                                                $cellClass .= " absent";
+                                                                $tooltip = "Absent - All Day";
+                                                                break;
+                                                            case 'late':
+                                                                $cellClass .= " late";
+                                                                $tooltip = "Late - All Day";
+                                                                break;
+                                                            case 'half-day':
+                                                                $cellClass .= " half-day";
+                                                                $tooltip = "Half Day - " . 
+                                                                          ($attendanceStatus['morning'] == 'Present' ? 'Morning Only' : 'Afternoon Only');
+                                                                break;
+                                                            case 'half-day-late':
+                                                                $cellClass .= " half-day-late";
+                                                                $tooltip = "Half Day Late - " . 
+                                                                          ($attendanceStatus['morning'] == 'Late' ? 'Morning Only' : 'Afternoon Only');
+                                                                break;
+                                                            default:
+                                                                $cellClass .= " unknown";
+                                                                $tooltip = "Attendance recorded";
+                                                        }
+                                                    } else {
+                                                        // Future dates
+                                                        $cellDate = new DateTime($dateStr);
+                                                        $today = new DateTime();
+                                                        if ($cellDate > $today) {
+                                                            $cellClass .= " future";
+                                                            $tooltip = "Future date";
+                                                        } else {
+                                                            $cellClass .= " no-record";
+                                                            $tooltip = "No attendance record";
+                                                        }
+                                                    }
+                                                    
+                                                    // Weekend styling
+                                                    if ($dayOfWeek == 0 || $dayOfWeek == 6) {
+                                                        $cellClass .= " weekend";
+                                                    }
+                                                    
+                                                    // Today highlighting
+                                                    if ($dateStr == date('Y-m-d')) {
+                                                        $cellClass .= " today";
+                                                    }
+                                                    ?>
+                                                    
+                                                    <div class="<?= $cellClass ?>" style="width: 14.28%;" 
+                                                         data-bs-toggle="tooltip" data-bs-placement="top" 
+                                                         title="<?= $tooltip ?>">
+                                                        <?= $day ?>
+                                                        <?php if ($attendanceStatus): ?>
+                                                        <div class="day-indicators">
+                                                            <?php if ($attendanceStatus['morning']): ?>
+                                                            <span class="indicator <?= strtolower($attendanceStatus['morning']) ?>" 
+                                                                  title="Morning: <?= $attendanceStatus['morning'] ?>"></span>
+                                                            <?php endif; ?>
+                                                            <?php if ($attendanceStatus['afternoon']): ?>
+                                                            <span class="indicator <?= strtolower($attendanceStatus['afternoon']) ?>" 
+                                                                  title="Afternoon: <?= $attendanceStatus['afternoon'] ?>"></span>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    
+                                                    <?php if (($firstDay + $day) % 7 == 0 && $day != $daysInMonth): ?>
+                                            </div><div class="d-flex flex-wrap">
+                                                    <?php endif; ?>
+                                                <?php endfor; ?>
+                                                
+                                                <!-- Empty days for last week -->
+                                                <?php 
+                                                $remainingDays = 7 - (($firstDay + $daysInMonth) % 7);
+                                                if ($remainingDays < 7) {
+                                                    for ($i = 0; $i < $remainingDays; $i++):
+                                                ?>
+                                                <div class="day-cell empty" style="width: 14.28%;"></div>
+                                                <?php endfor; } ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endfor; ?>
+                            </div>
+                            
+                            <!-- List View (Hidden by default) -->
+                            <div id="listView" class="d-none">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Day</th>
+                                                <th>Morning</th>
+                                                <th>Afternoon</th>
+                                                <th>Summary</th>
+                                                <th>Recorded At</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php if (!empty($attendanceList)): 
+                                                // Sort by date descending
+                                                usort($attendanceList, function($a, $b) {
+                                                    return strtotime($b['date']) - strtotime($a['date']);
+                                                });
+                                                
+                                                foreach ($attendanceList as $record):
+                                                    $dateObj = new DateTime($record['date']);
+                                                    $dayName = $dateObj->format('l');
+                                                    $formattedDate = $dateObj->format('M d, Y');
+                                                    $isToday = $record['date'] == date('Y-m-d');
+                                            ?>
+                                            <tr class="<?= $isToday ? 'table-info' : '' ?>">
+                                                <td>
+                                                    <?= $formattedDate ?>
+                                                    <?php if ($isToday): ?>
+                                                    <span class="badge bg-primary ms-1">Today</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td><?= $dayName ?></td>
+                                                <td>
+                                                    <?php if ($record['morning']): ?>
+                                                    <span class="badge bg-<?= strtolower($record['morning']) == 'present' ? 'success' : 
+                                                                           (strtolower($record['morning']) == 'absent' ? 'danger' : 'warning') ?>">
+                                                        <?= $record['morning'] ?>
+                                                    </span>
+                                                    <?php else: ?>
+                                                    <span class="badge bg-secondary">No record</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if ($record['afternoon']): ?>
+                                                    <span class="badge bg-<?= strtolower($record['afternoon']) == 'present' ? 'success' : 
+                                                                           (strtolower($record['afternoon']) == 'absent' ? 'danger' : 'warning') ?>">
+                                                        <?= $record['afternoon'] ?>
+                                                    </span>
+                                                    <?php else: ?>
+                                                    <span class="badge bg-secondary">No record</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if ($record['summary']): 
+                                                        $summaryClass = match(strtolower($record['summary'])) {
+                                                            'present' => 'success',
+                                                            'absent' => 'danger',
+                                                            'late' => 'warning',
+                                                            'half-day' => 'info',
+                                                            'half-day-late' => 'warning',
+                                                            default => 'secondary'
+                                                        };
+                                                    ?>
+                                                    <span class="badge bg-<?= $summaryClass ?>">
+                                                        <?= ucfirst(str_replace('-', ' ', $record['summary'])) ?>
+                                                    </span>
+                                                    <?php else: ?>
+                                                    <span class="badge bg-secondary">No summary</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if ($record['recorded_at']): ?>
+                                                    <small class="text-muted">
+                                                        <?= date('h:i A', strtotime($record['recorded_at'])) ?>
+                                                    </small>
+                                                    <?php else: ?>
+                                                    <small class="text-muted">N/A</small>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                            <?php else: ?>
+                                            <tr>
+                                                <td colspan="6" class="text-center py-4">
+                                                    <i class="fas fa-calendar-times fa-2x text-muted mb-3"></i>
+                                                    <h6 class="text-muted">No attendance records found</h6>
+                                                </td>
+                                            </tr>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                             
                             <!-- Legend -->
                             <div class="attendance-legend mt-4 p-3 bg-light rounded">
-                                <h6 class="fw-semibold mb-2">Legend:</h6>
-                                <div class="d-flex flex-wrap gap-3">
-                                    <div class="d-flex align-items-center">
-                                        <div class="legend-box present me-2"></div>
-                                        <small>Present</small>
+                                <h6 class="fw-semibold mb-3">Attendance Legend:</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-wrap gap-3 mb-2">
+                                            <div class="d-flex align-items-center">
+                                                <div class="legend-box present me-2"></div>
+                                                <small>Present (All Day)</small>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <div class="legend-box absent me-2"></div>
+                                                <small>Absent (All Day)</small>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <div class="legend-box late me-2"></div>
+                                                <small>Late (All Day)</small>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="d-flex align-items-center">
-                                        <div class="legend-box absent me-2"></div>
-                                        <small>Absent</small>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-wrap gap-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="legend-box half-day me-2"></div>
+                                                <small>Half Day</small>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <div class="legend-box half-day-late me-2"></div>
+                                                <small>Half Day Late</small>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <div class="legend-box no-record me-2"></div>
+                                                <small>No Record</small>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="d-flex align-items-center">
-                                        <div class="legend-box late me-2"></div>
-                                        <small>Late</small>
-                                    </div>
-                                    <div class="d-flex align-items-center">
-                                        <div class="legend-box no-record me-2"></div>
-                                        <small>No Record</small>
+                                </div>
+                                
+                                <!-- Morning/Afternoon Indicators -->
+                                <div class="mt-3 pt-3 border-top">
+                                    <small class="d-block mb-2">Day Indicators:</small>
+                                    <div class="d-flex gap-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="indicator present me-1" title="Present"></div>
+                                            <small>Present</small>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <div class="indicator absent me-1" title="Absent"></div>
+                                            <small>Absent</small>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <div class="indicator late me-1" title="Late"></div>
+                                            <small>Late</small>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <div class="indicator no-record me-1" title="No record"></div>
+                                            <small>No record</small>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            
-                            <?php else: ?>
-                            <div class="text-center py-5">
-                                <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-                                <h5 class="text-muted">No attendance records found</h5>
-                                <p class="text-muted">Attendance data will appear here when recorded.</p>
-                            </div>
-                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -630,55 +955,10 @@ $gradesData = [];
                     </div>
                 </div>
 
-                <!-- Grades Tab -->
-                <div class="tab-pane fade" id="grades-info" role="tabpanel">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-header bg-white border-bottom py-3">
-                            <h5 class="mb-0 fw-semibold">
-                                <i class="fas fa-chart-bar me-2 text-primary"></i>Academic Performance
-                            </h5>
-                        </div>
-                        <div class="card-body p-4">
-                            <?php if (!empty($gradesData)): ?>
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Subject</th>
-                                            <th class="text-center">1st Quarter</th>
-                                            <th class="text-center">2nd Quarter</th>
-                                            <th class="text-center">3rd Quarter</th>
-                                            <th class="text-center">4th Quarter</th>
-                                            <th class="text-center">Final Grade</th>
-                                            <th class="text-center">Remarks</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Add your grades loop here -->
-                                        <tr>
-                                            <td colspan="7" class="text-center text-muted py-4">
-                                                <i class="fas fa-book-open fa-2x mb-2"></i>
-                                                <p>Grade data will be displayed here</p>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <?php else: ?>
-                            <div class="text-center py-5">
-                                <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
-                                <h5 class="text-muted">No grade records available</h5>
-                                <p class="text-muted">Academic grades will appear here when entered by teachers.</p>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
 </div>
-
 <style>
 /* Main Container */
 .student-profile-container {
@@ -707,13 +987,17 @@ $gradesData = [];
 }
 
 /* Stats Cards */
-.profile-stats .stat-card {
-    transition: transform 0.2s ease;
+.profile-stats .stat-card,
+.quick-stats .stat-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     height: 100%;
+    border: 1px solid rgba(0,0,0,0.05);
 }
 
-.profile-stats .stat-card:hover {
+.profile-stats .stat-card:hover,
+.quick-stats .stat-card:hover {
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
 }
 
 /* Custom Tab Navigation */
@@ -774,107 +1058,248 @@ $gradesData = [];
 .form-label {
     font-weight: 500;
     margin-bottom: 0.5rem;
+    color: #495057;
 }
 
 .input-group .input-group-text {
     border-left: 0;
+    background-color: #f8f9fa;
 }
 
 .form-control, .form-select {
     border: 2px solid #e9ecef;
     transition: all 0.3s ease;
+    background-color: #fff;
 }
 
 .form-control:focus, .form-select:focus {
     border-color: #0d6efd;
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+    background-color: #fff;
+}
+
+.form-control:read-only {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
 }
 
 .bg-light {
     background-color: #f8f9fa !important;
 }
 
-/* Attendance Grid */
-.attendance-container {
-    display: grid;
-    gap: 30px;
+/* Card Styling */
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.3s ease;
 }
 
-.month-card {
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+/* Attendance Calendar Styles */
+.calendar-grid {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
     background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
-.days-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
+.days-header {
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 8px;
+    background: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+}
+
+.day-header {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.85rem;
+    padding: 10px 5px;
+    text-transform: uppercase;
 }
 
 .day-cell {
-    width: 40px;
-    height: 40px;
+    height: 70px;
+    border-right: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    padding: 8px 5px;
+    position: relative;
+    transition: all 0.2s ease;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
-    font-weight: 500;
-    font-size: 0.9rem;
-    transition: all 0.2s ease;
+}
+
+.day-cell:nth-child(7n) {
+    border-right: none;
+}
+
+.day-cell.weekend {
+    background-color: #f8f9fa;
+}
+
+.day-cell.today {
+    border: 2px solid #0d6efd !important;
+    background-color: #e7f1ff !important;
+    font-weight: bold;
 }
 
 .day-cell:hover {
-    transform: scale(1.1);
+    transform: scale(1.05);
+    z-index: 1;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
+/* Attendance Status Colors */
 .day-cell.present {
-    background: #28a745;
-    color: white;
+    background-color: #d1e7dd;
+    color: #0f5132;
 }
 
 .day-cell.absent {
-    background: #dc3545;
-    color: white;
+    background-color: #f8d7da;
+    color: #842029;
 }
 
 .day-cell.late {
-    background: #ffc107;
-    color: #212529;
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+.day-cell.half-day {
+    background-color: #cff4fc;
+    color: #055160;
+}
+
+.day-cell.half-day-late {
+    background-color: #ffe7cc;
+    color: #663c00;
 }
 
 .day-cell.no-record {
-    background: #e9ecef;
+    background-color: #f8f9fa;
     color: #6c757d;
+}
+
+.day-cell.future {
+    background-color: #ffffff;
+    color: #adb5bd;
+    opacity: 0.7;
+}
+
+.day-cell.empty {
+    background-color: #ffffff;
+    border: none;
+}
+
+.day-cell.unknown {
+    background-color: #e9ecef;
+    color: #6c757d;
+}
+
+/* Day Indicators */
+.day-indicators {
+    display: flex;
+    gap: 3px;
+    margin-top: 3px;
+}
+
+.indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.indicator.present {
+    background-color: #198754;
+    border: 1px solid #0f5132;
+}
+
+.indicator.absent {
+    background-color: #dc3545;
+    border: 1px solid #842029;
+}
+
+.indicator.late {
+    background-color: #ffc107;
+    border: 1px solid #664d03;
+}
+
+.indicator.no-record {
+    background-color: #6c757d;
+    border: 1px solid #495057;
 }
 
 /* Legend */
 .attendance-legend {
     background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #dee2e6;
 }
 
 .legend-box {
     width: 20px;
     height: 20px;
     border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.1);
 }
 
 .legend-box.present {
-    background: #28a745;
+    background: #d1e7dd;
 }
 
 .legend-box.absent {
-    background: #dc3545;
+    background: #f8d7da;
 }
 
 .legend-box.late {
-    background: #ffc107;
+    background: #fff3cd;
+}
+
+.legend-box.half-day {
+    background: #cff4fc;
+}
+
+.legend-box.half-day-late {
+    background: #ffe7cc;
 }
 
 .legend-box.no-record {
-    background: #e9ecef;
+    background: #f8f9fa;
     border: 1px solid #dee2e6;
+}
+
+/* Table Styling for List View */
+#listView table th {
+    font-weight: 600;
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+#listView table td {
+    vertical-align: middle;
+    padding: 12px 8px;
+}
+
+#listView table tr:hover {
+    background-color: rgba(0,0,0,0.02);
+}
+
+/* Badge Styling */
+.badge {
+    padding: 0.4em 0.8em;
+    font-weight: 500;
+    font-size: 0.85em;
 }
 
 /* BMI Chart */
@@ -891,35 +1316,71 @@ $gradesData = [];
         #ffc107 30%, 
         #dc3545 30%, 
         #dc3545 100%);
+    margin-top: 10px;
+    position: relative;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .nav-tabs-custom {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-    }
-    
-    .nav-link-tab {
-        padding: 10px 15px;
-        font-size: 0.9rem;
-    }
-    
-    .days-grid {
-        grid-template-columns: repeat(7, 35px);
-        gap: 5px;
-    }
-    
-    .day-cell {
-        width: 35px;
-        height: 35px;
-        font-size: 0.8rem;
-    }
-    
-    .profile-avatar-container {
-        width: 150px;
-        height: 150px;
-    }
+.bmi-chart::before {
+    content: '';
+    position: absolute;
+    left: 18.5%;
+    width: 0;
+    height: 100%;
+    border-left: 2px dashed white;
+}
+
+.bmi-chart::after {
+    content: '';
+    position: absolute;
+    left: 25%;
+    width: 0;
+    height: 100%;
+    border-left: 2px dashed white;
+}
+
+.bmi-chart span {
+    position: relative;
+    z-index: 2;
+}
+
+/* Month Card Styling */
+.month-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 30px;
+    border: 1px solid #e9ecef;
+}
+
+.month-card:last-child {
+    margin-bottom: 0;
+}
+
+/* Button Styling */
+.btn-outline-primary {
+    border: 2px solid #0d6efd;
+    color: #0d6efd;
+    font-weight: 500;
+}
+
+.btn-outline-primary:hover {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+    border: none;
+    padding: 10px 30px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #0b5ed7, #0a58ca);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);
 }
 
 /* Animation for form submission */
@@ -932,8 +1393,118 @@ $gradesData = [];
 .btn-primary:active {
     animation: pulse 0.3s ease;
 }
-</style>
 
+/* Loading Spinner */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Scrollbar Styling */
+.scroll-visible::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.scroll-visible::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.scroll-visible::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+.scroll-visible::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .nav-tabs-custom {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+    
+    .nav-link-tab {
+        padding: 10px 15px;
+        font-size: 0.9rem;
+        min-width: max-content;
+    }
+    
+    .day-cell {
+        height: 50px;
+        font-size: 0.8rem;
+        padding: 5px 3px;
+    }
+    
+    .day-indicators {
+        gap: 2px;
+    }
+    
+    .indicator {
+        width: 6px;
+        height: 6px;
+    }
+    
+    .profile-avatar-container {
+        width: 150px;
+        height: 150px;
+    }
+    
+    .month-card {
+        padding: 15px;
+    }
+    
+    .btn-primary {
+        padding: 8px 20px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Tooltip */
+.tooltip {
+    font-size: 0.875rem;
+}
+
+/* Form Section Headers */
+h6.fw-semibold.border-bottom {
+    color: #495057;
+    font-weight: 600 !important;
+}
+
+/* Input Group Focus States */
+.input-group:focus-within .input-group-text {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+}
+
+/* Custom checkbox and radio */
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* Alert Styling */
+.alert {
+    border: none;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+/* Status Badges */
+.badge.bg-success { background-color: #198754 !important; }
+.badge.bg-danger { background-color: #dc3545 !important; }
+.badge.bg-warning { background-color: #ffc107 !important; color: #000 !important; }
+.badge.bg-info { background-color: #0dcaf0 !important; }
+.badge.bg-primary { background-color: #0d6efd !important; }
+.badge.bg-secondary { background-color: #6c757d !important; }
+</style>
 <script>
 // Calculate age on birthdate change
 document.addEventListener('DOMContentLoaded', function() {
@@ -1133,4 +1704,4 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
-</script>
+</script>   

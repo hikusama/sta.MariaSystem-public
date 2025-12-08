@@ -40,7 +40,7 @@
             <a href="index.php?page=home" class="nav-item p-2 rounded-1 nav-home ">
                 <span class=""><i class=""></i></span> Dashboard
             </a>
-            <a href="index.php?page=contents/learners" class="nav-item p-2 rounded-1 nav-learners">
+            <a href="index.php?page=contents/learners" class="nav-item p-2 rounded-1 nav-learners nav-profile">
                 <span class=""><i class=""></i></span> Child Management (Learners) 
             </a>
             <a href="index.php?page=contents/feeback" class="nav-item p-2 rounded-1 nav-feeback">

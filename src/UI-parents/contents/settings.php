@@ -1,170 +1,426 @@
-<section>
-    <div class="d-flex flex-column justify-content-between align-items-center mb-3 mt-2">
-        <div class="mx-2 w-100 d-flex flex-row justify-content-between marginToMedia">
-            <h4>Settings</h4>
-            <label style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#changePassword"><i
-                    class="fa-solid fa-key me-1"></i>Change Password</label>
+<section class="settings-section">
+    <!-- Header -->
+    <div class="settings-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold mb-1">
+                    <i class="fas fa-cog me-2 text-primary"></i>Account Settings
+                </h2>
+                <p class="text-muted mb-0">Manage your profile and security settings</p>
+            </div>
+            <button class="btn btn-outline-primary d-flex align-items-center text-dark"
+                    data-bs-toggle="modal" 
+                    data-bs-target="#changePassword">
+                <i class="fas fa-key me-2"></i>Change Password
+            </button>
         </div>
     </div>
-    <?php
-        $query = "SELECT * FROM USERS WHERE user_id = :user_id";
-        $stmt = $pdo->prepare($query);
-        $stmt->bindParam(':user_id', $user_id);
-        $stmt->execute();
-        $StudentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
-    ?>
-    <form action="../../authentication/auth.php" method="post" enctype="multipart/form-data" class="d-flex flex-column justify-content-between align-items-center w-100">
-        <input type="hidden" name="parentID" value="<?= htmlspecialchars($user_id); ?>">
-        <input type="hidden" name="parentSettings" value="true">
-        <input type="hidden" name="csrf_token" value="<?= $_SESSION["csrf_token"] ?>">
-        <div class="profileSettings d-flex col-md-12 col-12 flex-wrap" style="height: auto !important; overflow-y: hidden !important;">
-            <div class="profilePicture h-100 col-md-4 col-12 d-flex flex-column justify-content-center align-items-center profileBG rounded-3 flex-wrap">
-                <img src="../../assets/image/users.png" alt="" style="width: 200px; height: 200px; border-radius: 50%;">
-                
-                <label for="user_profile" id="profilePreview" class="cameraLabelMedia  rounded-3 m-0 p-2 d-flex align-items-center justify-content-center" style="cursor: pointer; border: solid 1px #00000077;">
-                    Change profile<img src="../../assets/image/ProfileInput.png" alt="" class="ms-2 p-0 " style="width: 20px; height: 20px;">
-                </label>
-                <input type="file" name="user_profile" id="user_profile" class="form-control w-75" style="display: none;" onchange="previewImageFaculty(event)">
-            </div>
-            <div class="studentInfo d-flex flex-row flex-wrap col-md-8 col-12 justify-content-start align-items-start noScrollBar"style="height: auto;">
-                <div class="m-1 col-md-5 col-11">
-                    <label class="mb-0" for="">Surname</label>
-                    <input type="text" name="lname" value="<?= $StudentInfo["lastname"] ?>" class="form-control">
-                </div>
-                <div class="m-1 col-md-5 col-11">
-                    <label class="mb-0" for="">First Name</label>
-                    <input type="text" name="fname" value="<?= $StudentInfo["firstname"] ?>" class="form-control">
-                </div>
-                <div class="m-1 col-md-5 col-11">
-                    <label class="mb-0" for="">Middle Name</label>
-                    <input type="text" name="mname" value="<?= $StudentInfo["middlename"] ?>" class="form-control">
-                </div>
-                <div class="m-1 col-md-5 col-11">
-                    <label class="mb-0" for="">Name Extention</label>
-                   <select name="suffix" class="form-select">
-                        <option value="" <?= empty($StudentInfo["suffix"]) ? 'selected' : '' ?>>None</option>
-                        <option value="Jr." <?= $StudentInfo["suffix"] == "Jr." ? 'selected' : '' ?>>Jr.</option>
-                        <option value="Sr." <?= $StudentInfo["suffix"] == "Sr." ? 'selected' : '' ?>>Sr.</option>
-                        <option value="II" <?= $StudentInfo["suffix"] == "II" ? 'selected' : '' ?>>II</option>
-                        <option value="III" <?= $StudentInfo["suffix"] == "III" ? 'selected' : '' ?>>III</option>
-                        <option value="IV" <?= $StudentInfo["suffix"] == "IV" ? 'selected' : '' ?>>IV</option>
-                    </select>
 
+    <?php
+    $query = "SELECT * FROM users WHERE user_id = :user_id";
+    $stmt = $pdo->prepare($query);
+    $stmt->bindParam(':user_id', $user_id);
+    $stmt->execute();
+    $LibrarianInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+    ?>
+
+    <!-- Profile Form -->
+    <form action="../../authentication/auth.php" method="post" enctype="multipart/form-data" 
+          id="profileForm" class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <input type="hidden" name="user_id" value="<?= htmlspecialchars($user_id); ?>">
+            <input type="hidden" name="parentSettings" value="true">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION["csrf_token"]; ?>">
+            
+            <div class="row">
+                <!-- Profile Picture Section -->
+                <div class="col-lg-4 col-md-5 mb-4 mb-md-0">
+                    <div class="profile-picture-section text-center p-4 rounded-3 border bg-light">
+                        <div class="profile-image-container mb-3 position-relative mx-auto" 
+                             style="width: 180px; height: 180px;">
+                            <?php 
+
+                            if($LibrarianInfo["student_profile"] !== null) { ?>
+                               <img src="../../authentication/uploads/<?php echo htmlspecialchars($LibrarianInfo["student_profile"]);?>" 
+                                         class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Profile Picture">
+                            <?php } else { ?>
+                                <div class="rounded-circle w-100 h-100 bg-primary d-flex align-items-center justify-content-center border shadow-sm">
+                                    <i class="fas fa-user text-white fa-4x"></i>
+                                </div>
+                            <?php } ?>
+                            
+                            <label for="student_profile" 
+                                   class="btn btn-sm btn-outline-primary position-absolute bottom-0 end-0 rounded-circle"
+                                   style="width: 40px; height: 40px; cursor: pointer;">
+                                <i class="fas fa-camera"></i>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <h5 class="mb-2"><?= htmlspecialchars($LibrarianInfo["firstname"] . ' ' . $LibrarianInfo["lastname"]) ?></h5>
+                            <p class="text-muted small mb-0">Administrator</p>
+                        </div>
+                        
+                        <input type="hidden" name="current_profile_image" value="<?= $LibrarianInfo["student_profile"] ?>">
+                        <input type="file" name="student_profile" id="student_profile" 
+                               class="form-control d-none" 
+                               accept="image/*"
+                               onchange="previewImage(event)">
+                        <small class="text-muted d-block mt-2">Click camera icon to upload new photo</small>
+                    </div>
                 </div>
-                <div class="m-1 col-md-5 col-11">
-                    <label class="form-label m-0 p-0">Email</label>
-                    <input type="email" class="form-control" name="email" value="<?= $StudentInfo["email"] ?>">
+
+                <!-- Personal Information -->
+                <div class="col-lg-8 col-md-7">
+                    <h5 class="mb-4 border-bottom pb-2">Personal Information</h5>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-user me-1 text-muted"></i> First Name
+                            </label>
+                            <input type="text" name="firstname" 
+                                   value="<?= $LibrarianInfo["firstname"] ?>"
+                                   class="form-control form-control-lg" 
+                                   placeholder="Enter first name">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-user me-1 text-muted"></i> Last Name
+                            </label>
+                            <input type="text" name="lastname" 
+                                   value="<?= $LibrarianInfo["lastname"] ?>"
+                                   class="form-control form-control-lg" 
+                                   placeholder="Enter last name">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-user me-1 text-muted"></i> Middle Name
+                            </label>
+                            <input type="text" name="middlename" 
+                                   value="<?= $LibrarianInfo["middlename"] ?>"
+                                   class="form-control form-control-lg" 
+                                   placeholder="Enter middle name">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-tag me-1 text-muted"></i> Name Suffix
+                            </label>
+                            <select name="suffix" class="form-select form-select-lg">
+                                <option value="" <?= empty($LibrarianInfo["suffix"]) ? 'selected' : '' ?>>None</option>
+                                <option value="Jr." <?= $LibrarianInfo["suffix"] == "Jr." ? 'selected' : '' ?>>Jr.</option>
+                                <option value="Sr." <?= $LibrarianInfo["suffix"] == "Sr." ? 'selected' : '' ?>>Sr.</option>
+                                <option value="II" <?= $LibrarianInfo["suffix"] == "II" ? 'selected' : '' ?>>II</option>
+                                <option value="III" <?= $LibrarianInfo["suffix"] == "III" ? 'selected' : '' ?>>III</option>
+                                <option value="IV" <?= $LibrarianInfo["suffix"] == "IV" ? 'selected' : '' ?>>IV</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-envelope me-1 text-muted"></i> Email Address
+                            </label>
+                            <input type="email" class="form-control form-control-lg" 
+                                   name="email"
+                                   value="<?= $LibrarianInfo["email"] ?>"
+                                   placeholder="Enter email address">
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <!-- Update profile MODAL -->
-        <div class="modal fade" id="updateProfile" tabindex="-1" aria-labelledby="borrowConfirmModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-md modal-dialog-top">
-                <div class="modal-content">
-                    <div class="modal-header modalBG">
-                        <h5 class="modal-title text-white" id="borrowConfirmModalLabel">Update Confirmation</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-
-                    <div class="modal-body text-center">
-                        <h5>Are you sure you want to update your profile?</h5>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-success">Yes</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    </div>
-                </div>
-            </div>
+        
+        <!-- Form Footer -->
+        <div class="card-footer bg-light border-top d-flex justify-content-end py-3">
+            <button type="button" class="btn btn-lg btn-success px-4 d-flex align-items-center" 
+                    data-bs-toggle="modal" data-bs-target="#updateProfile">
+                <i class="fas fa-save me-2"></i>Update Profile
+            </button>
         </div>
     </form>
-    <div class="buttonUpdateSettings mt w-100 d-flex justify-content-end">
-        <button type="button" class="btn btn-success buttonUpdateProfile" data-bs-toggle="modal"
-            data-bs-target="#updateProfile">Update</button>
+
+    <!-- Update Profile Modal -->
+    <div class="modal fade" id="updateProfile" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-circle me-2"></i>Confirm Update
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" 
+                            aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <div class="mb-3">
+                        <i class="fas fa-question-circle fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="mb-3">Update Profile?</h5>
+                    <p class="text-muted">Are you sure you want to save these changes to your profile?</p>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" form="profileForm" class="btn btn-primary px-4">
+                        <i class="fas fa-check me-1"></i>Yes, Update
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- CHANGE PASSWORD MODAL -->
-    <div class="modal fade" id="changePassword" tabindex="-1" aria-labelledby="passwordModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <form method="POST" action="../../authentication/auth.php" class="modal-content">
-                <input type="hidden" name="usersForgottenPass" value="true">
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePassword" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" action="../../authentication/auth.php" class="modal-content border-0 shadow">
+                <input type="hidden" name="usersForgottenPassAdmin" value="true">
                 <input type="hidden" name="Users_id" value="<?= $user_id ?>">
-                <input type="hidden" name="csrf_token" value="<?= $_SESSION["csrf_token"] ?>">
-                <div class="modal-header bg-danger">
-                    <h5 class="modal-title text-start w-100" id="passwordModalLabel" style="color: #fff;">Change
-                        Password:</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION["csrf_token"]; ?>">
+                
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white">
+                        <i class="fas fa-key me-2"></i>Change Password
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" 
+                            aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <label for="usernameConfim">Current Password:</label>
-                    <input type="password" name="current_password" id="usernameConfim" class="form-control" required>
+                
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-lock me-1 text-muted"></i> Current Password
+                        </label>
+                        <div class="input-group">
+                            <input type="password" name="current_password" 
+                                   class="form-control form-control-lg"
+                                   placeholder="Enter current password" required>
+                            <button class="btn btn-outline-secondary my-0 toggle-password" type="button">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-key me-1 text-muted"></i> New Password
+                        </label>
+                        <div class="input-group">
+                            <input type="password" name="new_password" 
+                                   class="form-control form-control-lg"
+                                   placeholder="Enter new password" required>
+                            <button class="btn btn-outline-secondary my-0 toggle-password" type="button">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted">Minimum 8 characters with letters and numbers</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-key me-1 text-muted"></i> Confirm Password
+                        </label>
+                        <div class="input-group">
+                            <input type="password" name="confirm_password" 
+                                   class="form-control form-control-lg"
+                                   placeholder="Confirm new password" required>
+                            <button class="btn btn-outline-secondary my-0 toggle-password" type="button">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-body">
-                    <label for="usernameConfim">New Password:</label>
-                    <input type="password" name="new_password" id="usernameConfim" class="form-control" required>
-                </div>
-                <div class="modal-body">
-                    <label for="usernameConfim">Confirm Password:</label>
-                    <input type="password" name="confirm_password" id="usernameConfim" class="form-control" required>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Confirm</button>
+                
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="fas fa-save me-1"></i>Update Password
+                    </button>
                 </div>
             </form>
         </div>
     </div>
-<?php if (
-        isset($_GET['update']) || 
-        isset($_GET['passwordChange']) || 
-        isset($_GET['NewPassword']) || 
-        isset($_GET['error'])
-    ): ?>
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const messages = {
-                update: {
-                    icon: 'success',
-                    title: 'Profile updated successfully!'
-                },
-                passwordChange: {
-                    icon: 'success',
-                    title: 'Password changed successfully!'
-                },
-                NewPassword: {
-                    icon: 'error',
-                    title: 'New passwords do not match!'
-                },
-                error: {
-                    icon: 'error',
-                    title: 'Current password is incorrect!'
-                }
-            };
+</section>
 
-            for (const key in messages) {
-                const value = new URLSearchParams(window.location.search).get(key);
-                if (value) {
-                    Swal.fire({
-                        toast: true,
-                        icon: messages[key].icon,
-                        title: messages[key].title,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000,
-                        timerProgressBar: true,
-                        didClose: () => removeUrlParams([key])
-                    });
-                    break;
-                }
-            }
+<!-- Success/Error Messages Script -->
+<?php if (isset($_GET['update']) || isset($_GET['passwordChange']) || isset($_GET['NewPassword']) || isset($_GET['CurrentPasswoed'])): ?>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const messages = {
+        update: {
+            icon: 'success',
+            title: 'Success!',
+            text: 'Profile updated successfully.',
+            color: '#28a745'
+        },
+        passwordChange: {
+            icon: 'success',
+            title: 'Success!',
+            text: 'Password changed successfully.',
+            color: '#28a745'
+        },
+        NewPassword: {
+            icon: 'error',
+            title: 'Error!',
+            text: 'New passwords do not match.',
+            color: '#dc3545'
+        },
+        CurrentPasswoed: {
+            icon: 'error',
+            title: 'Error!',
+            text: 'Current password is incorrect.',
+            color: '#dc3545'
+        }
+    };
 
-            function removeUrlParams(params) {
+    for (const key in messages) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has(key)) {
+            const message = messages[key];
+            
+            // Create custom notification
+            const toast = document.createElement('div');
+            toast.className = 'position-fixed top-0 end-0 p-3';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <div class="toast show" role="alert" style="min-width: 300px;">
+                    <div class="toast-header" style="border-left: 4px solid ${message.color}">
+                        <i class="fas fa-${message.icon === 'success' ? 'check-circle text-success' : 'exclamation-circle text-danger'} me-2"></i>
+                        <strong class="me-auto">${message.title}</strong>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                    </div>
+                    <div class="toast-body">
+                        ${message.text}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                toast.remove();
+                // Clean URL
                 const url = new URL(window.location);
-                params.forEach(param => url.searchParams.delete(param));
+                url.searchParams.delete(key);
                 window.history.replaceState({}, document.title, url.toString());
-            }
-        });
-    </script>
+            }, 5000);
+            
+            break;
+        }
+    }
+});
+</script>
 <?php endif; ?>
 
-</section>
+<style>
+/* Custom Styles */
+.settings-section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+.profile-picture-section {
+    transition: all 0.3s ease;
+}
+
+.profile-picture-section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.form-control-lg, .form-select-lg {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.toggle-password {
+    border-left: 0;
+}
+
+.btn-lg {
+    padding: 0.75rem 1.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .settings-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .profile-picture-section {
+        margin: 0 auto;
+    }
+    
+    .card-body {
+        padding: 1.5rem !important;
+    }
+}
+
+/* Animation for profile image */
+#settingsProfile {
+    transition: transform 0.3s ease;
+}
+
+#settingsProfile:hover {
+    transform: scale(1.05);
+}
+</style>
+
+<script>
+// Image preview function
+function previewImage(event) {
+    const file = event.target.files[0];
+    if (file) {
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            alert('Please select a valid image file (JPEG, PNG, GIF, WebP)');
+            event.target.value = '';
+            return;
+        }
+        
+        // Validate file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Image size must be less than 2MB');
+            event.target.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById("settingsProfile").src = e.target.result;
+            document.getElementById("settingsProfile").style.objectFit = 'cover';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Password visibility toggle
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.toggle-password').forEach(button => {
+        button.addEventListener('click', function() {
+            const input = this.parentElement.querySelector('input');
+            const icon = this.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+    });
+});
+</script>

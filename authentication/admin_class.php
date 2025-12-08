@@ -749,144 +749,234 @@ class Action
         }
     }
     function student_update_form() {
-    try {
+        try {
+            $student_id = $_POST["student_id"] ?? null;
+            if (!$student_id) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Student ID is required'
+                ]);
+            }
 
-        $student_id = $_POST["student_id"] ?? null;
-        if (!$student_id) {
+            // ---- Student Info ----
+            $fname = $_POST["fname"] ?? '';
+            $mname = $_POST["mname"] ?? '';
+            $lname = $_POST["lname"] ?? '';
+            $suffix = $_POST["suffix"] ?? '';
+            $sex = $_POST["gender"] ?? '';
+            $birthdate = $_POST["birthdate"] ?? '';
+            $birthplace = $_POST["birthplace"] ?? '';
+            $religion = $_POST["religion"] ?? '';
+
+            // ---- Parent Info ----
+            $f_firstname = $_POST["f_firstname"] ?? '';
+            $f_middlename = $_POST["f_middlename"] ?? '';
+            $f_lastname = $_POST["f_lastname"] ?? '';
+
+            $m_firstname = $_POST["m_firstname"] ?? '';
+            $m_middlename = $_POST["m_middlename"] ?? '';
+            $m_lastname = $_POST["m_lastname"] ?? '';
+
+            $g_firstname = $_POST["g_firstname"] ?? '';
+            $g_middlename = $_POST["g_middlename"] ?? '';
+            $g_lastname = $_POST["g_lastname"] ?? '';
+            $g_relationship = $_POST["g_relationship"] ?? '';
+            $p_contact = $_POST["p_contact"] ?? '';
+
+            // ---- Address Info ----
+            $house_no = $_POST["house_no"] ?? '';
+            $street = $_POST["street"] ?? '';
+            $barangay = $_POST["barnagay"] ?? '';
+            $city = $_POST["city"] ?? '';
+            $province = $_POST["province"] ?? '';
+            $country = $_POST["country"] ?? '';
+            $zip_code = $_POST["zip_code"] ?? '';
+
+            // ---- File Upload Handling ----
+            $profile_filename = null;
+            
+            if (isset($_FILES['student_profile']) && $_FILES['student_profile']['error'] === UPLOAD_ERR_OK) {
+                $file = $_FILES['student_profile'];
+                
+                // Validate file type
+                $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'];
+                $file_type = mime_content_type($file['tmp_name']);
+                
+                if (!in_array($file_type, $allowed_types)) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Invalid file type. Only JPG, PNG, and GIF images are allowed.'
+                    ]);
+                }
+                
+                // Validate file size (max 2MB)
+                $max_size = 2 * 1024 * 1024; // 2MB
+                if ($file['size'] > $max_size) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'File size too large. Maximum size is 2MB.'
+                    ]);
+                }
+                
+                // Create upload directory if it doesn't exist
+                $upload_dir = 'uploads/';
+                if (!file_exists($upload_dir)) {
+                    mkdir($upload_dir, 0777, true);
+                }
+                
+                // Generate unique filename
+                $file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                $profile_filename = 'profile_' . $student_id . '_' . time() . '.' . $file_extension;
+                $upload_path = $upload_dir . $profile_filename;
+                
+                // Move uploaded file
+                if (!move_uploaded_file($file['tmp_name'], $upload_path)) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Failed to upload profile picture. Please try again.'
+                    ]);
+                }
+                
+                // Get old profile picture to delete it later
+                $stmt_old = $this->db->prepare("SELECT student_profile FROM student WHERE student_id = :student_id");
+                $stmt_old->execute([':student_id' => $student_id]);
+                $old_profile = $stmt_old->fetchColumn();
+            }
+
+            // Start Transaction
+            $this->db->beginTransaction();
+
+            // ============================
+            // UPDATE STUDENT TABLE
+            // ============================
+            $update_fields = [
+                'fname = :fname',
+                'mname = :mname',
+                'lname = :lname',
+                'suffix = :suffix',
+                'sex = :sex',
+                'birthdate = :birthdate',
+                'birthplace = :birthplace',
+                'religion = :religion',
+                'address = :address'
+            ];
+            
+            $params = [
+                ':fname' => $fname,
+                ':mname' => $mname,
+                ':lname' => $lname,
+                ':suffix' => $suffix,
+                ':sex' => $sex,
+                ':birthdate' => $birthdate,
+                ':birthplace' => $birthplace,
+                ':religion' => $religion,
+                ':student_id' => $student_id
+            ];
+            
+            // Add profile picture update if uploaded
+            if ($profile_filename !== null) {
+                $update_fields[] = 'student_profile = :student_profile';
+                $params[':student_profile'] = $profile_filename;
+            }
+            
+            // Prepare full address
+            $fullAddress = "$house_no $street, $barangay, $city, $province, $country, $zip_code";
+            $params[':address'] = $fullAddress;
+            
+            // Build the SQL query
+            $sql = "UPDATE student SET " . implode(', ', $update_fields) . " WHERE student_id = :student_id";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+
+            // ============================
+            // UPDATE parents_info TABLE
+            // ============================
+            $stmt2 = $this->db->prepare("
+                UPDATE parents_info SET 
+                    f_firstname = :f_firstname,
+                    f_middlename = :f_middlename,
+                    f_lastname = :f_lastname,
+                    
+                    m_firstname = :m_firstname,
+                    m_middlename = :m_middlename,
+                    m_lastname = :m_lastname,
+
+                    g_firstname = :g_firstname,
+                    g_middlename = :g_middlename,
+                    g_lastname = :g_lastname,
+                    g_relationship = :g_relationship,
+
+                    p_contact = :p_contact
+                WHERE student_id = :student_id
+            ");
+
+            $stmt2->execute([
+                ':f_firstname' => $f_firstname,
+                ':f_middlename' => $f_middlename,
+                ':f_lastname' => $f_lastname,
+
+                ':m_firstname' => $m_firstname,
+                ':m_middlename' => $m_middlename,
+                ':m_lastname' => $m_lastname,
+
+                ':g_firstname' => $g_firstname,
+                ':g_middlename' => $g_middlename,
+                ':g_lastname' => $g_lastname,
+                ':g_relationship' => $g_relationship,
+
+                ':p_contact' => $p_contact,
+                ':student_id' => $student_id
+            ]);
+
+            // Commit Transaction
+            $this->db->commit();
+            
+            // Delete old profile picture if a new one was uploaded
+            if ($profile_filename !== null && $old_profile && $old_profile !== '') {
+                $old_file_path = '../../assets/image/uploads/' . $old_profile;
+                if (file_exists($old_file_path) && $old_file_path != $upload_path) {
+                    @unlink($old_file_path); // Use @ to suppress errors if file doesn't exist
+                }
+            }
+
+            // UPATE STUDENT ADDRESS
+
+            $stmtAddress = $this->db->prepare("UPDATE stuEnrolmentInfo SET house_no = :house_no, street = :street, barnagay = :barnagay,
+            city = :city, province = :province, country = :country, zip_code = :zip_code
+            WHERE student_id = :student_id");
+            $stmtAddress->execute([
+                ':house_no' => $house_no,
+                ':street' => $street,
+                ':barnagay' => $barangay,
+                ':city' => $city,
+                ':province' => $province,
+                ':country' => $country,
+                ':zip_code' => $zip_code,
+                ':student_id' => $student_id
+            ]);
+
+
+            return json_encode([
+                'status' => 1,
+                'message' => 'Student profile updated successfully!' . 
+                            ($profile_filename !== null ? ' Profile picture has been updated.' : '')
+            ]);
+
+        } catch (PDOException $e) {
+            $this->db->rollBack();
+            
+            // Delete uploaded file if transaction failed
+            if (isset($upload_path) && file_exists($upload_path)) {
+                @unlink($upload_path);
+            }
+
             return json_encode([
                 'status' => 0,
-                'message' => 'Student ID is required'
+                'message' => 'Database error occurred. Please try again.',
+                'error' => $e->getMessage() // Remove in production
             ]);
         }
-
-        // ---- Student Info ----
-        $fname = $_POST["fname"] ?? '';
-        $mname = $_POST["mname"] ?? '';
-        $lname = $_POST["lname"] ?? '';
-        $suffix = $_POST["suffix"] ?? '';
-        $sex = $_POST["gender"] ?? ''; // Form uses "gender"
-        $birthdate = $_POST["birthdate"] ?? '';
-        $birthplace = $_POST["birthplace"] ?? '';
-        $religion = $_POST["religion"] ?? '';
-
-        // ---- Parent Info ----
-        $f_firstname = $_POST["f_firstname"] ?? '';
-        $f_middlename = $_POST["f_middlename"] ?? '';
-        $f_lastname = $_POST["f_lastname"] ?? '';
-
-        $m_firstname = $_POST["m_firstname"] ?? '';
-        $m_middlename = $_POST["m_middlename"] ?? '';
-        $m_lastname = $_POST["m_lastname"] ?? '';
-
-        $g_firstname = $_POST["g_firstname"] ?? '';
-        $g_middlename = $_POST["g_middlename"] ?? '';
-        $g_lastname = $_POST["g_lastname"] ?? '';
-        $g_relationship = $_POST["g_relationship"] ?? '';
-        $p_contact = $_POST["p_contact"] ?? '';
-
-        // ---- Address Info ----
-        $house_no = $_POST["house_no"] ?? '';
-        $street = $_POST["street"] ?? '';
-        $barangay = $_POST["barnagay"] ?? '';
-        $city = $_POST["city"] ?? '';
-        $province = $_POST["province"] ?? '';
-        $country = $_POST["country"] ?? '';
-        $zip_code = $_POST["zip_code"] ?? '';
-
-        // Start Transaction
-        $this->db->beginTransaction();
-
-        // ============================
-        // UPDATE STUDENT TABLE
-        // ============================
-        $stmt = $this->db->prepare("
-            UPDATE student SET 
-                fname = :fname,
-                mname = :mname,
-                lname = :lname,
-                suffix = :suffix,
-                sex = :sex,
-                birthdate = :birthdate,
-                birthplace = :birthplace,
-                religion = :religion,
-                address = :address
-            WHERE student_id = :student_id
-        ");
-
-        $fullAddress = "$house_no $street, $barangay, $city, $province, $country, $zip_code";
-
-        $stmt->execute([
-            ':fname' => $fname,
-            ':mname' => $mname,
-            ':lname' => $lname,
-            ':suffix' => $suffix,
-            ':sex' => $sex,
-            ':birthdate' => $birthdate,
-            ':birthplace' => $birthplace,
-            ':religion' => $religion,
-            ':address' => $fullAddress,
-            ':student_id' => $student_id
-        ]);
-
-        // ============================
-        // UPDATE parents_info TABLE
-        // ============================
-        $stmt2 = $this->db->prepare("
-            UPDATE parents_info SET 
-                f_firstname = :f_firstname,
-                f_middlename = :f_middlename,
-                f_lastname = :f_lastname,
-                
-                m_firstname = :m_firstname,
-                m_middlename = :m_middlename,
-                m_lastname = :m_lastname,
-
-                g_firstname = :g_firstname,
-                g_middlename = :g_middlename,
-                g_lastname = :g_lastname,
-                g_relationship = :g_relationship,
-
-                p_contact = :p_contact
-            WHERE student_id = :student_id
-        ");
-
-        $stmt2->execute([
-            ':f_firstname' => $f_firstname,
-            ':f_middlename' => $f_middlename,
-            ':f_lastname' => $f_lastname,
-
-            ':m_firstname' => $m_firstname,
-            ':m_middlename' => $m_middlename,
-            ':m_lastname' => $m_lastname,
-
-            ':g_firstname' => $g_firstname,
-            ':g_middlename' => $g_middlename,
-            ':g_lastname' => $g_lastname,
-            ':g_relationship' => $g_relationship,
-
-            ':p_contact' => $p_contact,
-            ':student_id' => $student_id
-        ]);
-
-        // Commit Transaction
-        $this->db->commit();
-
-        return json_encode([
-            'status' => 1,
-            'message' => 'Student profile updated successfully!'
-        ]);
-
-    } catch (PDOException $e) {
-
-        $this->db->rollBack();
-
-        return json_encode([
-            'status' => 0,
-            'message' => 'Database error occurred. Please try again.',
-            'error' => $e->getMessage() // Remove in production
-        ]);
     }
-}
 
     function displayStudentInfo() {
         $user_id = $_POST["user_id"] ?? null;
@@ -1561,6 +1651,74 @@ class Action
         }
     }
 
+    // function afternoon_attendanceP() {
+    //     $student_id = $_POST['student_id'] ?? null;
+    //     $adviser_id = $_SESSION['user_id'] ?? null;
+
+    //     if (empty($student_id)) {
+    //         return json_encode([
+    //             'status' => 0,
+    //             'message' => 'Missing student_id.'
+    //         ]);
+    //     }
+
+    //     try {
+    //         // Use PHP DateTime with explicit timezone to avoid server timezone mismatch
+    //         $tz = new DateTimeZone('Asia/Manila'); // change if needed
+    //         $now = new DateTime('now', $tz);
+    //         $currentTime = $now->format('H:i:s');       // "HH:MM:SS"
+    //         $today = $now->format('Y-m-d');             // "YYYY-MM-DD"
+    //         $nowDatetime = $now->format('Y-m-d H:i:s'); // full datetime to store
+
+    //         // 1) Check if already marked morning attendance for THIS student TODAY
+    //         $checkSql = "SELECT 1 FROM attendance 
+    //                     WHERE student_id = :student_id 
+    //                     AND DATE(afternoon_attendance) = :today
+    //                     LIMIT 1";
+    //         $stmt = $this->db->prepare($checkSql);
+    //         $stmt->execute([
+    //             ':student_id' => $student_id,
+    //             ':today' => $today
+    //         ]);
+    //         if ($stmt->fetchColumn()) {
+    //             return json_encode([
+    //                 'status' => 0,
+    //                 'message' => 'Student has already marked afternoon attendance today.'
+    //             ]);
+    //         }
+
+    //         // 2) Enforce time window 06:00:00 - 12:00:00
+    //      if ($currentTime < '13:00:00' || $currentTime > '18:00:00') {
+    //             return json_encode([
+    //                 'status' => 0,
+    //                 'message' => "afternoon attendance is allowed only between 06:00 and 12:00. Current time: {$currentTime}"
+    //             ]);
+    //         }
+
+    //         // 3) Insert attendance (use the PHP-generated datetime to keep timezone consistent)
+    //         $insertSql = "INSERT INTO attendance (student_id, adviser_id, afternoon_attendance, attendance_type)
+    //                     VALUES (:student_id, :adviser_id, :now, 'Present')";
+    //         $ins = $this->db->prepare($insertSql);
+    //         $ins->execute([
+    //             ':student_id' => $student_id,
+    //             ':adviser_id' => $adviser_id,
+    //             ':now' => $nowDatetime
+    //         ]);
+
+    //         return json_encode([
+    //             'status' => 1,
+    //             'message' => 'Afternoon attendance recorded successfully "PRESENT".'
+    //         ]);
+
+    //     } catch (PDOException $e) {
+    //         return json_encode([
+    //             'status' => 0,
+    //             'message' => 'An error occurred: ' . $e->getMessage()
+    //         ]);
+    //     }
+    // } 
+
+
     function afternoon_attendanceP() {
         $student_id = $_POST['student_id'] ?? null;
         $adviser_id = $_SESSION['user_id'] ?? null;
@@ -1573,61 +1731,117 @@ class Action
         }
 
         try {
-            // Use PHP DateTime with explicit timezone to avoid server timezone mismatch
-            $tz = new DateTimeZone('Asia/Manila'); // change if needed
+            // Use PHP DateTime with explicit timezone
+            $tz = new DateTimeZone('Asia/Manila');
             $now = new DateTime('now', $tz);
-            $currentTime = $now->format('H:i:s');       // "HH:MM:SS"
-            $today = $now->format('Y-m-d');             // "YYYY-MM-DD"
-            $nowDatetime = $now->format('Y-m-d H:i:s'); // full datetime to store
+            $currentTime = $now->format('H:i:s');
+            $today = $now->format('Y-m-d');
+            $nowDatetime = $now->format('Y-m-d H:i:s');
 
-            // 1) Check if already marked morning attendance for THIS student TODAY
-            $checkSql = "SELECT 1 FROM attendance 
+            $stmtCheck = $this->db->prepare("SELECT attendance_type FROM attendance WHERE student_id = :student_id AND DATE(morning_attendance) = :today");
+            $stmtCheck->execute([
+                ':student_id' => $student_id,
+                ':today' => $today
+            ]);
+            $AttendanceSummary = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            $checkAttendanceType = $AttendanceSummary['attendance_type'] ?? '';
+
+            if($checkAttendanceType === 'Absent'){
+                $attendance_summary = 'Half-day';
+            }else if($checkAttendanceType === 'Present'){
+                $attendance_summary = 'Present';
+            }else if($checkAttendanceType === 'Late'){
+                $attendance_summary = 'Half-day-late';
+            }
+            // 1) Check if student has morning attendance for today
+            $checkSql = "SELECT afternoon_attendance FROM attendance 
                         WHERE student_id = :student_id 
-                        AND DATE(afternoon_attendance) = :today
+                        AND DATE(morning_attendance) = :today
                         LIMIT 1";
             $stmt = $this->db->prepare($checkSql);
             $stmt->execute([
                 ':student_id' => $student_id,
                 ':today' => $today
             ]);
-            if ($stmt->fetchColumn()) {
+            
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$row) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'No morning attendance found for today. Please mark morning attendance first.'
+                ]);
+            }
+            
+            // Check if already marked afternoon attendance
+            if ($row['afternoon_attendance']) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'Student has already marked afternoon attendance today.'
                 ]);
             }
 
-            // 2) Enforce time window 06:00:00 - 12:00:00
-         if ($currentTime < '13:00:00' || $currentTime > '18:00:00') {
+            // 2) Enforce time window 13:00:00 - 18:00:00 (AFTERNOON hours)
+            if ($currentTime < '13:00:00' || $currentTime > '18:00:00') {
                 return json_encode([
                     'status' => 0,
-                    'message' => "afternoon attendance is allowed only between 06:00 and 12:00. Current time: {$currentTime}"
+                    'message' => "Afternoon attendance is allowed only between 13:00 and 18:00. Current time: {$currentTime}"
                 ]);
             }
 
-            // 3) Insert attendance (use the PHP-generated datetime to keep timezone consistent)
-            $insertSql = "INSERT INTO attendance (student_id, adviser_id, afternoon_attendance, attendance_type)
-                        VALUES (:student_id, :adviser_id, :now, 'Present')";
-            $ins = $this->db->prepare($insertSql);
-            $ins->execute([
-                ':student_id' => $student_id,
-                ':adviser_id' => $adviser_id,
-                ':now' => $nowDatetime
-            ]);
+            // 3) UPDATE the existing record with afternoon attendance
+            try {
+                $updateSql = "UPDATE attendance 
+                            SET afternoon_attendance = :afternoon_attendance, 
+                                A_attendance_type = 'Present', attendance_summary = :attendance_summary
+                            WHERE student_id = :student_id 
+                            AND DATE(morning_attendance) = :today";
+                
+                $ins = $this->db->prepare($updateSql);
+                $ins->execute([
+                    ':student_id' => $student_id,
+                    ':afternoon_attendance' => $nowDatetime,  // Corrected parameter name
+                    ':today' => $today,
+                    ':attendance_summary' => $attendance_summary  
+                ]);
+                
+                // Check if any rows were updated
+                if ($ins->rowCount() === 0) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'No attendance record found to update.'
+                    ]);
+                }
+                
+            } catch (PDOException $e) {
+                // Handle the CASE statement error specifically
+                if (strpos($e->getMessage(), '1339') !== false || strpos($e->getMessage(), 'Case not found') !== false) {
+                    // This might be from a trigger or constraint
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Cannot mark attendance at this time. Please check attendance rules.'
+                    ]);
+                }
+                throw $e; // Re-throw if it's a different error
+            }
 
             return json_encode([
                 'status' => 1,
-                'message' => 'Afternoon attendance recorded successfully "PRESENT".'
+                'message' => 'Afternoon attendance recorded successfully as "PRESENT".'
             ]);
 
         } catch (PDOException $e) {
+            // Log the full error for debugging
+            error_log("Attendance Error: " . $e->getMessage());
+            
             return json_encode([
                 'status' => 0,
                 'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
-    } 
-     function afternoon_attendanceA() {
+    }
+
+    function afternoon_attendanceA() {
         $student_id = $_POST['student_id'] ?? null;
         $adviser_id = $_SESSION['user_id'] ?? null;
 
@@ -1639,59 +1853,115 @@ class Action
         }
 
         try {
-            // Use PHP DateTime with explicit timezone to avoid server timezone mismatch
-            $tz = new DateTimeZone('Asia/Manila'); // change if needed
+            // Use PHP DateTime with explicit timezone
+            $tz = new DateTimeZone('Asia/Manila');
             $now = new DateTime('now', $tz);
-            $currentTime = $now->format('H:i:s');       // "HH:MM:SS"
-            $today = $now->format('Y-m-d');             // "YYYY-MM-DD"
-            $nowDatetime = $now->format('Y-m-d H:i:s'); // full datetime to store
+            $currentTime = $now->format('H:i:s');
+            $today = $now->format('Y-m-d');
+            $nowDatetime = $now->format('Y-m-d H:i:s');
 
-            // 1) Check if already marked morning attendance for THIS student TODAY
-            $checkSql = "SELECT 1 FROM attendance 
+            $stmtCheck = $this->db->prepare("SELECT attendance_type FROM attendance WHERE student_id = :student_id AND DATE(morning_attendance) = :today");
+            $stmtCheck->execute([
+                ':student_id' => $student_id,
+                ':today' => $today
+            ]);
+            $AttendanceSummary = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            $checkAttendanceType = $AttendanceSummary['attendance_type'] ?? '';
+
+            if($checkAttendanceType === 'Absent'){
+                $attendance_summary = 'Absent';
+            }else if($checkAttendanceType === 'Present'){
+                $attendance_summary = 'Half-day';
+            }else if($checkAttendanceType === 'Late'){
+                $attendance_summary = 'Half-day-late';
+            }
+            // 1) Check if student has morning attendance for today
+            $checkSql = "SELECT afternoon_attendance FROM attendance 
                         WHERE student_id = :student_id 
-                        AND DATE(afternoon_attendance) = :today
+                        AND DATE(morning_attendance) = :today
                         LIMIT 1";
             $stmt = $this->db->prepare($checkSql);
             $stmt->execute([
                 ':student_id' => $student_id,
                 ':today' => $today
             ]);
-            if ($stmt->fetchColumn()) {
+            
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$row) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'No morning attendance found for today. Please mark morning attendance first.'
+                ]);
+            }
+            
+            // Check if already marked afternoon attendance
+            if ($row['afternoon_attendance']) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'Student has already marked afternoon attendance today.'
                 ]);
             }
 
-            // 2) Enforce time window 06:00:00 - 12:00:00
+            // 2) Enforce time window 13:00:00 - 18:00:00 (AFTERNOON hours)
             if ($currentTime < '13:00:00' || $currentTime > '18:00:00') {
                 return json_encode([
                     'status' => 0,
-                    'message' => "afternoon attendance is allowed only between 06:00 and 12:00. Current time: {$currentTime}"
+                    'message' => "Afternoon attendance is allowed only between 13:00 and 18:00. Current time: {$currentTime}"
                 ]);
             }
 
-            // 3) Insert attendance (use the PHP-generated datetime to keep timezone consistent)
-            $insertSql = "INSERT INTO attendance (student_id, adviser_id, afternoon_attendance, attendance_type)
-                        VALUES (:student_id, :adviser_id, :now, 'Absent')";
-            $ins = $this->db->prepare($insertSql);
-            $ins->execute([
-                ':student_id' => $student_id,
-                ':adviser_id' => $adviser_id,
-                ':now' => $nowDatetime
-            ]);
+            // 3) UPDATE the existing record with afternoon attendance
+            try {
+                $updateSql = "UPDATE attendance 
+                            SET afternoon_attendance = :afternoon_attendance, 
+                                A_attendance_type = 'Absent', attendance_summary = :attendance_summary
+                            WHERE student_id = :student_id 
+                            AND DATE(morning_attendance) = :today";
+                
+                $ins = $this->db->prepare($updateSql);
+                $ins->execute([
+                    ':student_id' => $student_id,
+                    ':afternoon_attendance' => $nowDatetime,  // Corrected parameter name
+                    ':today' => $today,
+                    ':attendance_summary' => $attendance_summary  
+                ]);
+                
+                // Check if any rows were updated
+                if ($ins->rowCount() === 0) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'No attendance record found to update.'
+                    ]);
+                }
+                
+            } catch (PDOException $e) {
+                // Handle the CASE statement error specifically
+                if (strpos($e->getMessage(), '1339') !== false || strpos($e->getMessage(), 'Case not found') !== false) {
+                    // This might be from a trigger or constraint
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Cannot mark attendance at this time. Please check attendance rules.'
+                    ]);
+                }
+                throw $e; // Re-throw if it's a different error
+            }
 
             return json_encode([
                 'status' => 1,
-                'message' => 'Afternoon attendance recorded successfully "ABSENT".'
+                'message' => 'Afternoon attendance recorded successfully as "PRESENT".'
             ]);
 
         } catch (PDOException $e) {
+            // Log the full error for debugging
+            error_log("Attendance Error: " . $e->getMessage());
+            
             return json_encode([
                 'status' => 0,
                 'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
+    
     }
      function afternoon_attendanceL() {
         $student_id = $_POST['student_id'] ?? null;
@@ -1705,54 +1975,109 @@ class Action
         }
 
         try {
-            // Use PHP DateTime with explicit timezone to avoid server timezone mismatch
-            $tz = new DateTimeZone('Asia/Manila'); // change if needed
+            // Use PHP DateTime with explicit timezone
+            $tz = new DateTimeZone('Asia/Manila');
             $now = new DateTime('now', $tz);
-            $currentTime = $now->format('H:i:s');       // "HH:MM:SS"
-            $today = $now->format('Y-m-d');             // "YYYY-MM-DD"
-            $nowDatetime = $now->format('Y-m-d H:i:s'); // full datetime to store
+            $currentTime = $now->format('H:i:s');
+            $today = $now->format('Y-m-d');
+            $nowDatetime = $now->format('Y-m-d H:i:s');
 
-            // 1) Check if already marked morning attendance for THIS student TODAY
-            $checkSql = "SELECT 1 FROM attendance 
+            $stmtCheck = $this->db->prepare("SELECT attendance_type FROM attendance WHERE student_id = :student_id AND DATE(morning_attendance) = :today");
+            $stmtCheck->execute([
+                ':student_id' => $student_id,
+                ':today' => $today
+            ]);
+            $AttendanceSummary = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            $checkAttendanceType = $AttendanceSummary['attendance_type'] ?? '';
+
+            if($checkAttendanceType === 'Absent'){
+                $attendance_summary = 'Half-day-late';
+            }else if($checkAttendanceType === 'Present'){
+                $attendance_summary = 'Half-day-late';
+            }else if($checkAttendanceType === 'Late'){
+                $attendance_summary = 'Half-day-late';
+            }
+            // 1) Check if student has morning attendance for today
+            $checkSql = "SELECT afternoon_attendance FROM attendance 
                         WHERE student_id = :student_id 
-                        AND DATE(afternoon_attendance) = :today
+                        AND DATE(morning_attendance) = :today
                         LIMIT 1";
             $stmt = $this->db->prepare($checkSql);
             $stmt->execute([
                 ':student_id' => $student_id,
                 ':today' => $today
             ]);
-            if ($stmt->fetchColumn()) {
+            
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$row) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'No morning attendance found for today. Please mark morning attendance first.'
+                ]);
+            }
+            
+            // Check if already marked afternoon attendance
+            if ($row['afternoon_attendance']) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'Student has already marked afternoon attendance today.'
                 ]);
             }
 
-            // 2) Enforce time window 06:00:00 - 12:00:00
-           if ($currentTime < '13:00:00' || $currentTime > '18:00:00') {
+            // 2) Enforce time window 13:00:00 - 18:00:00 (AFTERNOON hours)
+            if ($currentTime < '13:00:00' || $currentTime > '18:00:00') {
                 return json_encode([
                     'status' => 0,
-                    'message' => "afternoon attendance is allowed only between 06:00 and 12:00. Current time: {$currentTime}"
+                    'message' => "Afternoon attendance is allowed only between 13:00 and 18:00. Current time: {$currentTime}"
                 ]);
             }
 
-            // 3) Insert attendance (use the PHP-generated datetime to keep timezone consistent)
-            $insertSql = "INSERT INTO attendance (student_id, adviser_id, afternoon_attendance, attendance_type)
-                        VALUES (:student_id, :adviser_id, :now, 'Late')";
-            $ins = $this->db->prepare($insertSql);
-            $ins->execute([
-                ':student_id' => $student_id,
-                ':adviser_id' => $adviser_id,
-                ':now' => $nowDatetime
-            ]);
+            // 3) UPDATE the existing record with afternoon attendance
+            try {
+                $updateSql = "UPDATE attendance 
+                            SET afternoon_attendance = :afternoon_attendance, 
+                                A_attendance_type = 'Late', attendance_summary = :attendance_summary
+                            WHERE student_id = :student_id 
+                            AND DATE(morning_attendance) = :today";
+                
+                $ins = $this->db->prepare($updateSql);
+                $ins->execute([
+                    ':student_id' => $student_id,
+                    ':afternoon_attendance' => $nowDatetime,  // Corrected parameter name
+                    ':today' => $today,
+                    ':attendance_summary' => $attendance_summary  
+                ]);
+                
+                // Check if any rows were updated
+                if ($ins->rowCount() === 0) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'No attendance record found to update.'
+                    ]);
+                }
+                
+            } catch (PDOException $e) {
+                // Handle the CASE statement error specifically
+                if (strpos($e->getMessage(), '1339') !== false || strpos($e->getMessage(), 'Case not found') !== false) {
+                    // This might be from a trigger or constraint
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Cannot mark attendance at this time. Please check attendance rules.'
+                    ]);
+                }
+                throw $e; // Re-throw if it's a different error
+            }
 
             return json_encode([
                 'status' => 1,
-                'message' => 'Afternoon attendance recorded successfully "LATE".'
+                'message' => 'Afternoon attendance recorded successfully as "PRESENT".'
             ]);
 
         } catch (PDOException $e) {
+            // Log the full error for debugging
+            error_log("Attendance Error: " . $e->getMessage());
+            
             return json_encode([
                 'status' => 0,
                 'message' => 'An error occurred: ' . $e->getMessage()

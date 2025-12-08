@@ -191,7 +191,7 @@
                                     class="btn btn-sm btn-info" title="View Enrollment Form">
                                     <i class="fa-solid fa-file-lines me-1"></i> Form
                                 </a>
-                                <?php if($status != 'active'): ?>
+                                <?php if($status != 'active' && $status != 'rejected'): ?>
                                 <button type="button" class="btn btn-success btn-sm open-enrolment"
                                     data-id="<?= htmlspecialchars($user["student_id"]) ?>"
                                     data-gradelevel="<?= htmlspecialchars($user["gradeLevel"]) ?>"
@@ -199,7 +199,7 @@
                                     <i class="fa-solid fa-check me-1"></i> Approve
                                 </button>
                                 <?php endif; ?>
-                                <?php if($status != 'rejected'): ?>
+                                <?php if($status != 'rejected' && $status != 'active'): ?>
                                 <button type="button" class="btn btn-danger btn-sm open-rejection"
                                     data-id="<?= htmlspecialchars($user["student_id"]) ?>" title="Reject Enrollment">
                                     <i class="fa-solid fa-xmark me-1"></i> Reject

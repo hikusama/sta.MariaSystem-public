@@ -39,25 +39,16 @@
                         <div class="profile-image-container mb-3 position-relative mx-auto" 
                              style="width: 180px; height: 180px;">
                             <?php 
-                            $imageData = $LibrarianInfo["student_profile"];
-                            $baseImage = base64_encode($imageData);
-
-                            $finfo = new finfo(FILEINFO_MIME_TYPE);
-                            $mineType = $finfo->buffer($imageData);
-
-                            if(!empty($LibrarianInfo["student_profile"])) { ?>
-                               <img src="data:<?= $mimeType ?>;base64,<?= $base64Image ?>"
-                                    class="rounded-circle profile-img"
-                                    id="profileImage"
-                                    alt="Profile Picture"
-                                    style="width: 200px; height: 200px; object-fit: cover;">
+                            if($LibrarianInfo["student_profile"] !== null) { ?>
+                               <img src="../../authentication/uploads/<?= htmlspecialchars($LibrarianInfo["student_profile"]);?>" 
+                                         class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Profile Picture">
                             <?php } else { ?>
                                 <div class="rounded-circle w-100 h-100 bg-primary d-flex align-items-center justify-content-center border shadow-sm">
                                     <i class="fas fa-user text-white fa-4x"></i>
                                 </div>
                             <?php } ?>
                             
-                            <label for="user_profile" 
+                            <label for="student_profile" 
                                    class="btn btn-sm btn-outline-primary position-absolute bottom-0 end-0 rounded-circle"
                                    style="width: 40px; height: 40px; cursor: pointer;">
                                 <i class="fas fa-camera"></i>
@@ -70,7 +61,7 @@
                         </div>
                         
                         <input type="hidden" name="current_profile_image" value="<?= $LibrarianInfo["student_profile"] ?>">
-                        <input type="file" name="user_profile" id="user_profile" 
+                        <input type="file" name="student_profile" id="student_profile" 
                                class="form-control d-none" 
                                accept="image/*"
                                onchange="previewImage(event)">

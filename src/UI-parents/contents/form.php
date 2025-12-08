@@ -346,10 +346,14 @@ $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
                     <input type="text" name="household_id" placeholder="If Yes, write the 4Ps Household ID Number" value="<?= ($fourPsYesChecked && $is4ps !== 'Yes') ? htmlspecialchars($is4ps) : '' ?>" class="form-control w-90 ms-3">
                 </div>
             </div>
-
-            <div class="col-md-12 d-flex justify-content-end mt-3">
-                <button type="submit" class="btn btn-danger px-5">Update</button>
-            </div>
+            <?php
+                if($studentInfo["enrolment_status"] == 'Pending'){
+                    echo '<div class="col-md-12 d-flex justify-content-end mt-3">
+                        <button type="submit" class="btn btn-danger px-5">Update</button>
+                    </div>';
+                }else{
+            ?>
+            <?php } ?>
         </div>
     </form>
 </div>

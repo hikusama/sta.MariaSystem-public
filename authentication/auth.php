@@ -82,6 +82,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     //USERS MANAGEMENT
     if (isset($_POST['resgiter']) && $_POST['resgiter'] === 'true'){
+            $username = $_POST["username"];
+            $email = $_POST["email"];
         try {
             $query = "SELECT username FROM users WHERE username = :username";
             $stmt = $pdo->prepare($query);
@@ -141,125 +143,279 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
     // PROFILE MANAGEMENT
     if (isset($_POST['parentSettings']) && $_POST['parentSettings'] === 'true') {
-        $parentID  = $_POST["parentID"] ?? null;
-        $lname      = $_POST["lname"] ?? '';
-        $fname      = $_POST["fname"] ?? '';
-        $mname      = $_POST["mname"] ?? '';
-        $suffix     = $_POST["suffix"] ?? '';
-        $email      = $_POST["email"] ?? '';
-        $profile    = '';
+        $user_id  = $_POST["user_id"] ?? null;
+        $firstname = $_POST["firstname"] ?? '';
+        $lastname  = $_POST["lastname"] ?? '';
+        $middlename = $_POST["middlename"] ?? '';
+        $suffix    = $_POST["suffix"] ?? '';
+        $email     = $_POST["email"] ?? '';
+        $profile   = '';
+        
+        // CSRF protection
+        if (!isset($_POST["csrf_token"]) || $_POST["csrf_token"] !== $_SESSION["csrf_token"]) {
+            die("CSRF token validation failed.");
+        }
 
         $errors = [];
 
         try {
-            // Handle profile picture
-            if (isset($_FILES["user_profile"]) && $_FILES["user_profile"]["error"] === 0) {
-                $upload = $_FILES["user_profile"];
-                $target_dir = "uploads/";
-                $image_file_name = uniqid() . "-" . basename($upload["name"]);
-                $target_file = $target_dir . $image_file_name;
-
-                if (move_uploaded_file($upload["tmp_name"], $target_file)) {
-                    $profile = $image_file_name;
-                } else {
-                    $errors["upload_error"] = "Failed to upload profile image.";
+            // Handle profile picture upload
+            if (isset($_FILES["student_profile"]) && $_FILES["student_profile"]["error"] === UPLOAD_ERR_OK) {
+                $upload = $_FILES["student_profile"];
+                
+                // Validate file type
+                $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                $file_info = finfo_open(FILEINFO_MIME_TYPE);
+                $mime_type = finfo_file($file_info, $upload["tmp_name"]);
+                finfo_close($file_info);
+                
+                if (!in_array($mime_type, $allowed_types)) {
+                    $errors[] = "Invalid file type. Only JPG, PNG, GIF, and WebP images are allowed.";
                 }
-            } else {
-                $profile = $_POST["current_profile_image"] ?? '';
+                
+                // Validate file size (max 2MB)
+                $max_size = 2 * 1024 * 1024;
+                if ($upload["size"] > $max_size) {
+                    $errors[] = "File size too large. Maximum size is 2MB.";
+                }
+                
+                // Create upload directory if it doesn't exist
+                $target_dir = "uploads/";
+                if (!file_exists($target_dir)) {
+                    mkdir($target_dir, 0755, true);
+                }
+                
+                // Generate unique filename
+                $file_extension = pathinfo($upload["name"], PATHINFO_EXTENSION);
+                $image_file_name = 'profile_' . $user_id . '_' . time() . '.' . $file_extension;
+                $target_file = $target_dir . $image_file_name;
+                
+                // Check if file is a valid image
+                $image_info = getimagesize($upload["tmp_name"]);
+                if (!$image_info) {
+                    $errors[] = "File is not a valid image.";
+                }
+                
+                if (empty($errors)) {
+                    // Move uploaded file
+                    if (move_uploaded_file($upload["tmp_name"], $target_file)) {
+                        // Get old profile picture to delete
+                        $stmt_old = $pdo->prepare("SELECT student_profile FROM users WHERE user_id = :user_id");
+                        $stmt_old->execute([':user_id' => $user_id]);
+                        $old_profile = $stmt_old->fetchColumn();
+                        
+                        // Delete old profile picture if exists and not default
+                        if ($old_profile && $old_profile !== '' && !str_starts_with($old_profile, 'default_')) {
+                            $old_file = $target_dir . $old_profile;
+                            if (file_exists($old_file)) {
+                                @unlink($old_file);
+                            }
+                        }
+                        
+                        $profile = $image_file_name;
+                    } else {
+                        $errors[] = "Failed to upload profile image.";
+                    }
+                }
+            } elseif (isset($_POST["current_profile_image"])) {
+                $profile = $_POST["current_profile_image"];
             }
 
             if (empty($errors)) {
+                // Prepare SQL query
                 $query = "UPDATE users SET 
-                            lastname = :lastname,
                             firstname = :firstname,
+                            lastname = :lastname,
                             middlename = :middlename,
                             suffix = :suffix,
-                            email = :email,
-                            profile_picture = :profile_picture
-                        WHERE user_id = :user_id";
+                            email = :email";
+                
+                // Add profile column only if we have a new profile
+                if (!empty($profile)) {
+                    $query .= ", student_profile = :student_profile";
+                }
+                
+                $query .= " WHERE user_id = :user_id";
 
                 $stmt = $pdo->prepare($query);
-                $stmt->bindParam(':user_id', $parentID);
-                $stmt->bindParam(':lastname', $lname);
-                $stmt->bindParam(':firstname', $fname);
-                $stmt->bindParam(':middlename', $mname);
+                
+                $stmt->bindParam(':user_id', $user_id);
+                $stmt->bindParam(':firstname', $firstname);
+                $stmt->bindParam(':lastname', $lastname);
+                $stmt->bindParam(':middlename', $middlename);
                 $stmt->bindParam(':suffix', $suffix);
                 $stmt->bindParam(':email', $email);
-                $stmt->bindParam(':profile_picture', $profile);
+                
+                if (!empty($profile)) {
+                    $stmt->bindParam(':student_profile', $profile);
+                }
 
                 $stmt->execute();
 
-                // Optional cleanup
-                $stmt = null;
-                $pdo = null;
+                // Clear old password reset tokens for this user (optional security measure)
+                // $pdo->prepare("DELETE FROM password_reset_tokens WHERE user_id = :user_id")->execute([':user_id' => $user_id]);
 
+                // Regenerate CSRF token
+                $_SESSION["csrf_token"] = bin2hex(random_bytes(32));
+
+                if ($stmt->rowCount() > 0) {
+                    $_SESSION['success_message'] = 'Profile updated successfully!';
+                } else {
+                    $_SESSION['info_message'] = 'No changes were made to your profile.';
+                }
+                
                 header("Location: ../src/UI-parents/index.php?page=contents/settings&update=success");
+                exit;
+            } else {
+                // Store errors in session to display on redirect
+                $_SESSION['error_messages'] = $errors;
+                header("Location: ../src/UI-parents/index.php?page=contents/settings&update=error");
                 exit;
             }
 
         } catch (PDOException $e) {
-            die("Query Failed: " . $e->getMessage());
+            error_log("Profile Update Error: " . $e->getMessage());
+            $_SESSION['error_messages'] = ['A database error occurred. Please try again.'];
+            header("Location: ../src/UI-parents/index.php?page=contents/settings&update=error");
+            exit;
         }
     }
     if (isset($_POST['teacherSettings']) && $_POST['teacherSettings'] === 'true') {
         $user_id  = $_POST["user_id"] ?? null;
-        $lname      = $_POST["firstname"] ?? '';
-        $fname      = $_POST["firstname"] ?? '';
-        $mname      = $_POST["middlename"] ?? '';
-        $suffix     = $_POST["suffix"] ?? '';
-        $email      = $_POST["email"] ?? '';
-        $profile    = '';
+        $firstname = $_POST["firstname"] ?? '';
+        $lastname  = $_POST["lastname"] ?? '';
+        $middlename = $_POST["middlename"] ?? '';
+        $suffix    = $_POST["suffix"] ?? '';
+        $email     = $_POST["email"] ?? '';
+        $profile   = '';
+        
+        // CSRF protection
+        if (!isset($_POST["csrf_token"]) || $_POST["csrf_token"] !== $_SESSION["csrf_token"]) {
+            die("CSRF token validation failed.");
+        }
 
         $errors = [];
 
         try {
-            // Handle profile picture
-            if (isset($_FILES["student_profile"]) && $_FILES["student_profile"]["error"] === 0) {
+            // Handle profile picture upload
+            if (isset($_FILES["student_profile"]) && $_FILES["student_profile"]["error"] === UPLOAD_ERR_OK) {
                 $upload = $_FILES["student_profile"];
-                $target_dir = "uploads/";
-                $image_file_name = uniqid() . "-" . basename($upload["name"]);
-                $target_file = $target_dir . $image_file_name;
-
-                if (move_uploaded_file($upload["tmp_name"], $target_file)) {
-                    $profile = $image_file_name;
-                } else {
-                    $errors["upload_error"] = "Failed to upload profile image.";
+                
+                // Validate file type
+                $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                $file_info = finfo_open(FILEINFO_MIME_TYPE);
+                $mime_type = finfo_file($file_info, $upload["tmp_name"]);
+                finfo_close($file_info);
+                
+                if (!in_array($mime_type, $allowed_types)) {
+                    $errors[] = "Invalid file type. Only JPG, PNG, GIF, and WebP images are allowed.";
                 }
-            } else {
-                $profile = $_POST["current_profile_image"] ?? '';
+                
+                // Validate file size (max 2MB)
+                $max_size = 2 * 1024 * 1024;
+                if ($upload["size"] > $max_size) {
+                    $errors[] = "File size too large. Maximum size is 2MB.";
+                }
+                
+                // Create upload directory if it doesn't exist
+                $target_dir = "uploads/";
+                if (!file_exists($target_dir)) {
+                    mkdir($target_dir, 0755, true);
+                }
+                
+                // Generate unique filename
+                $file_extension = pathinfo($upload["name"], PATHINFO_EXTENSION);
+                $image_file_name = 'profile_' . $user_id . '_' . time() . '.' . $file_extension;
+                $target_file = $target_dir . $image_file_name;
+                
+                // Check if file is a valid image
+                $image_info = getimagesize($upload["tmp_name"]);
+                if (!$image_info) {
+                    $errors[] = "File is not a valid image.";
+                }
+                
+                if (empty($errors)) {
+                    // Move uploaded file
+                    if (move_uploaded_file($upload["tmp_name"], $target_file)) {
+                        // Get old profile picture to delete
+                        $stmt_old = $pdo->prepare("SELECT student_profile FROM users WHERE user_id = :user_id");
+                        $stmt_old->execute([':user_id' => $user_id]);
+                        $old_profile = $stmt_old->fetchColumn();
+                        
+                        // Delete old profile picture if exists and not default
+                        if ($old_profile && $old_profile !== '' && !str_starts_with($old_profile, 'default_')) {
+                            $old_file = $target_dir . $old_profile;
+                            if (file_exists($old_file)) {
+                                @unlink($old_file);
+                            }
+                        }
+                        
+                        $profile = $image_file_name;
+                    } else {
+                        $errors[] = "Failed to upload profile image.";
+                    }
+                }
+            } elseif (isset($_POST["current_profile_image"])) {
+                $profile = $_POST["current_profile_image"];
             }
 
             if (empty($errors)) {
+                // Prepare SQL query
                 $query = "UPDATE users SET 
-                            lastname = :lastname,
                             firstname = :firstname,
+                            lastname = :lastname,
                             middlename = :middlename,
                             suffix = :suffix,
-                            email = :email,
-                            student_profile = :student_profile
-                        WHERE user_id = :user_id";
+                            email = :email";
+                
+                // Add profile column only if we have a new profile
+                if (!empty($profile)) {
+                    $query .= ", student_profile = :student_profile";
+                }
+                
+                $query .= " WHERE user_id = :user_id";
 
                 $stmt = $pdo->prepare($query);
+                
                 $stmt->bindParam(':user_id', $user_id);
-                $stmt->bindParam(':lastname', $lname);
-                $stmt->bindParam(':firstname', $fname);
-                $stmt->bindParam(':middlename', $mname);
+                $stmt->bindParam(':firstname', $firstname);
+                $stmt->bindParam(':lastname', $lastname);
+                $stmt->bindParam(':middlename', $middlename);
                 $stmt->bindParam(':suffix', $suffix);
                 $stmt->bindParam(':email', $email);
-                $stmt->bindParam(':student_profile', $profile);
+                
+                if (!empty($profile)) {
+                    $stmt->bindParam(':student_profile', $profile);
+                }
 
                 $stmt->execute();
 
-                // Optional cleanup
-                $stmt = null;
-                $pdo = null;
+                // Clear old password reset tokens for this user (optional security measure)
+                // $pdo->prepare("DELETE FROM password_reset_tokens WHERE user_id = :user_id")->execute([':user_id' => $user_id]);
 
+                // Regenerate CSRF token
+                $_SESSION["csrf_token"] = bin2hex(random_bytes(32));
+
+                if ($stmt->rowCount() > 0) {
+                    $_SESSION['success_message'] = 'Profile updated successfully!';
+                } else {
+                    $_SESSION['info_message'] = 'No changes were made to your profile.';
+                }
+                
                 header("Location: ../src/UI-teacher/index.php?page=contents/settings&update=success");
+                exit;
+            } else {
+                // Store errors in session to display on redirect
+                $_SESSION['error_messages'] = $errors;
+                header("Location: ../src/UI-teacher/index.php?page=contents/settings&update=error");
                 exit;
             }
 
         } catch (PDOException $e) {
-            die("Query Failed: " . $e->getMessage());
+            error_log("Profile Update Error: " . $e->getMessage());
+            $_SESSION['error_messages'] = ['A database error occurred. Please try again.'];
+            header("Location: ../src/UI-teacher/index.php?page=contents/settings&update=error");
+            exit;
         }
     }
     if (isset($_POST['adminProfile']) && $_POST['adminProfile'] === 'true') {

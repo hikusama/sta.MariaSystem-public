@@ -36,8 +36,13 @@
         <h4><i class="fa-solid fa-folder me-2"></i>Enrollment Management</h4>
     </div>
 </div>
-
-<div class="row g-3">
+<style>
+    .scroll-class{
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+</style>
+<div class="row g-3 scroll-class">
     <!-- Search Section -->
     <div class="row mb-3 justify-content-between align-items-center">
         <div class="col-md-8">

@@ -250,20 +250,20 @@ $studentsEnrolled = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
                 <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
                     <!-- ROW 1 -->
                     <tr>
-                        <th rowspan="3" colspan="2" class="align-middle" style="min-width: 300px; background-color: #e7f3ff;">
+                        <th rowspan="3" colspan="2" class="align-middle" style="min-width: 20%; background-color: #e7f3ff;">
                             <small>LEARNER'S NAME</small><br>
                             <small><em>(Last Name, First Name, Middle Name)</em></small>
                         </th>
 
-                        <th colspan="25" style="min-width: 1250px;">
+                        <th colspan="25" style="min-width: 50%;">
                             <small>(1st row for date)</small>
                         </th>
 
-                        <th rowspan="2" colspan="2" class="align-middle" style="min-width: 100px; background-color: #f8f9fa;">
+                        <th rowspan="2" colspan="2" class="align-middle" style="min-width: 15%; background-color: #f8f9fa;">
                             <small>Total for the Month</small>
                         </th>
 
-                        <th rowspan="3" class="align-middle" style="min-width: 300px; max-width: 350px; background-color: #fff3cd;">
+                        <th rowspan="3" class="align-middle" style="min-width: 15%; background-color: #fff3cd;">
                             <small>REMARKS</small><br>
                             <small><em>If DROPPED OUT, state reason—refer to legend #2.</em></small><br>
                             <small><em>If TRANSFERRED IN/OUT, write the name of the school.</em></small>
@@ -271,7 +271,7 @@ $studentsEnrolled = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
                     </tr>
 
                     <!-- ROW 2 -->
-                    <tr>
+                    <tr >
                         <!-- 25 date cells -->
                         <?php for ($i = 1; $i <= 25; $i++): ?>
                         <th style="min-width: 40px; max-width: 50px;">
@@ -281,7 +281,7 @@ $studentsEnrolled = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
                     </tr>
 
                     <!-- ROW 3 (Days: M T W TH F × 5 weeks) -->
-                    <tr>
+                    <tr style="width: 5% !important;">
                         <?php 
                         $days = ['M', 'T', 'W', 'TH', 'F'];
                         for ($week = 1; $week <= 5; $week++):
