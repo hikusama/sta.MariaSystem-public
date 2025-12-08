@@ -360,7 +360,7 @@ function db_connect()
 
 
             
-            ];
+        ];
 
         foreach ($tableQueries as $sql) {
             $pdo->exec($sql);
