@@ -165,7 +165,7 @@ function attachRowClickEvents() {
             const studentId = this.getAttribute('data-id');
             if (studentId) {
                
-                window.location.href = 'contents/schoolform9.php?student_id=' + encodeURIComponent(studentId);
+                window.location.href = '/sta.MariaSystem/src/UI-Admin/contents/schoolform9.php?student_id=' + studentId;
             }
         });
     });
