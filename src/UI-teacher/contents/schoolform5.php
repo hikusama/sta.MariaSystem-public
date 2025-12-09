@@ -8,7 +8,7 @@ $mysqli = new mysqli("localhost", "root", "", "stamariadb");
 if ($mysqli->connect_error) die("DB Connection failed: " . $mysqli->connect_error);
 
 
-$templatePath = 'C:/xampp/htdocs/sta.MariaSystem-main/src/teacher/contents/sf5/sf5.xlsx';
+$templatePath = 'C:/xampp/htdocs/sta.MariaSystem-main/src/UI-teacher/contents/sf5/sf5.xlsx';
 $saveDir = 'C:/xampp/htdocs/sta.MariaSystem-main/sf5_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
 
@@ -503,6 +503,7 @@ updateSummaryTable();
 </script>
 </body>
 </html>
+
 
 
 
