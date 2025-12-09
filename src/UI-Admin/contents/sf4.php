@@ -171,9 +171,16 @@
                 <div class="col-md-4">
                     <div class="d-flex align-items-center mb-2">
                         <label class="me-2 col-4">Report for the month of</label>
-                        <input type="date" name="report_for_the_month_of"
-                            value="<?= htmlspecialchars($data_sf_four["report_for_the_month_of"] ?? '') ?>"
-                            class="flex-grow-1">
+                        <select name="month" id="month_attendance" class="form-select" onchange="this.form.submit()">
+                            <option value="">Select Month</option>
+                            <?php
+                            $months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+                            foreach ($months as $month) {
+                                $selected = ($selected_month == $month) ? 'selected' : '';
+                                echo "<option value='$month' $selected>$month</option>";
+                            }
+                            ?>
+                        </select>
                     </div>
                 </div>
             </div>

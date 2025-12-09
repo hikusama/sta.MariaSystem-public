@@ -227,7 +227,7 @@
             </div>
             <div class="modal-body">
                 <form class="row g-3" id="deleteFeedback-form">
-                    <input type="text" name="feedback_id" id="feedback_id_delete">
+                    <input type="hidden" name="feedback_id" id="feedback_id_delete">
                     <div class="col-12 text-center mb-3">
                         <i class="fa-solid fa-triangle-exclamation fa-3x text-warning mb-3"></i>
                         <h5>Confirm Deletion</h5>
