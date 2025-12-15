@@ -47,7 +47,7 @@ function base_url()
     $isLocal = in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']);
 
     if ($isLocal) {
-        return $protocol . '://' . $host . '/sta.MariaSystem-main/';
+        return $protocol . '://' . $host . '/sta.MariaSystem/';
     } else {
         return $protocol . '://' . $host . '/';
     }
