@@ -53,7 +53,7 @@ function db_connect()
                 student_profile VARCHAR(255),
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )",
-            "CREATE TABLE IF NOT EXISTS users_history (
+             "CREATE TABLE IF NOT EXISTS users_history (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT(11) NOT NULL,
                 login_time DATETIME NOT NULL,
@@ -256,11 +256,10 @@ function db_connect()
                 certified_by VARCHAR(100),
                 reviewed_by VARCHAR(100),
                 learners LONGTEXT,
-                action_taken JSON NULL
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )",
 
-            "CREATE TABLE IF NOT EXISTS sf10_data (
+             "CREATE TABLE IF NOT EXISTS sf10_data (
                             id INT AUTO_INCREMENT PRIMARY KEY,
                             student_id INT,
                             last_name VARCHAR(100),
@@ -288,8 +287,8 @@ function db_connect()
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )",
 
-
-            "CREATE TABLE IF NOT EXISTS sf9_data (
+                                
+                                "CREATE TABLE IF NOT EXISTS sf9_data (
                         id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
                         student_id INT(11),
                         student_name VARCHAR(150),
@@ -334,8 +333,8 @@ function db_connect()
                         days_school_apr INT(11) DEFAULT 0,
                         days_present_apr INT(11) DEFAULT 0,
                         days_absent_apr INT(11) DEFAULT 0,
-                    " . implode(',', array_map(function ($i) {
-                return "
+                    " . implode(',', array_map(function($i) {
+                        return "
                             subject_$i VARCHAR(100),
                             q1_$i DECIMAL(5,2),
                             q2_$i DECIMAL(5,2),
@@ -344,23 +343,23 @@ function db_connect()
                             final_$i DECIMAL(5,2),
                             remarks_$i VARCHAR(20)
                         ";
-            }, range(1, 15))) . ",
+                        }, range(1, 15))) . ",
                             general_average DECIMAL(5,2),
-                        " . implode(',', array_map(function ($i) {
-                return "
+                        " . implode(',', array_map(function($i) {
+                            return "
                                 behavior_$i VARCHAR(255),
                                 b{$i}_q1 VARCHAR(5),
                                 b{$i}_q2 VARCHAR(5),
                                 b{$i}_q3 VARCHAR(5),
                                 b{$i}_q4 VARCHAR(5)
                             ";
-            }, range(1, 7))) . ",
+                        }, range(1, 7))) . ",
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             FOREIGN KEY (student_id) REFERENCES student(student_id) ON DELETE CASCADE
                         )"
 
 
-
+            
         ];
 
         foreach ($tableQueries as $sql) {
@@ -368,9 +367,9 @@ function db_connect()
         }
 
         try {
-            $pdo->exec("DROP TRIGGER IF EXISTS trg_update_sf9_after_attendance_insert");
+    $pdo->exec("DROP TRIGGER IF EXISTS trg_update_sf9_after_attendance_insert");
 
-            $triggerSQL = "
+    $triggerSQL = "
         CREATE TRIGGER trg_update_sf9_after_attendance_insert
         AFTER INSERT ON attendance
         FOR EACH ROW
@@ -528,12 +527,13 @@ function db_connect()
         END;
     ";
 
-            $pdo->exec($triggerSQL);
-        } catch (PDOException $e) {
-            // Optional: log error
-        }
+    $pdo->exec($triggerSQL);
 
+} catch (PDOException $e) {
+    // Optional: log error
+}
 
+       
         $count = $pdo->query("SELECT COUNT(*) FROM admin")->fetchColumn();
         if ($count == 0) {
             $stmt = $pdo->prepare("INSERT INTO admin (
@@ -553,7 +553,7 @@ function db_connect()
                 ''
             ]);
         }
-
+           
         $checkSF1 = $pdo->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_type = 'sf_1'");
         $checkSF1->execute();
         if ($checkSF1->fetchColumn() == 0) {
@@ -561,7 +561,7 @@ function db_connect()
             $stmtSF1->execute();
         }
 
-
+       
         $checkSF2 = $pdo->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_type = 'sf_2'");
         $checkSF2->execute();
         if ($checkSF2->fetchColumn() == 0) {
@@ -569,7 +569,7 @@ function db_connect()
             $stmtSF2->execute();
         }
 
-
+       
         $checkSF4 = $pdo->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_type = 'sf_4'");
         $checkSF4->execute();
         if ($checkSF4->fetchColumn() == 0) {
@@ -577,7 +577,7 @@ function db_connect()
             $stmtSF4->execute();
         }
 
-
+       
         $checkSF8 = $pdo->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_type = 'sf_8'");
         $checkSF8->execute();
         if ($checkSF8->fetchColumn() == 0) {
@@ -586,15 +586,16 @@ function db_connect()
         }
 
         try {
+   
+    $pdo->exec("ALTER TABLE sections ADD UNIQUE (section_name, section_grade_level)");
+} catch (PDOException $e) {
+    
+}
 
-            $pdo->exec("ALTER TABLE sections ADD UNIQUE (section_name, section_grade_level)");
-        } catch (PDOException $e) {
-        }
-
-        try {
-
-            $pdo->exec("DROP TRIGGER IF EXISTS after_section_update");
-            $pdo->exec("
+try {
+   
+    $pdo->exec("DROP TRIGGER IF EXISTS after_section_update");
+    $pdo->exec("
         CREATE TRIGGER after_section_update
         AFTER UPDATE ON sections
         FOR EACH ROW
@@ -607,8 +608,9 @@ function db_connect()
             END IF;
         END;
     ");
-        } catch (PDOException $e) {
-        }
+} catch (PDOException $e) {
+   
+}
 
         return $pdo;
     } catch (PDOException $e) {
