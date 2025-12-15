@@ -1,5 +1,5 @@
 <?php
-require_once 'C:/xampp/htdocs/sta.MariaSystem/vendor/autoload.php';
+require_once 'C:/xampp/htdocs/sta.MariaSystem-main/vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
@@ -23,7 +23,7 @@ if ($student_id) {
     $stmt->execute([$student_id]);
     $student = $stmt->fetch(PDO::FETCH_ASSOC);
 }
-$saveDir = 'C:/xampp/htdocs/sta.MariaSystem/sf10_files';
+$saveDir = 'C:/xampp/htdocs/sta.MariaSystem-main/sf10_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
 
 $grades = $sections = $school_years = $advisers = [];
@@ -127,13 +127,7 @@ for ($i = 1; $i <= 8; $i++) {
         'remarks' => implode('|', $remarks),
     ];
 }
-for ($i = 1; $i <= 8; $i++) {
-    $personal_data["rem{$i}_area"] = $remedials_db[$i]['area'];
-    $personal_data["rem{$i}_final"] = $remedials_db[$i]['final'];
-    $personal_data["rem{$i}_class_mark"] = $remedials_db[$i]['class_mark'];
-    $personal_data["rem{$i}_recomputed"] = $remedials_db[$i]['recomputed'];
-    $personal_data["rem{$i}_remarks"] = $remedials_db[$i]['remarks'];
-}
+
 
     $personal_data = [
         'student_id' => $student_id,
@@ -171,17 +165,18 @@ for ($i = 1; $i <= 8; $i++) {
             'final_ratings' => $final_ratings_all,
             'remarks' => $remarks_all,
             'general_averages' => $general_averages
+
+          
         ])
     ];
 
 for ($i = 1; $i <= 8; $i++) {
-    $personal_data["rem{$i}_area"] = $remedials_db[$i]['area'];
-    $personal_data["rem{$i}_final"] = $remedials_db[$i]['final'];
-    $personal_data["rem{$i}_class_mark"] = $remedials_db[$i]['class_mark'];
-    $personal_data["rem{$i}_recomputed"] = $remedials_db[$i]['recomputed'];
-    $personal_data["rem{$i}_remarks"] = $remedials_db[$i]['remarks'];
+    $personal_data["rem{$i}_area"]        = $remedials_db[$i]['area'] ?? '';
+    $personal_data["rem{$i}_final"]       = $remedials_db[$i]['final'] ?? '';
+    $personal_data["rem{$i}_class_mark"]  = $remedials_db[$i]['class_mark'] ?? '';
+    $personal_data["rem{$i}_recomputed"]  = $remedials_db[$i]['recomputed'] ?? '';
+    $personal_data["rem{$i}_remarks"]     = $remedials_db[$i]['remarks'] ?? '';
 }
-
 
 
     $columns = implode(',', array_keys($personal_data));
@@ -191,7 +186,7 @@ $stmt->execute(array_values($personal_data));
 
    
     try {
-        $template_path = 'C:/xampp/htdocs/sta.MariaSystem/src/UI-Admin/contents/sf10/sf10.xlsx';
+        $template_path = 'C:/xampp/htdocs/sta.MariaSystem-main/src/UI-Admin/contents/sf10/sf10.xlsx';
         $spreadsheet = IOFactory::load($template_path);
         $sheet = $spreadsheet->getSheet(0);
         $sheet_back = $spreadsheet->getSheet(1);
@@ -323,7 +318,7 @@ foreach ($certifications as $cert) {
         $drawing = new Drawing();
         $drawing->setName('DepEd Logo');
         $drawing->setDescription('DepEd Logo');
-        $drawing->setPath('C:/xampp/htdocs/sta.MariaSystem/assets/image/deped.png');
+        $drawing->setPath('C:/xampp/htdocs/sta.MariaSystem-main/assets/image/deped.png');
         $drawing->setCoordinates('A1');
         $drawing->setWidth(80);
         $drawing->setHeight(80);
@@ -432,7 +427,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
 <body>
 <div class="d-flex align-items-center justify-content-between col-12 m-0 p-0 header-brand">
   <div class="d-flex align-items-center ps-4">
-    <img src="/sta.MariaSystem/assets/image/logo2.png" alt="Logo">
+    <img src="/sta.MariaSystem-main/assets/image/logo2.png" alt="Logo">
     <h4>STA.MARIA WEB SYSTEM</h4>
   </div>
 </div>
@@ -440,7 +435,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
   <form method="post">
     <div class="row">
       <!-- Sidebar -->
-      <div class="col-md-4 col-sm-12">
+      <div class="col-12">
         <div class="sidebar">
           <h5>Learner's Personal Information</h5>
           <label class="form-label">Last Name</label>
@@ -465,7 +460,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
       </div>
 
   
-      <div class="col-md-4 col-sm-12">
+      <div class="col-12">
         <div class="eligibility-container">
           <h5>Elementary School Eligibility</h5>
           <div class="form-check">
@@ -511,7 +506,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
       </div>
 
      
-      <div class="col-md-4 col-sm-12">
+      <div class="col-12">
         <div class="scholastic-container">
           <h5>Scholastic Records</h5>
           <ul class="nav nav-tabs mb-3" id="srTabs" role="tablist">
@@ -526,47 +521,92 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
           </ul>
 
           
-          <div class="tab-content">
-           <?php for($i=1;$i<=8;$i++): ?>
+       <div class="tab-content">
+    <?php for($i=1;$i<=8;$i++): ?>
 
-              <div class="tab-pane fade <?= $i===1?'show active':'' ?>" id="sr<?=$i?>" role="tabpanel">
-                <label class="form-label">Grade</label>
-                <input type="text" class="form-control form-control-sm" name="grade<?=$i?>" value="<?= htmlspecialchars($_POST['grade'.$i] ?? ($sf10_data['grade'.$i] ?? '')) ?>">
-                <label class="form-label">Section</label>
-                <input type="text" class="form-control form-control-sm" name="section<?=$i?>" value="<?= htmlspecialchars($_POST['section'.$i] ?? ($sf10_data['section'.$i] ?? '')) ?>">
-                <label class="form-label">School Year</label>
-                <input type="text" class="form-control form-control-sm" name="school_year<?=$i?>" value="<?= htmlspecialchars($_POST['school_year'.$i] ?? ($sf10_data['school_year'.$i] ?? '')) ?>">
-                <label class="form-label">Name of Adviser</label>
-                <input type="text" class="form-control form-control-sm" name="adviser_name<?=$i?>" value="<?= htmlspecialchars($_POST['adviser_name'.$i] ?? ($sf10_data['adviser_name'.$i] ?? '')) ?>">
-                <h6 class="mt-3">Grades Table</h6>
-                <div class="table-responsive">
-                  <table class="table table-bordered table-sm">
+        <div class="tab-pane fade <?= $i===1?'show active':'' ?>" id="sr<?=$i?>" role="tabpanel">
+            <label class="form-label">Grade</label>
+            <input type="text" class="form-control form-control-sm" name="grade<?=$i?>" 
+                   value="<?= htmlspecialchars($_POST['grade'.$i] ?? ($scholastic_data['grades'][$i] ?? '')) ?>">
+
+            <label class="form-label">Section</label>
+            <input type="text" class="form-control form-control-sm" name="section<?=$i?>" 
+                   value="<?= htmlspecialchars($_POST['section'.$i] ?? ($scholastic_data['sections'][$i] ?? '')) ?>">
+
+            <label class="form-label">School Year</label>
+            <input type="text" class="form-control form-control-sm" name="school_year<?=$i?>" 
+                   value="<?= htmlspecialchars($_POST['school_year'.$i] ?? ($scholastic_data['school_years'][$i] ?? '')) ?>">
+
+            <label class="form-label">Name of Adviser</label>
+            <input type="text" class="form-control form-control-sm" name="adviser_name<?=$i?>" 
+                   value="<?= htmlspecialchars($_POST['adviser_name'.$i] ?? ($scholastic_data['adviser_name'][$i] ?? '')) ?>">
+
+            <h6 class="mt-3">Grades Table</h6>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm">
                     <thead>
-                      <tr>
-                        <th>Learning Area</th>
-                        <th>1</th>
-                        <th>2</th>
-                        <th>3</th>
-                        <th>4</th>
-                        <th>Final Rating</th>
-                        <th>Remarks</th>
-                      </tr>
+                        <tr>
+                            <th>Learning Area</th>
+                            <th>1</th>
+                            <th>2</th>
+                            <th>3</th>
+                            <th>4</th>
+                            <th>Final Rating</th>
+                            <th>Remarks</th>
+                        </tr>
                     </thead>
                     <tbody>
-                      <?php for($r=0;$r<15;$r++): ?>
-                        <tr>
-                          <td><input type="text" class="form-control form-control-sm" name="learning_area<?=$i?>[]" value="<?= htmlspecialchars($_POST['learning_area'.$i][$r] ?? ($scholastic_data['learning_area'][$i][$r] ?? '')) ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="q1_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q1_'.$i][$r] ?? ($scholastic_data['q1'][$i][$r] ?? '')) ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="q2_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q2_'.$i][$r] ?? ($scholastic_data['q2'][$i][$r] ?? '')) ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="q3_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q3_'.$i][$r] ?? ($scholastic_data['q3'][$i][$r] ?? '')) ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="q4_<?=$i?>[]" value="<?= htmlspecialchars($_POST['q4_'.$i][$r] ?? ($scholastic_data['q4'][$i][$r] ?? '')) ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="final_rating_<?=$i?>[]" value="<?= htmlspecialchars($_POST['final_rating_'.$i][$r] ?? ($scholastic_data['final_rating'][$i][$r] ?? '')) ?>"></td>
-                          <td><input type="text" class="form-control form-control-sm" name="remarks_table_<?=$i?>[]" value="<?= htmlspecialchars($_POST['remarks_table_'.$i][$r] ?? ($scholastic_data['remarks_table'][$i][$r] ?? '')) ?>"></td>
-                        </tr>
-                      <?php endfor; ?>
+                        <?php for($r=0;$r<15;$r++): ?>
+                            <tr>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" 
+                                           name="learning_area<?=$i?>[]" 
+                                           value="<?= htmlspecialchars($_POST['learning_area'.$i][$r] ?? ($scholastic_data['learning_areas'][$i][$r] ?? '')) ?>">
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" 
+                                           name="q1_<?=$i?>[]" 
+                                           value="<?= htmlspecialchars($_POST['q1_'.$i][$r] ?? ($scholastic_data['q1'][$i][$r] ?? '')) ?>">
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" 
+                                           name="q2_<?=$i?>[]" 
+                                           value="<?= htmlspecialchars($_POST['q2_'.$i][$r] ?? ($scholastic_data['q2'][$i][$r] ?? '')) ?>">
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" 
+                                           name="q3_<?=$i?>[]" 
+                                           value="<?= htmlspecialchars($_POST['q3_'.$i][$r] ?? ($scholastic_data['q3'][$i][$r] ?? '')) ?>">
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" 
+                                           name="q4_<?=$i?>[]" 
+                                           value="<?= htmlspecialchars($_POST['q4_'.$i][$r] ?? ($scholastic_data['q4'][$i][$r] ?? '')) ?>">
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" 
+                                           name="final_rating_<?=$i?>[]" 
+                                           value="<?= htmlspecialchars($_POST['final_rating_'.$i][$r] ?? ($scholastic_data['final_ratings'][$i][$r] ?? '')) ?>">
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" 
+                                           name="remarks_table_<?=$i?>[]" 
+                                           value="<?= htmlspecialchars($_POST['remarks_table_'.$i][$r] ?? ($scholastic_data['remarks_table'][$i][$r] ?? '')) ?>">
+                                </td>
+                            </tr>
+                        <?php endfor; ?>
                     </tbody>
-                  </table>
-                </div>
+                </table>
+            </div>
+
+            <label class="form-label">General Average</label>
+            <input type="text" class="form-control form-control-sm" name="general_average_<?=$i?>" 
+                   value="<?= htmlspecialchars($_POST['general_average_'.$i] ?? ($scholastic_data['general_average'][$i] ?? '')) ?>">
+        </div>
+
+
+</div>
+
                 <label class="form-label">General Average</label>
                 <input type="text" class="form-control form-control-sm" name="general_average_<?=$i?>" value="<?= htmlspecialchars($_POST['general_average_'.$i] ?? ($scholastic_data['general_average'][$i] ?? '')) ?>">
               </div>
@@ -579,12 +619,12 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
     </div>
   </form>
 </div>
-<div class="remedial-carousel-container">
+<!--  <div class="remedial-carousel-container">
     <button type="button" class="arrow prev" onclick="prevRemedial()">&#10094;</button>
     <div class="remedial-wrapper">
         <?php for ($i = 1; $i <= 8; $i++): ?>
         <div class="remedial-slide <?php echo $i === 1 ? 'active' : ''; ?>" id="remedial-<?php echo $i; ?>">
-            <h3>Remedial Class <?php echo $i; ?></h3>
+            <h3>Remedial Class <?php echo $i; ?></h3>  ---> 
             <table class="remedial-table">
                 <thead>
                     <tr>
