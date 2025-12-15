@@ -1,6 +1,6 @@
 <?php
 
-require_once 'C:/xampp/htdocs/sta.MariaSystem-main/vendor/autoload.php'; 
+require_once 'C:/xampp/htdocs/sta.MariaSystem/vendor/autoload.php'; 
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
@@ -75,7 +75,7 @@ if (!empty($student['student_profile']) && file_exists(__DIR__ . "/assets/image/
 }
 
 
-$saveDir = 'C:/xampp/htdocs/sta.MariaSystem-main/sf9_files';
+$saveDir = 'C:/xampp/htdocs/sta.MariaSystem/sf9_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
 
 $existingSf9 = null;
@@ -127,7 +127,7 @@ if (isset($_GET['download']) && $_GET['download'] === '1') {
     }
     // file name saving as excel file based sa student info
     $fileName = build_sf9_filename($student['lrn'] ?? '', $student['fname'] ?? '', $student['lname'] ?? '', $student['gradeLevel'] ?? '');
-    $filePath = 'C:/xampp/htdocs/sta.MariaSystem-main/sf9_files/' . $fileName;
+    $filePath = 'C:/xampp/htdocs/sta.MariaSystem/sf9_files/' . $fileName;
 
     if (!file_exists($filePath)) {
         die("Error: File not found on server. Path: " . htmlspecialchars($filePath));
@@ -178,7 +178,7 @@ foreach ($subjects_for_grade as $i => $subject_name) {
   
 
     
-    $template_path = 'C:/xampp/htdocs/sta.MariaSystem-main/src/UI-Admin/contents/sf9/sf9.xlsx';
+    $template_path = 'C:/xampp/htdocs/sta.MariaSystem/src/UI-Admin/contents/sf9/sf9.xlsx';
     $spreadsheet = IOFactory::load($template_path);
 
     $sheet = $spreadsheet->getSheetByName('Sheet1');
@@ -245,7 +245,7 @@ foreach ($targetCells as $cell) {
     $drawing = new Drawing();
     $drawing->setName('DepEd Logo');
     $drawing->setDescription('DepEd Logo');
-    $drawing->setPath('C:/xampp/htdocs/sta.MariaSystem-main/assets/image/deped.png');
+    $drawing->setPath('C:/xampp/htdocs/sta.MariaSystem/assets/image/deped.png');
     $drawing->setCoordinates('P5');
     $drawing->setWidth(80);
     $drawing->setHeight(80);
@@ -506,7 +506,7 @@ $backSheet->setCellValue("A{$row}", $subjects[$i] ?? '');
 
 <div class="text-white d-flex align-items-center justify-content-between col-12 m-0 p-0 header-brand">
   <div class="d-flex align-items-center ps-4">
-    <img src="/sta.MariaSystem-main/assets/image/logo2.png" alt="Logo"
+    <img src="/sta.MariaSystem/assets/image/logo2.png" alt="Logo"
          style="width: 65px; height: 65px; border-radius: 50%; margin-right: 15px; object-fit: cover;">
     <h4 class="card-title text-white m-0 fw-bold" style="font-size: 1.3rem;">STA.MARIA WEB SYSTEM</h4>
   </div>

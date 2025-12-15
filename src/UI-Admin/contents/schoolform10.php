@@ -1,5 +1,5 @@
 <?php
-require_once 'C:/xampp/htdocs/sta.MariaSystem-main/vendor/autoload.php';
+require_once 'C:/xampp/htdocs/sta.MariaSystem/vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
@@ -23,7 +23,7 @@ if ($student_id) {
     $stmt->execute([$student_id]);
     $student = $stmt->fetch(PDO::FETCH_ASSOC);
 }
-$saveDir = 'C:/xampp/htdocs/sta.MariaSystem-main/sf10_files';
+$saveDir = 'C:/xampp/htdocs/sta.MariaSystem/sf10_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
 
 $grades = $sections = $school_years = $advisers = [];
@@ -191,7 +191,7 @@ $stmt->execute(array_values($personal_data));
 
    
     try {
-        $template_path = 'C:/xampp/htdocs/sta.MariaSystem-main/src/UI-Admin/contents/sf10/sf10.xlsx';
+        $template_path = 'C:/xampp/htdocs/sta.MariaSystem/src/UI-Admin/contents/sf10/sf10.xlsx';
         $spreadsheet = IOFactory::load($template_path);
         $sheet = $spreadsheet->getSheet(0);
         $sheet_back = $spreadsheet->getSheet(1);
@@ -323,7 +323,7 @@ foreach ($certifications as $cert) {
         $drawing = new Drawing();
         $drawing->setName('DepEd Logo');
         $drawing->setDescription('DepEd Logo');
-        $drawing->setPath('C:/xampp/htdocs/sta.MariaSystem-main/assets/image/deped.png');
+        $drawing->setPath('C:/xampp/htdocs/sta.MariaSystem/assets/image/deped.png');
         $drawing->setCoordinates('A1');
         $drawing->setWidth(80);
         $drawing->setHeight(80);
@@ -432,7 +432,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
 <body>
 <div class="d-flex align-items-center justify-content-between col-12 m-0 p-0 header-brand">
   <div class="d-flex align-items-center ps-4">
-    <img src="/sta.MariaSystem-main/assets/image/logo2.png" alt="Logo">
+    <img src="/sta.MariaSystem/assets/image/logo2.png" alt="Logo">
     <h4>STA.MARIA WEB SYSTEM</h4>
   </div>
 </div>
