@@ -256,7 +256,7 @@ function db_connect()
                 certified_by VARCHAR(100),
                 reviewed_by VARCHAR(100),
                 learners LONGTEXT,
-                action_taken JSON NULL,
+                action_taken JSON NULL
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )",
 
