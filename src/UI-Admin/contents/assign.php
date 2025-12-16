@@ -1,4 +1,5 @@
 <?php
+// Get current active school year
 $currentSyStmt = $pdo->prepare("SELECT school_year_id, school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
 $currentSyStmt->execute();
 $currentSy = $currentSyStmt->fetch(PDO::FETCH_ASSOC);
@@ -7,30 +8,36 @@ $activeSyId = $currentSy['school_year_id'] ?? null;
 $classrooms = [];
 if ($activeSyId) {
     $stmt = $pdo->prepare("
-        SELECT classrooms.*, classes.class_id, users.firstname, users.lastname
+        SELECT 
+            classrooms.*,
+            classes.class_id,
+            users.firstname,
+            users.lastname
         FROM classrooms
         LEFT JOIN classes 
             ON classrooms.room_id = classes.classroom_id
             AND classes.sy_id = ?
         LEFT JOIN users 
             ON classes.adviser_id = users.user_id
-        WHERE users.school_year_id = ? 
+            AND users.school_year_id = ?
         ORDER BY classrooms.room_name ASC
     ");
-    $stmt->execute([$activeSyId,$activeSyId]);
+    $stmt->execute([$activeSyId, $activeSyId]);
     $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+// Fetch sections
 $stmt = $pdo->prepare("SELECT * FROM sections ORDER BY section_grade_level ASC, section_name ASC");
 $stmt->execute();
 $sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Group sections by grade level
 $sectionsByGrade = [];
 foreach ($sections as $section) {
-    $grade = $section['section_grade_level'];
-    $sectionsByGrade[$grade][] = $section;
+    $sectionsByGrade[$section['section_grade_level']][] = $section;
 }
 
+// Fetch available teachers
 $teachers = [];
 if ($activeSyId) {
     $stmt = $pdo->prepare("
@@ -41,15 +48,18 @@ if ($activeSyId) {
             SELECT adviser_id 
             FROM classes
             WHERE sy_id = ?
-        ) AND u.school_year_id = ?
+        )
+        AND u.school_year_id = ?
         ORDER BY u.lastname ASC
     ");
     $stmt->execute([$activeSyId, $activeSyId]);
     $teachers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+// Current school year info
 $schoolYears = $currentSy ?? [];
 ?>
+
 
 <style>
     .classroom-card {
