@@ -82,8 +82,9 @@ class Action
         }
     }
 
-    function Account_form(){
-        
+    function Account_form()
+    {
+
         $lastName = htmlspecialchars(trim($_POST["lastName"]));
         $firstName = htmlspecialchars(trim($_POST["firstName"]));
         $middleName = htmlspecialchars(trim($_POST["middleName"] ?? ''));
@@ -99,12 +100,19 @@ class Action
         // Validation code remains the same...
 
         try {
+            $getActiveSY = $this->getActiveSY();
+            if (!$getActiveSY) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'No active school year found. Please activate/create one first.'
+                ]);
+            }
             // Check if username exists using prepared statement
             $stmt = $this->db->prepare("SELECT username FROM users WHERE username = ?");
             $stmt->execute([$username]);
             $usernameTaken = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if($usernameTaken){
+
+            if ($usernameTaken) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'Username ' . $usernameTaken["username"] . ' already taken please try another username'
@@ -115,8 +123,9 @@ class Action
             $stmt = $this->db->prepare("SELECT email FROM users WHERE email = ?");
             $stmt->execute([$email]);
             $emailTaken = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if($emailTaken){
+
+
+            if ($emailTaken) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'Email address already registered'
@@ -124,22 +133,30 @@ class Action
             }
 
             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-            
+
             // FIXED: Use $this->db instead of $pdo
-            $query = "INSERT INTO users (firstname, middlename, lastname, suffix, email, contact, gender, username, password, user_role, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')";
-            
+            $query = "INSERT INTO users (school_year_id, firstname, middlename, lastname, suffix, email, contact, gender, username, password, user_role, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')";
+
             $stmt = $this->db->prepare($query); // CHANGED: $pdo to $this->db
             $stmt->execute([
-                $firstName, $middleName, $lastName, $suffix, 
-                $email, $contact, $gender, $username, $hashedPassword, $user_role
+                $getActiveSY['school_year_id'],
+                $firstName,
+                $middleName,
+                $lastName,
+                $suffix,
+                $email,
+                $contact,
+                $gender,
+                $username,
+                $hashedPassword,
+                $user_role
             ]);
 
             return json_encode([
                 'status' => 1,
                 'message' => 'Account created successfully!'
             ]);
-            
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -149,10 +166,18 @@ class Action
         }
     }
 
-    function classroom_form(){
+    function getActiveSY()
+    {
+        $stmt = $this->db->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    function classroom_form()
+    {
         $classroom_name = htmlspecialchars(trim($_POST["classroom_name"]));
         $classroom_type = htmlspecialchars(trim($_POST["classroom_type"]));
-        
+
         // Validate inputs
         if (empty($classroom_name) || empty($classroom_type)) {
             return json_encode([
@@ -160,23 +185,23 @@ class Action
                 'message' => 'Please fill in all required fields'
             ]);
         }
-        
+
         try {
             // Check if classroom already exists
             $checkStmt = $this->db->prepare("SELECT room_name FROM classrooms WHERE room_name = ?");
             $checkStmt->execute([$classroom_name]);
             $existingClassroom = $checkStmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if ($existingClassroom) {
                 return json_encode([
                     'status' => 0,
-                    'message' => 'Classroom "'.$classroom_name.'" already exists!'
+                    'message' => 'Classroom "' . $classroom_name . '" already exists!'
                 ]);
             }
-            
+
             $query = "INSERT INTO classrooms (room_name, room_type) 
                     VALUES (?, ?)";
-            
+
             $stmt = $this->db->prepare($query);
             $stmt->execute([$classroom_name, $classroom_type]);
 
@@ -184,7 +209,6 @@ class Action
                 'status' => 1,
                 'message' => 'Classroom created successfully!'
             ]);
-            
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -193,11 +217,12 @@ class Action
             ]);
         }
     }
-    function section_form(){
+    function section_form()
+    {
         $section_name = htmlspecialchars(trim($_POST["section_name"]));
         $grade_level = htmlspecialchars(trim($_POST["grade_level"]));
         $section_status = htmlspecialchars(trim($_POST["section_status"]));
-        
+
         // Validate inputs
         if (empty($section_name) || empty($grade_level) || empty($section_status)) {
             return json_encode([
@@ -205,23 +230,23 @@ class Action
                 'message' => 'Please fill in all required fields'
             ]);
         }
-        
+
         try {
             // Check if classroom already exists
             $checkStmt = $this->db->prepare("SELECT section_name FROM sections WHERE section_name = ?");
             $checkStmt->execute([$section_name]);
             $existingSection = $checkStmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if ($existingSection) {
                 return json_encode([
                     'status' => 0,
-                    'message' => 'Section "'.$section_name.'" already exists!'
+                    'message' => 'Section "' . $section_name . '" already exists!'
                 ]);
             }
-            
+
             $query = "INSERT INTO sections (section_name, section_grade_level, section_status) 
                     VALUES (?, ?, ?)";
-            
+
             $stmt = $this->db->prepare($query);
             $stmt->execute([$section_name, $grade_level, $section_status]);
 
@@ -229,7 +254,6 @@ class Action
                 'status' => 1,
                 'message' => 'Sectoin created successfully!'
             ]);
-            
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -238,10 +262,11 @@ class Action
             ]);
         }
     }
-    function schoolYear_form(){
+    function schoolYear_form()
+    {
         $status = htmlspecialchars(trim($_POST["status"]));
         $schoolYear_name = htmlspecialchars(trim($_POST["schoolYear_name"]));
-        
+
         // Validate inputs
         if (empty($status) || empty($schoolYear_name)) {
             return json_encode([
@@ -249,23 +274,23 @@ class Action
                 'message' => 'Please fill in all required fields'
             ]);
         }
-        
+
         try {
             // Check if classroom already exists
             $checkStmt = $this->db->prepare("SELECT school_year_name FROM school_year WHERE school_year_name = ?");
             $checkStmt->execute([$schoolYear_name]);
             $existingClassroom = $checkStmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if ($existingClassroom) {
                 return json_encode([
                     'status' => 0,
-                    'message' => 'School Year: "'.$schoolYear_name.'" already exists!'
+                    'message' => 'School Year: "' . $schoolYear_name . '" already exists!'
                 ]);
             }
-            
+
             $query = "INSERT INTO school_year (school_year_status, school_year_name) 
                     VALUES (?, ?)";
-            
+
             $stmt = $this->db->prepare($query);
             $stmt->execute([$status, $schoolYear_name]);
 
@@ -273,7 +298,6 @@ class Action
                 'status' => 1,
                 'message' => 'School Year created successfully!'
             ]);
-            
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -282,13 +306,14 @@ class Action
             ]);
         }
     }
-    function subjects_form(){
+    function subjects_form()
+    {
         $subject_name = htmlspecialchars(trim($_POST["subject_name"]));
         $subject_code = htmlspecialchars(trim($_POST["subject_code"]));
         $grade_level = htmlspecialchars(trim($_POST["grade_level"]));
         $subject_units = htmlspecialchars(trim($_POST["subject_units"]));
         $subjects_status = htmlspecialchars(trim($_POST["subjects_status"]));
-        
+
         if (empty($subject_name) || empty($subject_code) || empty($grade_level) || empty($subject_units) || empty($subjects_status)) {
             return json_encode([
                 'status' => 0,
@@ -317,7 +342,6 @@ class Action
                 'status' => 1,
                 'message' => 'Subject created successfully!'
             ]);
-
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -326,15 +350,18 @@ class Action
             ]);
         }
     }
-    function assignTeacher_form() {
+    function assignTeacher_form()
+    {
         $classroom_id = htmlspecialchars(trim($_POST["classroom_id"] ?? ""));
         $section_id   = htmlspecialchars(trim($_POST["section_id"] ?? ""));
         $grade_level  = htmlspecialchars(trim($_POST["grade_level"] ?? ""));
         $teacher_id   = htmlspecialchars(trim($_POST["teacher_name"] ?? "")); // adviser_id
         $schoolYear_id = htmlspecialchars(trim($_POST["schoolYear_id"] ?? ""));
 
-        if (empty($classroom_id) || empty($section_id) || empty($grade_level)
-            || empty($teacher_id) || empty($schoolYear_id)) {
+        if (
+            empty($classroom_id) || empty($section_id) || empty($grade_level)
+            || empty($teacher_id) || empty($schoolYear_id)
+        ) {
             return json_encode([
                 'status' => 0,
                 'message' => 'Please fill in all required fields'
@@ -388,7 +415,6 @@ class Action
                 'status' => 1,
                 'message' => 'Teacher assigned successfully! Classroom marked as Unavailable.'
             ]);
-
         } catch (PDOException $e) {
             error_log("Database error in assignTeacher_form: " . $e->getMessage());
 
@@ -399,7 +425,8 @@ class Action
         }
     }
 
-    function studentAcc_form() {
+    function studentAcc_form()
+    {
         $lrn = htmlspecialchars(trim($_POST["lrn"] ?? ''));
         $gradeLevel = htmlspecialchars(trim($_POST["grade_level"] ?? ''));
         $nickname = htmlspecialchars(trim($_POST["nickname"] ?? ''));
@@ -421,17 +448,17 @@ class Action
             if ($lrnTaken) {
                 return json_encode([
                     'status' => 0,
-                    'message' => 'LRN: "'.$lrn.'" already exists!'
+                    'message' => 'LRN: "' . $lrn . '" already exists!'
                 ]);
             }
 
             // == FILE UPLOAD
-           $student_profile = '';
+            $student_profile = '';
 
             if (isset($_FILES['student_profile']) && $_FILES['student_profile']['error'] === UPLOAD_ERR_OK) {
                 $uploadDir = '../assets/image/uploads/';
                 if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0777, true); 
+                    mkdir($uploadDir, 0777, true);
                 }
 
                 $fileTmp = $_FILES['student_profile']['tmp_name'];
@@ -439,7 +466,7 @@ class Action
                 $fileExt = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 
                 // validate allowed file types
-                $allowed = ['jpg','jpeg','png','gif','webp'];
+                $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
                 if (!in_array($fileExt, $allowed)) {
                     return json_encode([
                         'status' => 0,
@@ -469,9 +496,18 @@ class Action
 
             $stmt = $this->db->prepare($query);
             $stmt->execute([
-                $_SESSION['user_id'], $lrn, $firstName, $middleName, 
-                $lastName, $suffix, $sex, $birthdate, $birthplace,
-                $religion, $gradeLevel, $student_profile
+                $_SESSION['user_id'],
+                $lrn,
+                $firstName,
+                $middleName,
+                $lastName,
+                $suffix,
+                $sex,
+                $birthdate,
+                $birthplace,
+                $religion,
+                $gradeLevel,
+                $student_profile
             ]);
             $student_id = $this->db->lastInsertId();
 
@@ -486,7 +522,6 @@ class Action
                 'status' => 1,
                 'message' => 'Account created successfully!'
             ]);
-
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -495,7 +530,8 @@ class Action
             ]);
         }
     }
-    function feedback_form() {
+    function feedback_form()
+    {
         $parent_id = $_POST["parent_id"] ?? '';
         $title = htmlspecialchars(trim($_POST["title"] ?? ''));
         $description = htmlspecialchars(trim($_POST["description"] ?? ''));
@@ -510,7 +546,6 @@ class Action
                 'status' => 1,
                 'message' => 'Feedback submited successfully!'
             ]);
-
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -519,7 +554,8 @@ class Action
             ]);
         }
     }
-    function enrolment_form() {
+    function enrolment_form()
+    {
         $section_name = $_POST['section_name'] ?? null;
         $adviser_id = $_POST['adviser_id'] ?? null;
         $schoolyear_id = $_POST['schoolyear_id'] ?? null;
@@ -530,16 +566,16 @@ class Action
         try {
             // Validate required fields
             if (!$adviser_id || !$schoolyear_id || !$grade_level || empty($subjects) || !$student_id || !$section_name) {
-                return json_encode(['status'=>0,'message'=>'All fields are required.']);
+                return json_encode(['status' => 0, 'message' => 'All fields are required.']);
             }
 
             // Check if student already has an enrolment for this school year
             $stmt = $this->db->prepare("SELECT enrolment_id FROM enrolment WHERE student_id = ? AND school_year_id = ?");
             $stmt->execute([$student_id, $schoolyear_id]);
             $existing_enrolment = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if ($existing_enrolment) {
-                return json_encode(['status'=>0,'message'=>'Student already has an enrolment for this school year.']);
+                return json_encode(['status' => 0, 'message' => 'Student already has an enrolment for this school year.']);
             }
 
             // Insert enrolment
@@ -552,24 +588,25 @@ class Action
 
             // Insert selected subjects
             $stmt = $this->db->prepare("INSERT INTO enrolment_subjects (enrolment_id, subjects_id) VALUES (?, ?)");
-            foreach($subjects as $subj_id) {
+            foreach ($subjects as $subj_id) {
                 $stmt->execute([$enrolment_id, $subj_id]);
             }
 
             $stmt = $this->db->prepare("UPDATE student SET enrolment_status = 'Active' WHERE student_id = ?");
             $stmt->execute([$student_id]);
 
-            return json_encode(['status'=>1,'message'=>'Enrolment approved successfully.']);
-        } catch(PDOException $e) {
+            return json_encode(['status' => 1, 'message' => 'Enrolment approved successfully.']);
+        } catch (PDOException $e) {
             error_log($e->getMessage());
             // Check for specific constraint violations
             if (strpos($e->getMessage(), 'foreign key constraint') !== false) {
-                return json_encode(['status'=>0,'message'=>'Invalid data provided. Please check your selections.']);
+                return json_encode(['status' => 0, 'message' => 'Invalid data provided. Please check your selections.']);
             }
-            return json_encode(['status'=>0,'message'=>'Database error: ' . $e->getMessage()]);
+            return json_encode(['status' => 0, 'message' => 'Database error: ' . $e->getMessage()]);
         }
     }
-    function activationSY_form() {
+    function activationSY_form()
+    {
         $school_year_id = $_POST["school_year_id"] ?? null;
 
         try {
@@ -580,7 +617,6 @@ class Action
                 'status' => 1,
                 'message' => 'School Year Activated successfully!'
             ]);
-
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -589,7 +625,8 @@ class Action
             ]);
         }
     }
-    function DeactivationSY_form() {
+    function DeactivationSY_form()
+    {
         $school_year_id = $_POST["school_year_id"] ?? null;
 
         // Validate input
@@ -604,15 +641,15 @@ class Action
         $this->db->beginTransaction();
 
         try {
-            // Use DELETE FROM (not DELETE *) and handle errors
-            $tables = ['classes', 'enrolment', 'enrolment_subjects', 'stuEnrolmentInfo', 'attendance', 'student', 'stuenrolmentinfo'];
-            
-            foreach ($tables as $table) {
-                $stmt = $this->db->prepare("DELETE FROM $table");
-                if (!$stmt->execute()) {
-                    throw new Exception("Failed to clear $table table");
-                }
-            }
+            // // Use DELETE FROM (not DELETE *) and handle errors
+            // $tables = ['classes', 'enrolment', 'enrolment_subjects', 'stuEnrolmentInfo', 'attendance', 'student', 'stuenrolmentinfo'];
+
+            // foreach ($tables as $table) {
+            //     $stmt = $this->db->prepare("DELETE FROM $table");
+            //     if (!$stmt->execute()) {
+            //         throw new Exception("Failed to clear $table table");
+            //     }
+            // }
 
             // Deactivate the school year
             $query = "UPDATE school_year SET school_year_status = 'Inactive' WHERE school_year_id = :school_year_id";
@@ -631,7 +668,6 @@ class Action
                 'status' => 1,
                 'message' => 'School Year Deactivated successfully! All related data has been cleared.'
             ]);
-
         } catch (PDOException $e) {
             $this->db->rollBack();
             error_log("Database error in DeactivationSY_form: " . $e->getMessage());
@@ -648,7 +684,8 @@ class Action
             ]);
         }
     }
-    function rejectEnrolment_form() {
+    function rejectEnrolment_form()
+    {
         $student_id = $_POST["studentID"] ?? null;
 
         try {
@@ -660,7 +697,6 @@ class Action
                 'status' => 1,
                 'message' => 'Student Rejected successfully!'
             ]);
-
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -669,9 +705,10 @@ class Action
             ]);
         }
     }
-    function stduentEnrolment_form() {
+    function stduentEnrolment_form()
+    {
         $student_id = $_POST["student_id"] ?? null;
-        
+
         if (!$student_id) {
             return json_encode([
                 'status' => 0,
@@ -778,7 +815,6 @@ class Action
                 'status' => 1,
                 'message' => 'Enrollment information updated successfully!'
             ]);
-
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -787,7 +823,8 @@ class Action
             ]);
         }
     }
-    function student_update_form() {
+    function student_update_form()
+    {
         try {
             $student_id = $_POST["student_id"] ?? null;
             if (!$student_id) {
@@ -833,21 +870,21 @@ class Action
 
             // ---- File Upload Handling ----
             $profile_filename = null;
-            
+
             if (isset($_FILES['student_profile']) && $_FILES['student_profile']['error'] === UPLOAD_ERR_OK) {
                 $file = $_FILES['student_profile'];
-                
+
                 // Validate file type
                 $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'];
                 $file_type = mime_content_type($file['tmp_name']);
-                
+
                 if (!in_array($file_type, $allowed_types)) {
                     return json_encode([
                         'status' => 0,
                         'message' => 'Invalid file type. Only JPG, PNG, and GIF images are allowed.'
                     ]);
                 }
-                
+
                 // Validate file size (max 2MB)
                 $max_size = 2 * 1024 * 1024; // 2MB
                 if ($file['size'] > $max_size) {
@@ -856,18 +893,18 @@ class Action
                         'message' => 'File size too large. Maximum size is 2MB.'
                     ]);
                 }
-                
+
                 // Create upload directory if it doesn't exist
                 $upload_dir = 'uploads/';
                 if (!file_exists($upload_dir)) {
                     mkdir($upload_dir, 0777, true);
                 }
-                
+
                 // Generate unique filename
                 $file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
                 $profile_filename = 'profile_' . $student_id . '_' . time() . '.' . $file_extension;
                 $upload_path = $upload_dir . $profile_filename;
-                
+
                 // Move uploaded file
                 if (!move_uploaded_file($file['tmp_name'], $upload_path)) {
                     return json_encode([
@@ -875,7 +912,7 @@ class Action
                         'message' => 'Failed to upload profile picture. Please try again.'
                     ]);
                 }
-                
+
                 // Get old profile picture to delete it later
                 $stmt_old = $this->db->prepare("SELECT student_profile FROM student WHERE student_id = :student_id");
                 $stmt_old->execute([':student_id' => $student_id]);
@@ -899,7 +936,7 @@ class Action
                 'religion = :religion',
                 'address = :address'
             ];
-            
+
             $params = [
                 ':fname' => $fname,
                 ':mname' => $mname,
@@ -911,17 +948,17 @@ class Action
                 ':religion' => $religion,
                 ':student_id' => $student_id
             ];
-            
+
             // Add profile picture update if uploaded
             if ($profile_filename !== null) {
                 $update_fields[] = 'student_profile = :student_profile';
                 $params[':student_profile'] = $profile_filename;
             }
-            
+
             // Prepare full address
             $fullAddress = "$house_no $street, $barangay, $city, $province, $country, $zip_code";
             $params[':address'] = $fullAddress;
-            
+
             // Build the SQL query
             $sql = "UPDATE student SET " . implode(', ', $update_fields) . " WHERE student_id = :student_id";
             $stmt = $this->db->prepare($sql);
@@ -969,7 +1006,7 @@ class Action
 
             // Commit Transaction
             $this->db->commit();
-            
+
             // Delete old profile picture if a new one was uploaded
             if ($profile_filename !== null && $old_profile && $old_profile !== '') {
                 $old_file_path = '../../assets/image/uploads/' . $old_profile;
@@ -997,13 +1034,12 @@ class Action
 
             return json_encode([
                 'status' => 1,
-                'message' => 'Student profile updated successfully!' . 
-                            ($profile_filename !== null ? ' Profile picture has been updated.' : '')
+                'message' => 'Student profile updated successfully!' .
+                    ($profile_filename !== null ? ' Profile picture has been updated.' : '')
             ]);
-
         } catch (PDOException $e) {
             $this->db->rollBack();
-            
+
             // Delete uploaded file if transaction failed
             if (isset($upload_path) && file_exists($upload_path)) {
                 @unlink($upload_path);
@@ -1017,7 +1053,8 @@ class Action
         }
     }
 
-    function displayStudentInfo() {
+    function displayStudentInfo()
+    {
         $user_id = $_POST["user_id"] ?? null;
 
         // User Information
@@ -1072,7 +1109,6 @@ class Action
                     'updated_at' => date('Y-m-d H:i:s')
                 ]
             ]);
-
         } catch (PDOException $e) {
             $this->db->rollBack();
             error_log("Database error: " . $e->getMessage());
@@ -1085,9 +1121,10 @@ class Action
         }
     }
 
-    function medical_update() {
+    function medical_update()
+    {
         $student_id = $_POST["student_id"] ?? null;
-        
+
         if (!$student_id) {
             return json_encode([
                 'status' => 0,
@@ -1115,7 +1152,6 @@ class Action
                 'status' => 1,
                 'message' => 'Student BMI information updated successfully!'
             ]);
-
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return json_encode([
@@ -1128,7 +1164,8 @@ class Action
 
 
 
-    function deleteClassroom_form(){
+    function deleteClassroom_form()
+    {
         $classroom_id = $_POST["classroom_id"];
         try {
             $stmt = $this->db->prepare("DELETE FROM classrooms WHERE room_id = :room_id");
@@ -1146,7 +1183,6 @@ class Action
                     'message' => 'No classroom found with that ID'
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1154,7 +1190,8 @@ class Action
             ]);
         }
     }
-    function deleteSection_form(){
+    function deleteSection_form()
+    {
         $section_id = $_POST["section_id"];
         try {
             $stmt = $this->db->prepare("DELETE FROM sections WHERE section_id = :section_id");
@@ -1172,7 +1209,6 @@ class Action
                     'message' => 'No classroom found with that ID'
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1180,7 +1216,8 @@ class Action
             ]);
         }
     }
-    function editClassroom_form(){
+    function editClassroom_form()
+    {
         $classroom_id   = $_POST["classroom_id"];
         $room_status    = $_POST["room_status"] ?? '';
         $classroom_name = $_POST["classroom_name"] ?? '';
@@ -1209,7 +1246,6 @@ class Action
                     'message' => 'No changes made (maybe same values or invalid ID) the room id is: ' . $classroom_id
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1217,7 +1253,8 @@ class Action
             ]);
         }
     }
-    function getClassroomById($id){
+    function getClassroomById($id)
+    {
         try {
             $stmt = $this->db->prepare("SELECT * FROM classrooms WHERE room_id = :room_id");
             $stmt->bindParam(':room_id', $id, PDO::PARAM_INT);
@@ -1235,7 +1272,6 @@ class Action
                     'message' => 'Classroom not found'
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1245,7 +1281,8 @@ class Action
     }
 
 
-     function editSection_form(){
+    function editSection_form()
+    {
         $section_id   = $_POST["section_id"];
         $section_status    = $_POST["section_status"] ?? '';
         $section_name = $_POST["section_name"] ?? '';
@@ -1274,7 +1311,6 @@ class Action
                     'message' => 'No changes made (maybe same values or invalid ID) the room id is: ' . $section_id
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1282,7 +1318,8 @@ class Action
             ]);
         }
     }
-     function getSectionById($id){
+    function getSectionById($id)
+    {
         try {
             $stmt = $this->db->prepare("SELECT * FROM sections WHERE section_id = :section_id");
             $stmt->bindParam(':section_id', $id, PDO::PARAM_INT);
@@ -1300,7 +1337,6 @@ class Action
                     'message' => 'Section not found'
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1308,7 +1344,8 @@ class Action
             ]);
         }
     }
-    function deleteSchoolYear_form(){
+    function deleteSchoolYear_form()
+    {
         $school_year_id = $_POST["school_year_id"];
         try {
             $stmt = $this->db->prepare("DELETE FROM school_year WHERE school_year_id = :school_year_id");
@@ -1326,7 +1363,6 @@ class Action
                     'message' => 'No School Year found with that ID'
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1334,7 +1370,8 @@ class Action
             ]);
         }
     }
-    function getSchoolYearById($id){
+    function getSchoolYearById($id)
+    {
         try {
             $stmt = $this->db->prepare("SELECT * FROM school_year WHERE school_year_id = :school_year_id");
             $stmt->bindParam(':school_year_id', $id, PDO::PARAM_INT);
@@ -1352,7 +1389,6 @@ class Action
                     'message' => 'School Year not found'
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1360,7 +1396,8 @@ class Action
             ]);
         }
     }
-    function editSchoolyear_form(){
+    function editSchoolyear_form()
+    {
         $school_year_id   = $_POST["school_year_id"];
         $school_year_status = $_POST["school_year_status"] ?? '';
         $school_year_name   = $_POST["school_year_name"] ?? '';
@@ -1387,7 +1424,6 @@ class Action
                     'message' => 'No changes made (maybe same values or invalid ID): ' . $school_year_id
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1396,8 +1432,9 @@ class Action
         }
     }
 
-    function deleteSubject_form(){
-         $subject_id = $_POST["subject_id"];
+    function deleteSubject_form()
+    {
+        $subject_id = $_POST["subject_id"];
         try {
             $stmt = $this->db->prepare("DELETE FROM subjects WHERE subject_id = :subject_id");
             $stmt->bindParam(':subject_id', $subject_id, PDO::PARAM_INT);
@@ -1414,15 +1451,15 @@ class Action
                     'message' => 'No Subject found with that ID'
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
                 'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
-    } 
-    function getSubjectsById($id){
+    }
+    function getSubjectsById($id)
+    {
         try {
             $stmt = $this->db->prepare("SELECT * FROM subjects WHERE subject_id = :subject_id");
             $stmt->bindParam(':subject_id', $id, PDO::PARAM_INT);
@@ -1440,7 +1477,6 @@ class Action
                     'message' => 'Subjects not found'
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1448,7 +1484,8 @@ class Action
             ]);
         }
     }
-    function editSubjects_form(){
+    function editSubjects_form()
+    {
         $subject_id   = $_POST["subject_id"];
         $grade_level   = $_POST["grade_level"];
         $subject_name = $_POST["subject_name"] ?? '';
@@ -1482,7 +1519,6 @@ class Action
                     'message' => 'No changes made (maybe same values or invalid ID): ' . $subject_id
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1491,7 +1527,8 @@ class Action
         }
     }
 
-    function morning_attendanceP() {
+    function morning_attendanceP()
+    {
         $student_id = $_POST['student_id'] ?? null;
         $adviser_id = $_SESSION['user_id'] ?? null;
 
@@ -1549,15 +1586,15 @@ class Action
                 'status' => 1,
                 'message' => 'Morning attendance recorded successfully "PRESENT".'
             ]);
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
                 'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
-    } 
-     function morning_attendanceA() {
+    }
+    function morning_attendanceA()
+    {
         $student_id = $_POST['student_id'] ?? null;
         $adviser_id = $_SESSION['user_id'] ?? null;
 
@@ -1615,7 +1652,6 @@ class Action
                 'status' => 1,
                 'message' => 'Morning attendance recorded successfully "ABSENT".'
             ]);
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1623,7 +1659,8 @@ class Action
             ]);
         }
     }
-     function morning_attendanceL() {
+    function morning_attendanceL()
+    {
         $student_id = $_POST['student_id'] ?? null;
         $adviser_id = $_SESSION['user_id'] ?? null;
 
@@ -1681,7 +1718,6 @@ class Action
                 'status' => 1,
                 'message' => 'Morning attendance recorded successfully "LATE".'
             ]);
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -1758,7 +1794,8 @@ class Action
     // } 
 
 
-    function afternoon_attendanceP() {
+    function afternoon_attendanceP()
+    {
         $student_id = $_POST['student_id'] ?? null;
         $adviser_id = $_SESSION['user_id'] ?? null;
 
@@ -1785,11 +1822,11 @@ class Action
             $AttendanceSummary = $stmtCheck->fetch(PDO::FETCH_ASSOC);
             $checkAttendanceType = $AttendanceSummary['attendance_type'] ?? '';
 
-            if($checkAttendanceType === 'Absent'){
+            if ($checkAttendanceType === 'Absent') {
                 $attendance_summary = 'Half-day';
-            }else if($checkAttendanceType === 'Present'){
+            } else if ($checkAttendanceType === 'Present') {
                 $attendance_summary = 'Present';
-            }else if($checkAttendanceType === 'Late'){
+            } else if ($checkAttendanceType === 'Late') {
                 $attendance_summary = 'Half-day-late';
             }
             // 1) Check if student has morning attendance for today
@@ -1802,16 +1839,16 @@ class Action
                 ':student_id' => $student_id,
                 ':today' => $today
             ]);
-            
+
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$row) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'No morning attendance found for today. Please mark morning attendance first.'
                 ]);
             }
-            
+
             // Check if already marked afternoon attendance
             if ($row['afternoon_attendance']) {
                 return json_encode([
@@ -1835,15 +1872,15 @@ class Action
                                 A_attendance_type = 'Present', attendance_summary = :attendance_summary
                             WHERE student_id = :student_id 
                             AND DATE(morning_attendance) = :today";
-                
+
                 $ins = $this->db->prepare($updateSql);
                 $ins->execute([
                     ':student_id' => $student_id,
                     ':afternoon_attendance' => $nowDatetime,  // Corrected parameter name
                     ':today' => $today,
-                    ':attendance_summary' => $attendance_summary  
+                    ':attendance_summary' => $attendance_summary
                 ]);
-                
+
                 // Check if any rows were updated
                 if ($ins->rowCount() === 0) {
                     return json_encode([
@@ -1851,7 +1888,6 @@ class Action
                         'message' => 'No attendance record found to update.'
                     ]);
                 }
-                
             } catch (PDOException $e) {
                 // Handle the CASE statement error specifically
                 if (strpos($e->getMessage(), '1339') !== false || strpos($e->getMessage(), 'Case not found') !== false) {
@@ -1868,11 +1904,10 @@ class Action
                 'status' => 1,
                 'message' => 'Afternoon attendance recorded successfully as "PRESENT".'
             ]);
-
         } catch (PDOException $e) {
             // Log the full error for debugging
             error_log("Attendance Error: " . $e->getMessage());
-            
+
             return json_encode([
                 'status' => 0,
                 'message' => 'An error occurred: ' . $e->getMessage()
@@ -1880,7 +1915,8 @@ class Action
         }
     }
 
-    function afternoon_attendanceA() {
+    function afternoon_attendanceA()
+    {
         $student_id = $_POST['student_id'] ?? null;
         $adviser_id = $_SESSION['user_id'] ?? null;
 
@@ -1907,11 +1943,11 @@ class Action
             $AttendanceSummary = $stmtCheck->fetch(PDO::FETCH_ASSOC);
             $checkAttendanceType = $AttendanceSummary['attendance_type'] ?? '';
 
-            if($checkAttendanceType === 'Absent'){
+            if ($checkAttendanceType === 'Absent') {
                 $attendance_summary = 'Absent';
-            }else if($checkAttendanceType === 'Present'){
+            } else if ($checkAttendanceType === 'Present') {
                 $attendance_summary = 'Half-day';
-            }else if($checkAttendanceType === 'Late'){
+            } else if ($checkAttendanceType === 'Late') {
                 $attendance_summary = 'Half-day-late';
             }
             // 1) Check if student has morning attendance for today
@@ -1924,16 +1960,16 @@ class Action
                 ':student_id' => $student_id,
                 ':today' => $today
             ]);
-            
+
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$row) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'No morning attendance found for today. Please mark morning attendance first.'
                 ]);
             }
-            
+
             // Check if already marked afternoon attendance
             if ($row['afternoon_attendance']) {
                 return json_encode([
@@ -1957,15 +1993,15 @@ class Action
                                 A_attendance_type = 'Absent', attendance_summary = :attendance_summary
                             WHERE student_id = :student_id 
                             AND DATE(morning_attendance) = :today";
-                
+
                 $ins = $this->db->prepare($updateSql);
                 $ins->execute([
                     ':student_id' => $student_id,
                     ':afternoon_attendance' => $nowDatetime,  // Corrected parameter name
                     ':today' => $today,
-                    ':attendance_summary' => $attendance_summary  
+                    ':attendance_summary' => $attendance_summary
                 ]);
-                
+
                 // Check if any rows were updated
                 if ($ins->rowCount() === 0) {
                     return json_encode([
@@ -1973,7 +2009,6 @@ class Action
                         'message' => 'No attendance record found to update.'
                     ]);
                 }
-                
             } catch (PDOException $e) {
                 // Handle the CASE statement error specifically
                 if (strpos($e->getMessage(), '1339') !== false || strpos($e->getMessage(), 'Case not found') !== false) {
@@ -1990,19 +2025,18 @@ class Action
                 'status' => 1,
                 'message' => 'Afternoon attendance recorded successfully as "PRESENT".'
             ]);
-
         } catch (PDOException $e) {
             // Log the full error for debugging
             error_log("Attendance Error: " . $e->getMessage());
-            
+
             return json_encode([
                 'status' => 0,
                 'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
-    
     }
-     function afternoon_attendanceL() {
+    function afternoon_attendanceL()
+    {
         $student_id = $_POST['student_id'] ?? null;
         $adviser_id = $_SESSION['user_id'] ?? null;
 
@@ -2029,11 +2063,11 @@ class Action
             $AttendanceSummary = $stmtCheck->fetch(PDO::FETCH_ASSOC);
             $checkAttendanceType = $AttendanceSummary['attendance_type'] ?? '';
 
-            if($checkAttendanceType === 'Absent'){
+            if ($checkAttendanceType === 'Absent') {
                 $attendance_summary = 'Half-day-late';
-            }else if($checkAttendanceType === 'Present'){
+            } else if ($checkAttendanceType === 'Present') {
                 $attendance_summary = 'Half-day-late';
-            }else if($checkAttendanceType === 'Late'){
+            } else if ($checkAttendanceType === 'Late') {
                 $attendance_summary = 'Half-day-late';
             }
             // 1) Check if student has morning attendance for today
@@ -2046,16 +2080,16 @@ class Action
                 ':student_id' => $student_id,
                 ':today' => $today
             ]);
-            
+
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$row) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'No morning attendance found for today. Please mark morning attendance first.'
                 ]);
             }
-            
+
             // Check if already marked afternoon attendance
             if ($row['afternoon_attendance']) {
                 return json_encode([
@@ -2079,15 +2113,15 @@ class Action
                                 A_attendance_type = 'Late', attendance_summary = :attendance_summary
                             WHERE student_id = :student_id 
                             AND DATE(morning_attendance) = :today";
-                
+
                 $ins = $this->db->prepare($updateSql);
                 $ins->execute([
                     ':student_id' => $student_id,
                     ':afternoon_attendance' => $nowDatetime,  // Corrected parameter name
                     ':today' => $today,
-                    ':attendance_summary' => $attendance_summary  
+                    ':attendance_summary' => $attendance_summary
                 ]);
-                
+
                 // Check if any rows were updated
                 if ($ins->rowCount() === 0) {
                     return json_encode([
@@ -2095,7 +2129,6 @@ class Action
                         'message' => 'No attendance record found to update.'
                     ]);
                 }
-                
             } catch (PDOException $e) {
                 // Handle the CASE statement error specifically
                 if (strpos($e->getMessage(), '1339') !== false || strpos($e->getMessage(), 'Case not found') !== false) {
@@ -2112,19 +2145,19 @@ class Action
                 'status' => 1,
                 'message' => 'Afternoon attendance recorded successfully as "PRESENT".'
             ]);
-
         } catch (PDOException $e) {
             // Log the full error for debugging
             error_log("Attendance Error: " . $e->getMessage());
-            
+
             return json_encode([
                 'status' => 0,
                 'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
     }
-    
-    function status_form() {
+
+    function status_form()
+    {
         $status = $_POST["status"] ?? '';
         $id = $_POST["user_id"];
 
@@ -2153,7 +2186,8 @@ class Action
             ]);
         }
     }
-    function status_enrolment_form() {
+    function status_enrolment_form()
+    {
         $status = $_POST["status"] ?? '';
         $id = $_POST["user_id"];
 
@@ -2183,7 +2217,8 @@ class Action
         }
     }
 
-    function sfFour_form() {
+    function sfFour_form()
+    {
         $school_id   = $_POST["school_id"] ?? '';
         $region      = $_POST["region"] ?? '';
         $division    = $_POST["Division"] ?? ''; // fixed casing
@@ -2199,7 +2234,7 @@ class Action
         try {
             // safely get school_year_id
             $stmt = $this->db->prepare("SELECT school_year_id FROM school_year WHERE school_year_name = :school_year_name");
-            $stmt->execute([ ':school_year_name' => $school_year_name ]);
+            $stmt->execute([':school_year_name' => $school_year_name]);
             $syID = $stmt->fetch(PDO::FETCH_ASSOC);
             $school_year_id = $syID["school_year_id"] ?? null;
 
@@ -2213,7 +2248,7 @@ class Action
             if ($sf_add_data_id > 0) {
                 // check if record exists
                 $stmt = $this->db->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_add_data_id = :id");
-                $stmt->execute([ ':id' => $sf_add_data_id ]);
+                $stmt->execute([':id' => $sf_add_data_id]);
                 $exists = $stmt->fetchColumn();
             } else {
                 $exists = 0;
@@ -2257,7 +2292,6 @@ class Action
                         ? 'School Form updated successfully'
                         : 'No changes were made (data is already up-to-date)'
                 ]);
-
             } else {
                 // INSERT query
                 $stmt = $this->db->prepare("
@@ -2289,7 +2323,6 @@ class Action
                     'inserted_id' => $this->db->lastInsertId()
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -2297,7 +2330,8 @@ class Action
             ]);
         }
     }
-    function sfEight_form() {
+    function sfEight_form()
+    {
         $school_id   = $_POST["school_id"] ?? '';
         $region      = $_POST["region"] ?? '';
         $division    = $_POST["Division"] ?? ''; // fixed casing
@@ -2313,7 +2347,7 @@ class Action
         try {
             // safely get school_year_id
             $stmt = $this->db->prepare("SELECT school_year_id FROM school_year WHERE school_year_name = :school_year_name");
-            $stmt->execute([ ':school_year_name' => $school_year_name ]);
+            $stmt->execute([':school_year_name' => $school_year_name]);
             $syID = $stmt->fetch(PDO::FETCH_ASSOC);
             $school_year_id = $syID["school_year_id"] ?? null;
 
@@ -2327,7 +2361,7 @@ class Action
             if ($sf_add_data_id > 0) {
                 // check if record exists
                 $stmt = $this->db->prepare("SELECT COUNT(*) FROM sf_add_data WHERE sf_add_data_id = :id");
-                $stmt->execute([ ':id' => $sf_add_data_id ]);
+                $stmt->execute([':id' => $sf_add_data_id]);
                 $exists = $stmt->fetchColumn();
             } else {
                 $exists = 0;
@@ -2371,7 +2405,6 @@ class Action
                         ? 'SF4 updated successfully'
                         : 'No changes were made (data is already up-to-date)'
                 ]);
-
             } else {
                 // INSERT query
                 $stmt = $this->db->prepare("
@@ -2403,7 +2436,6 @@ class Action
                     'inserted_id' => $this->db->lastInsertId()
                 ]);
             }
-
         } catch (PDOException $e) {
             return json_encode([
                 'status' => 0,
@@ -2412,7 +2444,8 @@ class Action
         }
     }
 
-    function deleteFeedback_form(){
+    function deleteFeedback_form()
+    {
         try {
             $feedback_id = $_POST["feedback_id"];
 
@@ -2431,6 +2464,4 @@ class Action
             ]);
         }
     }
-
-
 }
