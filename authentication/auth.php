@@ -28,13 +28,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $_SESSION['user_role'] = $user['user_role'];
                     $user_role = $user['user_role'];
 
-                    if($user_role == 'PARENT'){
+                    if ($user_role == 'PARENT') {
                         $stmt = $pdo->prepare("INSERT INTO users_history (user_id, login_time) VALUES (?, NOW())");
                         $stmt->execute([$user['user_id']]);
 
                         header("Location: ../src/UI-parents/index.php");
                         exit();
-                    }else if($user_role == 'TEACHER'){
+                    } else if ($user_role == 'TEACHER') {
                         $stmt = $pdo->prepare("INSERT INTO users_history (user_id, login_time) VALUES (?, NOW())");
                         $stmt->execute([$user['user_id']]);
 
@@ -42,7 +42,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         exit();
                     }
                     // Log login history
-                   
+
                 }
 
                 // If not a user, check if it's an admin
@@ -81,9 +81,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     //USERS MANAGEMENT
-    if (isset($_POST['resgiter']) && $_POST['resgiter'] === 'true'){
-            $username = $_POST["username"];
-            $email = $_POST["email"];
+    if (isset($_POST['resgiter']) && $_POST['resgiter'] === 'true') {
+        $username = $_POST["username"];
+        $email = $_POST["email"];
         try {
             $query = "SELECT username FROM users WHERE username = :username";
             $stmt = $pdo->prepare($query);
@@ -91,8 +91,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->execute();
             $usernameExist = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-             if($usernameExist){
+            if ($usernameExist) {
                 header("Location: ../src/register.php?username=exist");
+                exit;
+            }
+            $stmtCheckSY = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
+            $stmtCheckSY->execute();
+            $stmtCheckSY->fetch(PDO::FETCH_ASSOC);
+
+            if (!$stmtCheckSY) {
+                header("Location: ../src/register.php?password=noActiveSchoolYear");
                 exit;
             }
 
@@ -102,22 +110,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->execute();
             $emailExist = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-             if($emailExist){
+            if ($emailExist) {
                 header("Location: ../src/register.php?email=exist");
                 exit;
             }
 
-            if($_POST["password"] != $_POST["cpassword"]){
+            if ($_POST["password"] != $_POST["cpassword"]) {
                 header("Location: ../src/register.php?password=notMatch");
                 exit;
             }
             if (empty($errors)) {
                 $newHashed = password_hash($_POST["password"], PASSWORD_BCRYPT);
                 $user_role = "PARENT";
-                $query = "INSERT INTO users (firstname, middlename, lastname, suffix, user_role, email, relationship, username, password) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $query = "INSERT INTO users (school_year_id, firstname, middlename, lastname, suffix, user_role, email, relationship, username, password) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 $stmt = $pdo->prepare($query);
                 $stmt->execute([
+                    $stmtCheckSY["school_year_id"],
                     $_POST["firstName"],
                     $_POST["middleName"],
                     $_POST["lastName"],
@@ -134,9 +143,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 header("Location: ../src/register.php?create=success");
                 exit;
-
-            } 
-
+            }
         } catch (PDOException $e) {
             die("Query Failed: " . $e->getMessage());
         }
@@ -150,7 +157,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $suffix    = $_POST["suffix"] ?? '';
         $email     = $_POST["email"] ?? '';
         $profile   = '';
-        
+
         // CSRF protection
         if (!isset($_POST["csrf_token"]) || $_POST["csrf_token"] !== $_SESSION["csrf_token"]) {
             die("CSRF token validation failed.");
@@ -162,40 +169,40 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             // Handle profile picture upload
             if (isset($_FILES["student_profile"]) && $_FILES["student_profile"]["error"] === UPLOAD_ERR_OK) {
                 $upload = $_FILES["student_profile"];
-                
+
                 // Validate file type
                 $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
                 $file_info = finfo_open(FILEINFO_MIME_TYPE);
                 $mime_type = finfo_file($file_info, $upload["tmp_name"]);
                 finfo_close($file_info);
-                
+
                 if (!in_array($mime_type, $allowed_types)) {
                     $errors[] = "Invalid file type. Only JPG, PNG, GIF, and WebP images are allowed.";
                 }
-                
+
                 // Validate file size (max 2MB)
                 $max_size = 2 * 1024 * 1024;
                 if ($upload["size"] > $max_size) {
                     $errors[] = "File size too large. Maximum size is 2MB.";
                 }
-                
+
                 // Create upload directory if it doesn't exist
                 $target_dir = "uploads/";
                 if (!file_exists($target_dir)) {
                     mkdir($target_dir, 0755, true);
                 }
-                
+
                 // Generate unique filename
                 $file_extension = pathinfo($upload["name"], PATHINFO_EXTENSION);
                 $image_file_name = 'profile_' . $user_id . '_' . time() . '.' . $file_extension;
                 $target_file = $target_dir . $image_file_name;
-                
+
                 // Check if file is a valid image
                 $image_info = getimagesize($upload["tmp_name"]);
                 if (!$image_info) {
                     $errors[] = "File is not a valid image.";
                 }
-                
+
                 if (empty($errors)) {
                     // Move uploaded file
                     if (move_uploaded_file($upload["tmp_name"], $target_file)) {
@@ -203,7 +210,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         $stmt_old = $pdo->prepare("SELECT student_profile FROM users WHERE user_id = :user_id");
                         $stmt_old->execute([':user_id' => $user_id]);
                         $old_profile = $stmt_old->fetchColumn();
-                        
+
                         // Delete old profile picture if exists and not default
                         if ($old_profile && $old_profile !== '' && !str_starts_with($old_profile, 'default_')) {
                             $old_file = $target_dir . $old_profile;
@@ -211,7 +218,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 @unlink($old_file);
                             }
                         }
-                        
+
                         $profile = $image_file_name;
                     } else {
                         $errors[] = "Failed to upload profile image.";
@@ -229,23 +236,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             middlename = :middlename,
                             suffix = :suffix,
                             email = :email";
-                
+
                 // Add profile column only if we have a new profile
                 if (!empty($profile)) {
                     $query .= ", student_profile = :student_profile";
                 }
-                
+
                 $query .= " WHERE user_id = :user_id";
 
                 $stmt = $pdo->prepare($query);
-                
+
                 $stmt->bindParam(':user_id', $user_id);
                 $stmt->bindParam(':firstname', $firstname);
                 $stmt->bindParam(':lastname', $lastname);
                 $stmt->bindParam(':middlename', $middlename);
                 $stmt->bindParam(':suffix', $suffix);
                 $stmt->bindParam(':email', $email);
-                
+
                 if (!empty($profile)) {
                     $stmt->bindParam(':student_profile', $profile);
                 }
@@ -263,7 +270,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 } else {
                     $_SESSION['info_message'] = 'No changes were made to your profile.';
                 }
-                
+
                 header("Location: ../src/UI-parents/index.php?page=contents/settings&update=success");
                 exit;
             } else {
@@ -272,7 +279,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 header("Location: ../src/UI-parents/index.php?page=contents/settings&update=error");
                 exit;
             }
-
         } catch (PDOException $e) {
             error_log("Profile Update Error: " . $e->getMessage());
             $_SESSION['error_messages'] = ['A database error occurred. Please try again.'];
@@ -288,7 +294,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $suffix    = $_POST["suffix"] ?? '';
         $email     = $_POST["email"] ?? '';
         $profile   = '';
-        
+
         // CSRF protection
         if (!isset($_POST["csrf_token"]) || $_POST["csrf_token"] !== $_SESSION["csrf_token"]) {
             die("CSRF token validation failed.");
@@ -300,40 +306,40 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             // Handle profile picture upload
             if (isset($_FILES["student_profile"]) && $_FILES["student_profile"]["error"] === UPLOAD_ERR_OK) {
                 $upload = $_FILES["student_profile"];
-                
+
                 // Validate file type
                 $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
                 $file_info = finfo_open(FILEINFO_MIME_TYPE);
                 $mime_type = finfo_file($file_info, $upload["tmp_name"]);
                 finfo_close($file_info);
-                
+
                 if (!in_array($mime_type, $allowed_types)) {
                     $errors[] = "Invalid file type. Only JPG, PNG, GIF, and WebP images are allowed.";
                 }
-                
+
                 // Validate file size (max 2MB)
                 $max_size = 2 * 1024 * 1024;
                 if ($upload["size"] > $max_size) {
                     $errors[] = "File size too large. Maximum size is 2MB.";
                 }
-                
+
                 // Create upload directory if it doesn't exist
                 $target_dir = "uploads/";
                 if (!file_exists($target_dir)) {
                     mkdir($target_dir, 0755, true);
                 }
-                
+
                 // Generate unique filename
                 $file_extension = pathinfo($upload["name"], PATHINFO_EXTENSION);
                 $image_file_name = 'profile_' . $user_id . '_' . time() . '.' . $file_extension;
                 $target_file = $target_dir . $image_file_name;
-                
+
                 // Check if file is a valid image
                 $image_info = getimagesize($upload["tmp_name"]);
                 if (!$image_info) {
                     $errors[] = "File is not a valid image.";
                 }
-                
+
                 if (empty($errors)) {
                     // Move uploaded file
                     if (move_uploaded_file($upload["tmp_name"], $target_file)) {
@@ -341,7 +347,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         $stmt_old = $pdo->prepare("SELECT student_profile FROM users WHERE user_id = :user_id");
                         $stmt_old->execute([':user_id' => $user_id]);
                         $old_profile = $stmt_old->fetchColumn();
-                        
+
                         // Delete old profile picture if exists and not default
                         if ($old_profile && $old_profile !== '' && !str_starts_with($old_profile, 'default_')) {
                             $old_file = $target_dir . $old_profile;
@@ -349,7 +355,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 @unlink($old_file);
                             }
                         }
-                        
+
                         $profile = $image_file_name;
                     } else {
                         $errors[] = "Failed to upload profile image.";
@@ -367,23 +373,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             middlename = :middlename,
                             suffix = :suffix,
                             email = :email";
-                
+
                 // Add profile column only if we have a new profile
                 if (!empty($profile)) {
                     $query .= ", student_profile = :student_profile";
                 }
-                
+
                 $query .= " WHERE user_id = :user_id";
 
                 $stmt = $pdo->prepare($query);
-                
+
                 $stmt->bindParam(':user_id', $user_id);
                 $stmt->bindParam(':firstname', $firstname);
                 $stmt->bindParam(':lastname', $lastname);
                 $stmt->bindParam(':middlename', $middlename);
                 $stmt->bindParam(':suffix', $suffix);
                 $stmt->bindParam(':email', $email);
-                
+
                 if (!empty($profile)) {
                     $stmt->bindParam(':student_profile', $profile);
                 }
@@ -401,7 +407,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 } else {
                     $_SESSION['info_message'] = 'No changes were made to your profile.';
                 }
-                
+
                 header("Location: ../src/UI-teacher/index.php?page=contents/settings&update=success");
                 exit;
             } else {
@@ -410,7 +416,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 header("Location: ../src/UI-teacher/index.php?page=contents/settings&update=error");
                 exit;
             }
-
         } catch (PDOException $e) {
             error_log("Profile Update Error: " . $e->getMessage());
             $_SESSION['error_messages'] = ['A database error occurred. Please try again.'];
@@ -474,7 +479,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 header("Location: ../src/UI-Admin/index.php?page=contents/settings&update=success");
                 exit;
             }
-
         } catch (PDOException $e) {
             die("Query Failed: " . $e->getMessage());
         }
@@ -572,7 +576,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
     }
-    if (isset($_POST['usersForgottenPassAdmin']) && $_POST['usersForgottenPassAdmin'] === 'true'){
+    if (isset($_POST['usersForgottenPassAdmin']) && $_POST['usersForgottenPassAdmin'] === 'true') {
         $Users_id = $_POST["Users_id"];
         $currentPassword = $_POST["current_password"] ?? "";
         $newPassword = $_POST["new_password"] ?? "";
@@ -582,17 +586,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         // ==================== EMPTY INPUTS ====================== //
         if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
-                 echo json_encode(["status" => "error", "message" => "All fields are required."]);
-                header("Location: ../src/UI-Admin/index.php?page=contents/settings");
-                exit;
+            echo json_encode(["status" => "error", "message" => "All fields are required."]);
+            header("Location: ../src/UI-Admin/index.php?page=contents/settings");
+            exit;
         }
         // ==================== CONFIRM PASSWORD NOT MATCH ====================== //
         if ($newPassword !== $confirmPassword) {
-                echo json_encode(["status" => "error", "message" => "New passwords do not match."]);
-                header("Location: ../src/UI-Admin/index.php?page=contents/settings&NewPassword=notMatch");
-                exit;
-         
-           
+            echo json_encode(["status" => "error", "message" => "New passwords do not match."]);
+            header("Location: ../src/UI-Admin/index.php?page=contents/settings&NewPassword=notMatch");
+            exit;
         }
 
         try {
@@ -608,9 +610,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             // ==================== CURRENT PASSWORD NOT MATCH ====================== //
             if (!password_verify($currentPassword, $user['admin_password'])) {
-                    echo json_encode(["status" => "error", "message" => "Current password is incorrect."]);
-                    header("Location: ../src/UI-Admin/index.php?page=contents/settings&CurrentPasswoed=notMatch");
-                    exit;
+                echo json_encode(["status" => "error", "message" => "Current password is incorrect."]);
+                header("Location: ../src/UI-Admin/index.php?page=contents/settings&CurrentPasswoed=notMatch");
+                exit;
             }
 
             $newHashed = password_hash($newPassword, PASSWORD_DEFAULT);
@@ -620,14 +622,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 'admin_password' => $newHashed,
                 'admin_id' => $Users_id
             ]);
-             header("Location: ../src/UI-Admin/index.php?page=contents/settings&passwordChange=success");
-                    exit;
-
-
+            header("Location: ../src/UI-Admin/index.php?page=contents/settings&passwordChange=success");
+            exit;
         } catch (PDOException $e) {
             echo json_encode(["status" => "error", "message" => "Database error: " . $e->getMessage()]);
             // header("Location: ../src/UI-Admin/index.php?page=contents/settings&CurrentPasswoed=failedasdasdasd");
-                exit;
+            exit;
         }
     }
     if (isset($_POST['LogoutAdmin']) && $_POST['LogoutAdmin'] === 'true') {
@@ -638,16 +638,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->execute();
 
             header('Location: ../index.php');
-            
         } catch (PDOException $e) {
             die('Query Failed: ' . $e->getMessage());
         }
     }
-     if (isset($_POST['LogoutUser']) && $_POST['LogoutUser'] === 'true') {
+    if (isset($_POST['LogoutUser']) && $_POST['LogoutUser'] === 'true') {
         $user_id = $_POST["user_id"];
         try {
             header('Location: ../index.php');
-            
         } catch (PDOException $e) {
             die('Query Failed: ' . $e->getMessage());
         }
@@ -667,7 +665,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     //     try {
     //         $stmt = $pdo->prepare("SELECT username FROM users WHERE username = '$username';"); $stmt->execute();
     //         $usernameTaken = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
     //         if($usernameTaken){
     //             header('Location: ../src/UI-Admin/index.php?page=contents/users&username=taken');
     //             die();
