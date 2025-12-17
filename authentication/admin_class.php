@@ -195,8 +195,8 @@ class Action
 
         try {
             // Check if classroom already exists
-            $checkStmt = $this->db->prepare("SELECT room_name FROM classrooms WHERE room_name = ?");
-            $checkStmt->execute([$classroom_name]);
+            $checkStmt = $this->db->prepare("SELECT room_name FROM classrooms WHERE room_name = ? AND school_year_id = ?");
+            $checkStmt->execute([$classroom_name, $getActiveSY['school_year_id']]);
             $existingClassroom = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
             if ($existingClassroom) {
