@@ -14,7 +14,7 @@ $user_id = $_SESSION['user_id'];
 
 <div class="text-white justify-content-between d-flex flex-row col-md-12 col-12  m-0 p-0 bg-danger" style="border-bottom: solid 1px rgba(0,0,0,.2);">
   <div class="m-0 p-0 col-md-8 col-10 d-flex flex-row buttonUpdateProfile">
-      <div class="burderDiv" style="display: none;">
+      <div class="burderDiv" style="display: none;position: relative;z-index: 1;">
         <button class="buttonHide" id="burgerButton"><i class="burger fa-solid fa-bars fs-4 me-3"></i></button>
       </div>
       <div class="row d-flex flex-row col-md-12 col-12 ps-3 transformMedia">
