@@ -14,7 +14,7 @@ $stmt->execute();
 $data_sf_eight = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // Get active school year
-$stmt = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active'");
+$stmt = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
 $stmt->execute();
 $sy = $stmt->fetch(PDO::FETCH_ASSOC);
 

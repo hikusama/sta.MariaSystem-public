@@ -183,7 +183,7 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                     <div class="d-flex align-items-center mb-2">
                         <label class="me-2 col-4">School Year</label>
                         <?php
-                    $stmt = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active'");
+                    $stmt = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
                     $stmt->execute();
                     $sy = $stmt->fetch(PDO::FETCH_ASSOC);
                     ?>

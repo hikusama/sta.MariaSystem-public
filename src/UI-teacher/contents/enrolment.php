@@ -8,7 +8,7 @@
     ]);
     $class = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $query = "SELECT * FROM school_year WHERE school_year_status = 'Active'";
+    $query = "SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1";
     $stmt = $pdo->prepare($query);
     $stmt->execute();
     $schoolYear = $stmt->fetch(PDO::FETCH_ASSOC);

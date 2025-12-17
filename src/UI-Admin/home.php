@@ -9,7 +9,7 @@ $sections = $pdo->query("SELECT COUNT(*) FROM sections")->fetchColumn();
 $subjects = $pdo->query("SELECT COUNT(*) FROM subjects")->fetchColumn();
 $school_year = $pdo->query("SELECT COUNT(*) FROM school_year")->fetchColumn();
 
-$stmt = $pdo->prepare("SELECT school_year_name FROM school_year WHERE school_year_status = 'Active'");
+$stmt = $pdo->prepare("SELECT school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
 $stmt->execute();
 $activeSY = $stmt->fetch(PDO::FETCH_ASSOC);
 ?>
