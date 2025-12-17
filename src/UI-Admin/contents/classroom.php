@@ -1,9 +1,9 @@
  <?php
-            $stmt = $pdo->prepare("SELECT * FROM classrooms ORDER BY created_date DESC");
-            $stmt->execute();
-            $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $count = 1;
-        ?>
+    $stmt = $pdo->prepare("SELECT * FROM classrooms ORDER BY classrooms.created_date DESC");
+    $stmt->execute();
+    $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $count = 1;
+    ?>
  <div class="d-flex justify-content-between align-items-center mb-4">
      <div class="mx-2">
          <h4><i class="fa-solid fa-school me-2"></i>Classrooms Management</h4>
@@ -35,9 +35,9 @@
                      <h5 class="card-title mb-3"><i class="fa-solid fa-chart-bar me-2"></i>Classrooms Overview</h5>
                      <div class="row text-center">
                          <?php
-                        $availableCount = array_filter($classrooms, fn($c) => $c['room_status'] === 'Available');
-                        $unavailableCount = array_filter($classrooms, fn($c) => $c['room_status'] === 'Unavailable');
-                        ?>
+                            $availableCount = array_filter($classrooms, fn($c) => $c['room_status'] === 'Available');
+                            $unavailableCount = array_filter($classrooms, fn($c) => $c['room_status'] === 'Unavailable');
+                            ?>
                          <div class="col-md-4 col-6 mb-3">
                              <div class="p-3 bg-primary bg-opacity-10 rounded">
                                  <h3 class="text-white mb-1"><?= count($classrooms) ?></h3>
@@ -65,11 +65,11 @@
      <!-- Classrooms Table -->
      <div class="table-container-wrapper p-0">
          <?php
-            $stmt = $pdo->prepare("SELECT * FROM classrooms ORDER BY created_date DESC");
+            $stmt = $pdo->prepare("SELECT * FROM classrooms LEFT JOIN school_year ON classrooms.school_year_id = school_year.school_year_id ORDER BY classrooms.created_date DESC");
             $stmt->execute();
             $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $count = 1;
-        ?>
+            ?>
 
          <!-- Fixed Header -->
          <div class="table-responsive">
@@ -80,6 +80,7 @@
                          <th width="20%">Room Name</th>
                          <th width="15%">Room Type</th>
                          <th width="15%">Room Status</th>
+                         <th width="20%">School Year</th>
                          <th width="20%">Created at</th>
                          <th width="25%">Action</th>
                      </tr>
@@ -91,54 +92,57 @@
          <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
              <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
                  <tbody id="classroomsTableBody">
-                     <?php if($classrooms): 
-                        $count = 1;
-                        foreach($classrooms as $user) : ?>
-                     <tr class="classroom-row" data-name="<?= htmlspecialchars(strtolower($user["room_name"])) ?>"
-                         data-type="<?= htmlspecialchars(strtolower($user["room_type"])) ?>"
-                         data-status="<?= htmlspecialchars(strtolower($user["room_status"])) ?>">
-                         <td width="5%"><?= $count++ ?></td>
-                         <td width="20%" class="classroom-name">
-                             <div class="d-flex align-items-center">
-                                 <div class="avatar-placeholder me-2">
-                                     <i class="fa-solid fa-door-closed text-secondary"></i>
-                                 </div>
-                                 <div>
-                                     <strong><?= htmlspecialchars($user["room_name"]) ?></strong>
-                                 </div>
-                             </div>
-                         </td>
-                         <td width="15%">
-                             <span class="badge bg-info"><?= htmlspecialchars($user["room_type"]) ?></span>
-                         </td>
-                         <td width="15%">
-                             <span
-                                 class="badge bg-<?= ($user["room_status"] == 'Available') ? 'success' : 'secondary' ?>">
-                                 <i class="fa-solid fa-circle fa-xs me-1"></i>
-                                 <?= htmlspecialchars($user["room_status"] ?? 'Unavailable') ?>
-                             </span>
-                         </td>
-                         <td width="20%">
-                             <small><?= date('M d, Y', strtotime($user["created_date"])) ?></small>
-                         </td>
-                         <td width="25%">
-                             <div class="d-flex gap-1 justify-content-center">
-                                 <button type="button" data-id="<?= $user['room_id'] ?>"
-                                     class="btn btn-sm btn-info editClassroomsBtn" title="Edit Classroom">
-                                     <i class="fa-solid fa-pen me-1"></i> Edit
-                                 </button>
-                                 <button type="button" data-id="<?= $user['room_id'] ?>"
-                                     class="btn btn-sm btn-danger deleteClassroomBtn" title="Delete Classroom">
-                                     <i class="fa-solid fa-trash me-1"></i> Delete
-                                 </button>
-                             </div>
-                         </td>
-                     </tr>
-                     <?php endforeach; ?>
+                     <?php if ($classrooms):
+                            $count = 1;
+                            foreach ($classrooms as $user) : ?>
+                             <tr class="classroom-row" data-name="<?= htmlspecialchars(strtolower($user["room_name"])) ?>"
+                                 data-type="<?= htmlspecialchars(strtolower($user["room_type"])) ?>"
+                                 data-status="<?= htmlspecialchars(strtolower($user["room_status"])) ?>">
+                                 <td width="5%"><?= $count++ ?></td>
+                                 <td width="20%" class="classroom-name">
+                                     <div class="d-flex align-items-center">
+                                         <div class="avatar-placeholder me-2">
+                                             <i class="fa-solid fa-door-closed text-secondary"></i>
+                                         </div>
+                                         <div>
+                                             <strong><?= htmlspecialchars($user["room_name"]) ?></strong>
+                                         </div>
+                                     </div>
+                                 </td>
+                                 <td width="15%">
+                                     <span class="badge bg-info"><?= htmlspecialchars($user["room_type"]) ?></span>
+                                 </td>
+                                 <td width="15%">
+                                     <span
+                                         class="badge bg-<?= ($user["room_status"] == 'Available') ? 'success' : 'secondary' ?>">
+                                         <i class="fa-solid fa-circle fa-xs me-1"></i>
+                                         <?= htmlspecialchars($user["room_status"] ?? 'Unavailable') ?>
+                                     </span>
+                                 </td>
+                                 <td width="20%">
+                                     <small><?= htmlspecialchars($user["school_year_name"]) ?></small>
+                                 </td>
+                                 <td width="20%">
+                                     <small><?= date('M, d, y', strtotime($user["created_date"])) ?></small>
+                                 </td>
+                                 <td width="25%">
+                                     <div class="d-flex gap-1 justify-content-center">
+                                         <button type="button" data-id="<?= $user['room_id'] ?>"
+                                             class="btn btn-sm btn-info editClassroomsBtn" title="Edit Classroom">
+                                             <i class="fa-solid fa-pen me-1"></i> Edit
+                                         </button>
+                                         <button type="button" data-id="<?= $user['room_id'] ?>"
+                                             class="btn btn-sm btn-danger deleteClassroomBtn" title="Delete Classroom">
+                                             <i class="fa-solid fa-trash me-1"></i> Delete
+                                         </button>
+                                     </div>
+                                 </td>
+                             </tr>
+                         <?php endforeach; ?>
                      <?php else: ?>
-                     <tr>
-                         <td colspan="6" class="text-center py-3">No classrooms found.</td>
-                     </tr>
+                         <tr>
+                             <td colspan="6" class="text-center py-3">No classrooms found.</td>
+                         </tr>
                      <?php endif; ?>
                  </tbody>
              </table>
@@ -267,194 +271,195 @@
  </div>
 
  <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
-    const classroomRows = document.querySelectorAll('.classroom-row');
-    const classroomsTableBody = document.getElementById('classroomsTableBody');
-    const noResultsDiv = document.getElementById('noResults');
-    const editButtons = document.querySelectorAll('.editClassroomsBtn');
-    const deleteButtons = document.querySelectorAll('.deleteClassroomBtn');
+     document.addEventListener('DOMContentLoaded', function() {
+         const searchInput = document.getElementById('searchInput');
+         const classroomRows = document.querySelectorAll('.classroom-row');
+         const classroomsTableBody = document.getElementById('classroomsTableBody');
+         const noResultsDiv = document.getElementById('noResults');
+         const editButtons = document.querySelectorAll('.editClassroomsBtn');
+         const deleteButtons = document.querySelectorAll('.deleteClassroomBtn');
 
-    // Classroom data for edit form (you would typically fetch this via AJAX)
-    const classroomsData = <?= json_encode($classrooms); ?>;
+         // Classroom data for edit form (you would typically fetch this via AJAX)
+         const classroomsData = <?= json_encode($classrooms); ?>;
 
-    // Search functionality
-    function filterClassrooms() {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        let visibleCount = 0;
+         // Search functionality
+         function filterClassrooms() {
+             const searchTerm = searchInput.value.toLowerCase().trim();
+             let visibleCount = 0;
 
-        classroomRows.forEach(row => {
-            const name = row.getAttribute('data-name');
-            const type = row.getAttribute('data-type');
-            const status = row.getAttribute('data-status');
+             classroomRows.forEach(row => {
+                 const name = row.getAttribute('data-name');
+                 const type = row.getAttribute('data-type');
+                 const status = row.getAttribute('data-status');
 
-            let matchesSearch = true;
+                 let matchesSearch = true;
 
-            if (searchTerm) {
-                matchesSearch = name.includes(searchTerm) ||
-                    type.includes(searchTerm) ||
-                    status.includes(searchTerm);
-            }
+                 if (searchTerm) {
+                     matchesSearch = name.includes(searchTerm) ||
+                         type.includes(searchTerm) ||
+                         status.includes(searchTerm);
+                 }
 
-            if (matchesSearch) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
+                 if (matchesSearch) {
+                     row.style.display = '';
+                     visibleCount++;
+                 } else {
+                     row.style.display = 'none';
+                 }
+             });
 
-        if (visibleCount === 0) {
-            classroomsTableBody.style.display = 'none';
-            noResultsDiv.classList.remove('d-none');
-        } else {
-            classroomsTableBody.style.display = '';
-            noResultsDiv.classList.add('d-none');
-        }
+             if (visibleCount === 0) {
+                 classroomsTableBody.style.display = 'none';
+                 noResultsDiv.classList.remove('d-none');
+             } else {
+                 classroomsTableBody.style.display = '';
+                 noResultsDiv.classList.add('d-none');
+             }
 
-        updateRowNumbers();
-    }
+             updateRowNumbers();
+         }
 
-    function updateRowNumbers() {
-        let counter = 1;
-        classroomRows.forEach(row => {
-            if (row.style.display !== 'none') {
-                const firstCell = row.querySelector('td:first-child');
-                if (firstCell) {
-                    firstCell.textContent = counter++;
-                }
-            }
-        });
-    }
+         function updateRowNumbers() {
+             let counter = 1;
+             classroomRows.forEach(row => {
+                 if (row.style.display !== 'none') {
+                     const firstCell = row.querySelector('td:first-child');
+                     if (firstCell) {
+                         firstCell.textContent = counter++;
+                     }
+                 }
+             });
+         }
 
-    // Edit button click handler
-    editButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const classroomId = this.getAttribute('data-id');
-            const classroom = classroomsData.find(c => c.room_id == classroomId);
+         // Edit button click handler
+         editButtons.forEach(button => {
+             button.addEventListener('click', function() {
+                 const classroomId = this.getAttribute('data-id');
+                 const classroom = classroomsData.find(c => c.room_id == classroomId);
 
-            if (classroom) {
-                document.getElementById('classroom_ids').value = classroom.room_id;
-                document.getElementById('room_status').value = classroom.room_status;
-                document.getElementById('classroom_name').value = classroom.room_name;
-                document.getElementById('classroom_type').value = classroom.room_type;
+                 if (classroom) {
+                     document.getElementById('classroom_ids').value = classroom.room_id;
+                     document.getElementById('room_status').value = classroom.room_status;
+                     document.getElementById('classroom_name').value = classroom.room_name;
+                     document.getElementById('classroom_type').value = classroom.room_type;
 
-                const modal = new bootstrap.Modal(document.getElementById('editClassroom'));
-                modal.show();
-            }
-        });
-    });
+                     const modal = new bootstrap.Modal(document.getElementById('editClassroom'));
+                     modal.show();
+                 }
+             });
+         });
 
-    // Delete button click handler
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const classroomId = this.getAttribute('data-id');
-            document.getElementById('classroom_id').value = classroomId;
+         // Delete button click handler
+         deleteButtons.forEach(button => {
+             button.addEventListener('click', function() {
+                 const classroomId = this.getAttribute('data-id');
+                 document.getElementById('classroom_id').value = classroomId;
 
-            const modal = new bootstrap.Modal(document.getElementById('deleteClassroom'));
-            modal.show();
-        });
-    });
+                 const modal = new bootstrap.Modal(document.getElementById('deleteClassroom'));
+                 modal.show();
+             });
+         });
 
-    // Event listeners
-    searchInput.addEventListener('input', filterClassrooms);
+         // Event listeners
+         searchInput.addEventListener('input', filterClassrooms);
 
-    clearSearchBtn.addEventListener('click', function() {
-        searchInput.value = '';
-        filterClassrooms();
-        searchInput.focus();
-    });
+         clearSearchBtn.addEventListener('click', function() {
+             searchInput.value = '';
+             filterClassrooms();
+             searchInput.focus();
+         });
 
-    // Add Enter key support for search
-    searchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            filterClassrooms();
-        }
-    });
+         // Add Enter key support for search
+         searchInput.addEventListener('keypress', function(e) {
+             if (e.key === 'Enter') {
+                 filterClassrooms();
+             }
+         });
 
-    // Add some styling
-    searchInput.addEventListener('focus', function() {
-        this.parentElement.classList.add('border-primary', 'border-2');
-    });
+         // Add some styling
+         searchInput.addEventListener('focus', function() {
+             this.parentElement.classList.add('border-primary', 'border-2');
+         });
 
-    searchInput.addEventListener('blur', function() {
-        this.parentElement.classList.remove('border-primary', 'border-2');
-    });
+         searchInput.addEventListener('blur', function() {
+             this.parentElement.classList.remove('border-primary', 'border-2');
+         });
 
-    // Initialize
-    filterClassrooms();
-});
+         // Initialize
+         filterClassrooms();
+     });
  </script>
 
  <style>
-.scroll-classes{
-    height: 80vh;
-    overflow-y: scroll;
-    overflow-x: hidden;
-}
-.table-container-wrapper {
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    overflow: hidden;
-}
+     .scroll-classes {
+         height: 80vh;
+         overflow-y: scroll;
+         overflow-x: hidden;
+     }
 
-.table thead th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
+     .table-container-wrapper {
+         border: 1px solid #dee2e6;
+         border-radius: 8px;
+         overflow: hidden;
+     }
 
-.table tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05);
-}
+     .table thead th {
+         background-color: #f8f9fa;
+         font-weight: 600;
+         position: sticky;
+         top: 0;
+         z-index: 10;
+     }
 
-.avatar-placeholder {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background-color: #f8f9fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-}
+     .table tbody tr:hover {
+         background-color: rgba(0, 123, 255, 0.05);
+     }
 
-.empty-state {
-    padding: 3rem 1rem;
-}
+     .avatar-placeholder {
+         width: 36px;
+         height: 36px;
+         border-radius: 50%;
+         background-color: #f8f9fa;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         font-size: 20px;
+     }
 
-.empty-state i {
-    opacity: 0.5;
-}
+     .empty-state {
+         padding: 3rem 1rem;
+     }
 
-.badge {
-    padding: 0.35em 0.65em;
-    font-size: 0.75em;
-    font-weight: 600;
-}
+     .empty-state i {
+         opacity: 0.5;
+     }
 
-.btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-}
+     .badge {
+         padding: 0.35em 0.65em;
+         font-size: 0.75em;
+         font-weight: 600;
+     }
 
-.input-group-text {
-    border-right: none;
-}
+     .btn-sm {
+         padding: 0.25rem 0.5rem;
+         font-size: 0.75rem;
+     }
 
-#searchInput:focus {
-    box-shadow: none;
-    border-color: #86b7fe;
-}
+     .input-group-text {
+         border-right: none;
+     }
 
-#clearSearch:hover {
-    background-color: #e9ecef;
-}
+     #searchInput:focus {
+         box-shadow: none;
+         border-color: #86b7fe;
+     }
 
-.btn:hover {
-    transform: translateY(-1px);
-    transition: all 0.2s ease;
-}
+     #clearSearch:hover {
+         background-color: #e9ecef;
+     }
+
+     .btn:hover {
+         transform: translateY(-1px);
+         transition: all 0.2s ease;
+     }
  </style>
