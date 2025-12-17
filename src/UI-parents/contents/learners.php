@@ -9,6 +9,7 @@
 
     /* Card Styling */
     .student-card {
+        width: 31rem;
         border: none;
         border-radius: 15px;
         transition: all 0.3s ease;
@@ -17,6 +18,13 @@
         position: relative;
         background: white;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    #studentsContainer{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        justify-content: start;
     }
 
     .student-card:hover {
@@ -163,7 +171,13 @@
 
     /* Responsive */
     @media (max-width: 768px) {
+        .lrr {
+            width: 6rem;
+            transform: translate(16px, 5px) !important;
+        }
+
         .student-card {
+            width: 100%;
             margin-bottom: 20px;
         }
 
@@ -203,7 +217,7 @@
 
                 <!-- School Year Badge -->
                 <?php
-                $stmt = $pdo->prepare("SELECT school_year_name FROM school_year WHERE school_year_status = 'Active'");
+                $stmt = $pdo->prepare("SELECT school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
                 $stmt->execute();
                 $activeSY = $stmt->fetch(PDO::FETCH_ASSOC);
                 ?>
@@ -343,19 +357,36 @@
     <!-- Students Grid -->
     <div class="row mt-4" id="studentsContainer">
         <?php
-        $currentSyStmt = $pdo->prepare("SELECT school_year_id FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
+        $currentSyStmt = $pdo->prepare("
+    SELECT school_year_id 
+    FROM school_year 
+    WHERE school_year_status = 'Active' 
+    LIMIT 1
+");
         $currentSyStmt->execute();
         $currentSy = $currentSyStmt->fetch(PDO::FETCH_ASSOC);
+
         $activeSyId = $currentSy['school_year_id'] ?? null;
+        $user_id = $_SESSION['user_id'] ?? null;
+
         $students = [];
-        
-        try {
-            $stmt = $pdo->prepare("SELECT * FROM student WHERE guardian_id = '$user_id'");
-            $stmt->execute([$activeSyId]);
-        } catch (\Throwable $th) {
-            $students = [];
+
+        if ($activeSyId && $user_id) {
+            try {
+                $stmt = $pdo->prepare("
+            SELECT student.*, users.school_year_id 
+            FROM student 
+            LEFT JOIN users ON student.guardian_id = users.user_id
+            WHERE student.guardian_id = ? 
+              AND users.school_year_id = ?
+            ORDER BY student.student_id DESC
+        ");
+                $stmt->execute([$user_id, $activeSyId]);
+                $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                $students = [];
+            }
         }
-        $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (empty($students)): ?>
             <div class="col-12">
@@ -393,7 +424,7 @@
                                         <?php endif; ?>
 
                                         <!-- LRN Badge -->
-                                        <div class="position-absolute bottom-0 end-0 bg-dark text-white rounded-pill px-2 py-1"
+                                        <div class="position-absolute bottom-0 end-0 bg-dark text-white rounded-pill px-2 py-1 lrr"
                                             style="font-size: 10px; transform: translate(5px, 5px);">
                                             LRN: <?= substr(htmlspecialchars($student["lrn"]), 0, 6) ?>...
                                         </div>
