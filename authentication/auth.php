@@ -82,43 +82,49 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     //USERS MANAGEMENT
     if (isset($_POST['resgiter']) && $_POST['resgiter'] === 'true') {
-        $username = $_POST["username"];
-        $email = $_POST["email"];
+        $username = trim($_POST["username"] ?? '');
+        $email = trim($_POST["email"] ?? '');
+        $errors = [];
+
         try {
+            // Check username
             $query = "SELECT username FROM users WHERE username = :username";
             $stmt = $pdo->prepare($query);
-            $stmt->bindParam(":username", $username);
-            $stmt->execute();
-            $usernameExist = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt->execute([':username' => $username]);
+            $usernameExist = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($usernameExist) {
                 header("Location: ../src/register.php?username=exist");
                 exit;
             }
+
+            // Get active school year
             $stmtCheckSY = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
             $stmtCheckSY->execute();
-            $stmtCheckSY->fetch(PDO::FETCH_ASSOC);
+            $activeSY = $stmtCheckSY->fetch(PDO::FETCH_ASSOC);
 
-            if (!$stmtCheckSY) {
-                header("Location: ../src/register.php?password=noActiveSchoolYear");
+            if (!$activeSY) {
+                header("Location: ../src/register.php?noActiveSchoolYear=1");
                 exit;
             }
 
+            // Check email
             $query = "SELECT email FROM users WHERE email = :email";
             $stmt = $pdo->prepare($query);
-            $stmt->bindParam(":email", $email);
-            $stmt->execute();
-            $emailExist = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt->execute([':email' => $email]);
+            $emailExist = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($emailExist) {
                 header("Location: ../src/register.php?email=exist");
                 exit;
             }
 
-            if ($_POST["password"] != $_POST["cpassword"]) {
+            // Password match
+            if (($_POST["password"] ?? '') !== ($_POST["cpassword"] ?? '')) {
                 header("Location: ../src/register.php?password=notMatch");
                 exit;
             }
+
             if (empty($errors)) {
                 $newHashed = password_hash($_POST["password"], PASSWORD_BCRYPT);
                 $user_role = "PARENT";
@@ -126,15 +132,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 $stmt = $pdo->prepare($query);
                 $stmt->execute([
-                    $stmtCheckSY["school_year_id"],
+                    $activeSY["school_year_id"],
                     $_POST["firstName"],
                     $_POST["middleName"],
                     $_POST["lastName"],
                     $_POST["suffix"] ?? null,
                     $user_role,
-                    $_POST["email"],
+                    $email,
                     $_POST["relationship"],
-                    $_POST["username"],
+                    $username,
                     $newHashed
                 ]);
 
@@ -145,7 +151,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 exit;
             }
         } catch (PDOException $e) {
-            die("Query Failed: " . $e->getMessage());
+            error_log("Registration error: " . $e->getMessage());
+            header("Location: ../src/register.php?error=server");
+            exit;
         }
     }
     // PROFILE MANAGEMENT

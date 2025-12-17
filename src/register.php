@@ -105,6 +105,10 @@
                     icon: 'error',
                     title: 'Username already exist!'
                 },
+                noActiveSchoolYear: {
+                    icon: 'error',
+                    title: 'Registration is closed - no active school year.'
+                },
                 create: {
                     icon: 'success',
                     title: 'Account Created successfully!'
