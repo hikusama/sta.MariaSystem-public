@@ -5,26 +5,40 @@ $currentSyStmt->execute();
 $currentSy = $currentSyStmt->fetch(PDO::FETCH_ASSOC);
 $activeSyId = $currentSy['school_year_id'] ?? null;
 
+
 $classrooms = [];
-if ($activeSyId) {
+
+if ($currentSy) {
     $stmt = $pdo->prepare("
         SELECT 
-            classrooms.*,
-            classes.class_id,
-            users.firstname,
-            users.lastname
-        FROM classrooms
-        LEFT JOIN classes 
-            ON classrooms.room_id = classes.classroom_id
-            AND classes.sy_id = ?
-        LEFT JOIN users 
-            ON classes.adviser_id = users.user_id
-            AND users.school_year_id = ?
-        ORDER BY classrooms.room_name ASC
+            c.room_id,
+            c.room_name,
+            c.room_type,
+            c.room_status,
+
+            u.user_id AS adviser_id,
+            u.firstname AS adviser_firstname,
+            u.lastname  AS adviser_lastname
+
+        FROM classrooms c
+        LEFT JOIN classes cl
+            ON cl.classroom_id = c.room_id
+            AND cl.sy_id = ?
+        LEFT JOIN users u
+            ON u.user_id = cl.adviser_id
+
+        WHERE c.school_year_id = ?
+        ORDER BY c.room_name ASC
     ");
-    $stmt->execute([$activeSyId, $activeSyId]);
+
+    $stmt->execute([
+        $currentSy['school_year_id'], // for classes.sy_id
+        $currentSy['school_year_id']  // for classrooms.school_year_id
+    ]);
+
     $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
 
 // Fetch sections
 $stmt = $pdo->prepare("SELECT * FROM sections ORDER BY section_grade_level ASC, section_name ASC");
@@ -228,7 +242,7 @@ $schoolYears = $currentSy ?? [];
                         data-name="<?= htmlspecialchars(strtolower($classroom["room_name"])) ?>"
                         data-type="<?= htmlspecialchars(strtolower($classroom["room_type"])) ?>"
                         data-status="<?= htmlspecialchars(strtolower($roomStatus)) ?>"
-                        data-teacher="<?= htmlspecialchars(strtolower($classroom["firstname"] . ' ' . $classroom["lastname"])) ?>">
+                        data-teacher="<?= htmlspecialchars(strtolower($classroom["adviser_firstname"] . ' ' . $classroom["adviser_lastname"])) ?>">
                         <div class="card border-0 shadow classroom-card <?= $cardClass ?>">
                             <div class="classroom-info">
                                 <div class="d-flex align-items-center mb-3">
@@ -253,7 +267,7 @@ $schoolYears = $currentSy ?? [];
                                     <div class="classroom-teacher">
                                         <?php if ($hasTeacher): ?>
                                             <i class="fa-solid fa-user-tie me-1"></i>
-                                            <strong><?= htmlspecialchars($classroom["firstname"] . " " . $classroom["lastname"]) ?></strong>
+                                            <strong><?= htmlspecialchars($classroom["adviser_firstname"] . " " . $classroom["adviser_lastname"]) ?></strong>
                                         <?php else: ?>
                                             <span class="text-muted">No teacher assigned</span>
                                         <?php endif; ?>
