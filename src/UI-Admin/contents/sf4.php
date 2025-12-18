@@ -137,6 +137,13 @@ if ($selected_month) {
 // Get current year for filtering
 $current_year = date('Y');
 
+// Grade filter (for the adviser/section half)
+$selected_grade = $_POST['filter_grade'] ?? $_GET['filter_grade'] ?? '';
+// fetch available grade levels to populate the filter
+$grade_stmt = $pdo->prepare("SELECT DISTINCT Grade_level FROM enrolment WHERE enrolment_Status = 'Approved' ORDER BY Grade_level");
+$grade_stmt->execute();
+$grade_levels = $grade_stmt->fetchAll(PDO::FETCH_COLUMN);
+
 $stmt = $pdo->prepare("SELECT * FROM sf_add_data");
 $stmt->execute();
 $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -204,16 +211,26 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                 <div class="col-md-4">
                     <div class="d-flex align-items-center mb-2">
                         <label class="me-2 col-4">Report for the month of</label>
-                        <select name="month" id="month_attendance" class="form-select" onchange="this.form.submit()">
-                            <option value="">Select Month</option>
-                            <?php
-                        $months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
-                        foreach ($months as $month) {
-                            $selected = ($selected_month == $month) ? 'selected' : '';
-                            echo "<option value='$month' $selected>$month</option>";
-                        }
-                        ?>
-                        </select>
+                        <div style="display:flex; gap:12px; align-items:center;">
+                            <select name="month" id="month_attendance" class="form-select" onchange="this.form.submit()">
+                                <option value="">Select Month</option>
+                                <?php
+                                $months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+                                foreach ($months as $month) {
+                                    $selected = ($selected_month == $month) ? 'selected' : '';
+                                    echo "<option value='$month' $selected>$month</option>";
+                                }
+                                ?>
+                            </select>
+
+                            <select name="filter_grade" id="filter_grade" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Grades</option>
+                                <?php foreach ($grade_levels as $g):
+                                    $selg = ($selected_grade == $g) ? 'selected' : '';
+                                    echo "<option value='" . htmlspecialchars($g) . "' $selg>" . htmlspecialchars($g) . "</option>";
+                                endforeach; ?>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -221,8 +238,22 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
 
         <?php if ($selected_month && $month_number): ?>
         <?php
-    // Calculate first day of selected month (this should be outside the loop)
+    // Calculate first and last day of selected month
     $first_day_of_month = date("$current_year-$month_number-01");
+    $last_day_of_month = date('Y-m-d', strtotime("$first_day_of_month +1 month -1 day"));
+
+    // Function to count school days (Mon-Fri) in a month
+    function count_school_days($month, $year) {
+        $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        $count = 0;
+        for ($d = 1; $d <= $days_in_month; $d++) {
+            $w = date('w', strtotime(sprintf('%04d-%02d-%02d', $year, $month, $d)));
+            if ($w >= 1 && $w <= 5) $count++;
+        }
+        return $count;
+    }
+
+    $school_days_count = count_school_days($month_number, $current_year);
     ?>
 
         <div class="scroll-container">
@@ -306,8 +337,8 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                     </thead>
                     <tbody>
                         <?php
-                    // Registered learners per adviser - FIXED QUERY
-                    $stmt = $pdo->prepare("
+                    // Registered learners per adviser - allow filtering by selected grade (top half only)
+                    $adviserSql = "
                         SELECT 
                             u.user_id AS adviser_id,
                             u.firstname AS adviser_fname,
@@ -322,10 +353,21 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                         INNER JOIN users u ON e.adviser_id = u.user_id
                         INNER JOIN student st ON e.student_id = st.student_id
                         WHERE e.enrolment_status = 'Approved'
-                        GROUP BY s.section_name, e.Grade_level, u.user_id, u.firstname, u.lastname
-                        ORDER BY e.Grade_level ASC
-                    ");
-                    $stmt->execute();
+                        AND DATE(st.enrolled_date) <= :last_day_of_month
+                        AND st.enrolment_status NOT IN ('transferred_out','dropped','not_active')
+                        ";
+
+                    $params = ['last_day_of_month' => $last_day_of_month];
+                    if (!empty($selected_grade)) {
+                        $adviserSql .= " AND e.Grade_level = :selected_grade";
+                        $params['selected_grade'] = $selected_grade;
+                    }
+
+                    $adviserSql .= " GROUP BY s.section_name, e.Grade_level, u.user_id, u.firstname, u.lastname
+                        ORDER BY e.Grade_level ASC";
+
+                    $stmt = $pdo->prepare($adviserSql);
+                    $stmt->execute($params);
                     $advisers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                     foreach($advisers as $row):
@@ -481,19 +523,23 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                         $femaleTransInTotal = ($transInPrev['female_prev'] ?? 0) + ($transInMonth['female_month'] ?? 0);
                         $totalTransInTotal = $maleTransInTotal + $femaleTransInTotal;
 
-                        // Calculate attendance percentages
+                        // Calculate daily averages and attendance percentages (using school days count)
+                        $male_daily_avg = $school_days_count > 0 ? round((($attend['male_present'] ?? 0) / $school_days_count), 2) : 0;
+                        $female_daily_avg = $school_days_count > 0 ? round((($attend['female_present'] ?? 0) / $school_days_count), 2) : 0;
+                        $total_daily_avg = $school_days_count > 0 ? round((($attend['total_present'] ?? 0) / $school_days_count), 2) : 0;
+
                         $malePercentage = 0;
                         $femalePercentage = 0;
                         $totalPercentage = 0;
-                        
+
                         if ($row['male_registered'] > 0) {
-                            $malePercentage = round((($attend['male_present'] ?? 0) / $row['male_registered']) * 100, 2);
+                            $malePercentage = round((($male_daily_avg) / $row['male_registered']) * 100, 2);
                         }
                         if ($row['female_registered'] > 0) {
-                            $femalePercentage = round((($attend['female_present'] ?? 0) / $row['female_registered']) * 100, 2);
+                            $femalePercentage = round((($female_daily_avg) / $row['female_registered']) * 100, 2);
                         }
                         if ($row['total_registered'] > 0) {
-                            $totalPercentage = round((($attend['total_present'] ?? 0) / $row['total_registered']) * 100, 2);
+                            $totalPercentage = round((($total_daily_avg) / $row['total_registered']) * 100, 2);
                         }
                     ?>
                         <tr>
@@ -507,9 +553,9 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                             <td><?= $row['total_registered'] ?></td>
 
                             <!-- Attendance - Daily Average -->
-                            <td><?= $attend['male_present'] ?? 0 ?></td>
-                            <td><?= $attend['female_present'] ?? 0 ?></td>
-                            <td><?= $attend['total_present'] ?? 0 ?></td>
+                            <td><?= $male_daily_avg ?></td>
+                            <td><?= $female_daily_avg ?></td>
+                            <td><?= $total_daily_avg ?></td>
 
                             <!-- Attendance - Percentage for the Month -->
                             <td><?= $malePercentage ?>%</td>
@@ -620,6 +666,8 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                         FROM enrolment e
                         INNER JOIN student st ON e.student_id = st.student_id
                         WHERE e.enrolment_status = 'Approved'
+                        AND DATE(st.enrolled_date) <= :last_day_of_month
+                        AND st.enrolment_status NOT IN ('transferred_out','dropped','not_active')
                         GROUP BY e.Grade_level
                         ORDER BY 
                             CASE 
@@ -632,7 +680,7 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                                 ELSE 999
                             END ASC
                     ");
-                    $stmt->execute();
+                    $stmt->execute(['last_day_of_month' => $last_day_of_month]);
                     $gradeLevels = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                     if (empty($gradeLevels)) {
@@ -669,19 +717,23 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                         ]);
                         $attend = $stmtAttend->fetch(PDO::FETCH_ASSOC);
 
-                        // Calculate attendance percentage
+                        // Calculate daily averages and attendance percentages (using school days count)
+                        $male_daily_avg = $school_days_count > 0 ? round((($attend['male_present'] ?? 0) / $school_days_count), 2) : 0;
+                        $female_daily_avg = $school_days_count > 0 ? round((($attend['female_present'] ?? 0) / $school_days_count), 2) : 0;
+                        $total_daily_avg = $school_days_count > 0 ? round((($attend['total_present'] ?? 0) / $school_days_count), 2) : 0;
+
                         $malePercentage = 0;
                         $femalePercentage = 0;
                         $totalPercentage = 0;
-                        
+
                         if ($row['male_registered'] > 0) {
-                            $malePercentage = round((($attend['male_present'] ?? 0) / $row['male_registered']) * 100, 2);
+                            $malePercentage = round((($male_daily_avg) / $row['male_registered']) * 100, 2);
                         }
                         if ($row['female_registered'] > 0) {
-                            $femalePercentage = round((($attend['female_present'] ?? 0) / $row['female_registered']) * 100, 2);
+                            $femalePercentage = round((($female_daily_avg) / $row['female_registered']) * 100, 2);
                         }
                         if ($row['total_registered'] > 0) {
-                            $totalPercentage = round((($attend['total_present'] ?? 0) / $row['total_registered']) * 100, 2);
+                            $totalPercentage = round((($total_daily_avg) / $row['total_registered']) * 100, 2);
                         }
 
                         // NO LONGER PARTICIPATING - Dropped students
@@ -693,7 +745,7 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
-                            AND e.enrolment_status = 'dropped'
+                            AND st.enrolment_status = 'dropped'
                         ");
                         $stmtDroppedPrev->execute([
                             'grade_level' => $gradeLevel,
@@ -709,7 +761,7 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
-                            AND e.enrolment_status = 'dropped'
+                            AND st.enrolment_status = 'dropped'
                         ");
                         $stmtDroppedMonth->execute([
                             'grade_level' => $gradeLevel,
@@ -732,7 +784,7 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
-                            AND e.enrolment_status = 'transferred_out'
+                            AND st.enrolment_status = 'transferred_out'
                         ");
                         $stmtTransOutPrev->execute([
                             'grade_level' => $gradeLevel,
@@ -748,7 +800,7 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
-                            AND e.enrolment_status = 'transferred_out'
+                            AND st.enrolment_status = 'transferred_out'
                         ");
                         $stmtTransOutMonth->execute([
                             'grade_level' => $gradeLevel,
@@ -771,7 +823,7 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
-                            AND e.enrolment_status = 'transferred_in'
+                            AND st.enrolment_status = 'transferred_in'
                         ");
                         $stmtTransInPrev->execute([
                             'grade_level' => $gradeLevel,
@@ -787,7 +839,7 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
-                            AND e.enrolment_status = 'transferred_in'
+                            AND st.enrolment_status = 'transferred_in'
                         ");
                         $stmtTransInMonth->execute([
                             'grade_level' => $gradeLevel,
