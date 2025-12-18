@@ -1,18 +1,35 @@
 <?php include '../header.php'; ?>
 <style>
-    main{
+    body {
         background: url('../assets/image/bg.jpg');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
     }
+
+    main {
+        height: 100vh !important;
+        overflow-y: scroll;
+        scrollbar-width: none;
+        align-items: center !important;
+    }
+
+    @media screen and (max-width: 768px) {
+        .login-page {
+            padding: 2rem 0 !important;
+        }
+
+        main {
+            align-items: start !important;
+        }
+    }
 </style>
-<main class="login-page p-0 d-flex justify-content-center align-items-center w-100 h-100">
-    <div class="card-header shadow p-0 m-0 rounded-3 col-md-5 col-11 rounded rounded-top bg-white">
+<main class="login-page p-0 d-flex justify-content-center w-100 h-100">
+    <div class="card-header h-fit shadow p-0 m-0 rounded-3 col-md-5 col-11 rounded rounded-top bg-white">
         <div class="card-header  py-2 text-white bg-danger text-center rounded-top">
             <h4 class="mt-1 text-white">Registration</h4>
         </div>
-        <div class="card-body h-auto" >
+        <div class="card-body h-auto">
             <form class="row g-1 p-3" action="../authentication/auth.php" method="post">
                 <input type="hidden" name="csrf_token" value="<?= $csrf_token; ?>">
                 <input type="hidden" name="resgiter" value="true">
@@ -85,11 +102,11 @@
     </div>
 </main>
 <?php if (
-        isset($_GET['email']) || 
-        isset($_GET['password']) || 
-        isset($_GET['username']) || 
-        isset($_GET['create'])
-    ): ?>
+    isset($_GET['email']) ||
+    isset($_GET['password']) ||
+    isset($_GET['username']) ||
+    isset($_GET['create'])
+): ?>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             const messages = {
