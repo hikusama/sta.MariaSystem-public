@@ -10,7 +10,7 @@ $mysqli = new mysqli("localhost", "root", "", "stamariadb");
 if ($mysqli->connect_error) die("DB Connection failed: " . $mysqli->connect_error);
 
 // define('BASE_PATH', realpath(__DIR__ . '/../../..'));
-$templatePath = BASE_PATH . '/src/teacher/contents/sf5/sf5.xlsx';
+$templatePath = BASE_PATH . '/src/UI-teacher/contents/sf5/sf5.xlsx';
 $saveDir = BASE_PATH . '/sf5_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
 

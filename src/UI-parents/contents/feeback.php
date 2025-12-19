@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../tupperware.php';
+require_once __DIR__ . '/../../../tupperware.php';
 $result = checkURI('parent', 2);
 if ($result['res']) {
     header($result['uri']);

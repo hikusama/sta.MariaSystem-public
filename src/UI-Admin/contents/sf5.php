@@ -172,7 +172,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
     </div>
 
     <script>
-        const BASE_URL = "<?= base_url(); ?>";
         // Live search (AJAX)
         document.getElementById('searchInput').addEventListener('keyup', function() {
             const search = this.value.trim();
@@ -195,12 +194,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
                     const gradeLevel = this.dataset.grade;
                     const sectionName = this.dataset.section;
                     if (sectionId && gradeLevel && sectionName) {
-                        window.location.href = BASE_URL + `/src/UI-Admin/contents/schoolform5.php`
+                        window.location.href = '<?php echo BASE_FR; ?>/src/UI-Admin/contents/schoolform5.php?student_id=' + studentId;
 
-                            +
-                            `?section_id=${encodeURIComponent(sectionId)}` +
-                            `&grade=${encodeURIComponent(gradeLevel)}` +
-                            `&section=${encodeURIComponent(sectionName)}`;
+                        +
+                        `?section_id=${encodeURIComponent(sectionId)}` +
+                        `&grade=${encodeURIComponent(gradeLevel)}` +
+                        `&section=${encodeURIComponent(sectionName)}`;
                     }
                 });
             });
