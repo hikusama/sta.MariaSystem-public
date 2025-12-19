@@ -225,51 +225,6 @@ if ($result['res']) {
         </div>
     </div>
 
-    <!-- Statistics Summary -->
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title mb-3"><i class="fa-solid fa-chart-bar me-2"></i>Learners Statistics</h5>
-                    <div class="row text-center">
-                        <?php
-                        $enrolledCount = array_filter($users, fn($u) => ($u['enrolment_status'] ?? '') == 'active');
-                        $transferredCount = array_filter($users, fn($u) => ($u['enrolment_status'] ?? '') == 'transferred_in' ||
-                            ($u['enrolment_status'] ?? '') == 'transferred_out');
-                        $inactiveCount = array_filter($users, fn($u) => ($u['enrolment_status'] ?? '') == 'not_active');
-                        $rejectedCount = array_filter($users, fn($u) => ($u['enrolment_status'] ?? '') == 'rejected');
-                        ?>
-                        <div class="col-md-3 col-6 mb-3">
-                            <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($users) ?></h3>
-                                <small class="text-muted">Total Learners</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <div class="p-3 bg-success bg-opacity-10 rounded">
-                                <h3 class="text-success mb-1"><?= count($enrolledCount) ?></h3>
-                                <small class="text-muted">Enrolled</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <div class="p-3 bg-info bg-opacity-10 rounded">
-                                <h3 class="text-info mb-1"><?= count($transferredCount) ?></h3>
-                                <small class="text-muted">Transferred</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <div class="p-3 bg-secondary bg-opacity-10 rounded">
-                                <h3 class="text-secondary mb-1"><?= count($inactiveCount) + count($rejectedCount) ?>
-                                </h3>
-                                <small class="text-muted">Inactive/Rejected</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Modal (if needed) -->
 <div class="modal fade" id="AddNewAccount" tabindex="-1" aria-labelledby="AddNewAccountLabel" aria-hidden="true">
