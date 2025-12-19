@@ -1,4 +1,10 @@
 <?php
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('teacher', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 // Use prepared statement with parameter binding
 $student_id = $_GET["student_id"] ?? '';
 $query = "SELECT student.*, 

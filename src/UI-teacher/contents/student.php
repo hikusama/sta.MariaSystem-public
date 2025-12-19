@@ -1,4 +1,10 @@
 <?php
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('teacher', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
     $query = "SELECT classes.*, users.* FROM classes
     INNER JOIN users ON classes.adviser_id = users.user_id
     WHERE users.user_id = '$user_id'";

@@ -1,15 +1,17 @@
 <?php
-session_start();
-require_once 'C:/xampp/htdocs/sta.MariaSystem/vendor/autoload.php';
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('teacher', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 use PhpOffice\PhpSpreadsheet\IOFactory;
-
-
 $mysqli = new mysqli("localhost", "root", "", "stamariadb");
 if ($mysqli->connect_error) die("DB Connection failed: " . $mysqli->connect_error);
 
-
-$templatePath = 'C:/xampp/htdocs/sta.MariaSystem/src/teacher/contents/sf5/sf5.xlsx';
-$saveDir = 'C:/xampp/htdocs/sta.MariaSystem/sf5_files';
+// define('BASE_PATH', realpath(__DIR__ . '/../../..'));
+$templatePath = BASE_PATH . '/src/UI-teacher/contents/sf5/sf5.xlsx';
+$saveDir = BASE_PATH . '/sf5_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
 
 $totalRows = 59;
@@ -296,7 +298,7 @@ body { font-family:'Poppins',sans-serif; background:#f4f5f7; padding-bottom:120p
 </head>
 <body>
 <div class="header">
-<img src="/sta.MariaSystem/assets/image/logo2.png" alt="Logo">
+<img src="../../../assets/image/logo2.png" alt="Logo">
 <h4>STA. MARIA WEB SYSTEM</h4>
 </div>
 <div class="container-fluid mt-4">

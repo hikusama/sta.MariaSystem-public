@@ -1,3 +1,11 @@
+<?php
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('parent', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
+?>
 <main>
     <section class="container-fluid py-4" style="max-height: 85vh; overflow-y: auto;">
         

@@ -1,4 +1,10 @@
 <?php
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('teacher', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 // First, get section and grade level
 $stmt = $pdo->prepare("SELECT en.section_name, en.Grade_level FROM enrolment en
     INNER JOIN users u ON en.adviser_id = u.user_id

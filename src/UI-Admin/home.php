@@ -1,5 +1,12 @@
 <?php
 // Your PHP code remains the same
+require_once __DIR__ . '/../../tupperware.php';
+$result = checkURI('admin', 1);
+
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 $studentCount = $pdo->query("SELECT COUNT(*) FROM student")->fetchColumn();
 $teacherCount = $pdo->query("SELECT COUNT(*) FROM users WHERE user_role = 'TEACHER'")->fetchColumn();
 $parentCount = $pdo->query("SELECT COUNT(*) FROM users WHERE user_role = 'PARENT'")->fetchColumn();

@@ -1,4 +1,13 @@
-<?php include "../../header.php"; ?>
+<?php include "../../header.php"; 
+
+require_once __DIR__ . '/../../tupperware.php';
+$result = checkURI('admin', 1);
+
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
+?>
 
 <?php include 'nav-head.php'; ?>
 

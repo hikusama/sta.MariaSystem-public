@@ -1,8 +1,15 @@
 <?php
-    $stmt = $pdo->prepare("SELECT * FROM subjects ORDER BY created_date DESC");
-    $stmt->execute();
-    $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $count = 1;
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('admin', 2);
+
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
+$stmt = $pdo->prepare("SELECT * FROM subjects ORDER BY created_date DESC");
+$stmt->execute();
+$subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$count = 1;
 ?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="mx-2">
@@ -37,7 +44,7 @@
                         <?php
                         $availableCount = array_filter($subjects, fn($s) => $s['subjects_status'] === 'Available');
                         $unavailableCount = array_filter($subjects, fn($s) => $s['subjects_status'] === 'Unavailable');
-                        
+
                         // Count by grade level
                         $grade1Count = array_filter($subjects, fn($s) => $s['grade_level'] === 'Grade 1');
                         $grade2Count = array_filter($subjects, fn($s) => $s['grade_level'] === 'Grade 2');
@@ -71,7 +78,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Grade Level Breakdown -->
                     <div class="row mt-4">
                         <h6 class="text-muted mb-3">Grade Level Distribution</h6>
@@ -120,10 +127,10 @@
     <!-- Subjects Table -->
     <div class="table-container-wrapper p-0">
         <?php
-            $stmt = $pdo->prepare("SELECT * FROM subjects ORDER BY created_date DESC");
-            $stmt->execute();
-            $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $count = 1;
+        $stmt = $pdo->prepare("SELECT * FROM subjects ORDER BY created_date DESC");
+        $stmt->execute();
+        $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $count = 1;
         ?>
 
         <!-- Fixed Header -->
@@ -148,61 +155,61 @@
         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
             <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
                 <tbody id="subjectsTableBody">
-                    <?php if($subjects): 
+                    <?php if ($subjects):
                         $count = 1;
-                        foreach($subjects as $subject) : ?>
-                    <tr class="subject-row" 
-                        data-name="<?= htmlspecialchars(strtolower($subject["subject_name"])) ?>"
-                        data-code="<?= htmlspecialchars(strtolower($subject["subject_code"])) ?>"
-                        data-grade="<?= htmlspecialchars(strtolower($subject["grade_level"])) ?>"
-                        data-status="<?= htmlspecialchars(strtolower($subject["subjects_status"])) ?>">
-                        <td width="5%"><?= $count++ ?></td>
-                        <td width="20%" class="subject-name">
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-placeholder me-2">
-                                    <i class="fa-solid fa-book text-primary"></i>
-                                </div>
-                                <div>
-                                    <strong><?= htmlspecialchars($subject["subject_name"]) ?></strong>
-                                </div>
-                            </div>
-                        </td>
-                        <td width="10%">
-                            <span class="badge bg-dark"><?= htmlspecialchars($subject["subject_code"] ?? 'N/A') ?></span>
-                        </td>
-                        <td width="10%">
-                            <span class="badge bg-info"><?= htmlspecialchars($subject["subject_units"]) ?> units</span>
-                        </td>
-                        <td width="15%">
-                            <span class="badge bg-secondary"><?= htmlspecialchars($subject["grade_level"]) ?></span>
-                        </td>
-                        <td width="15%">
-                            <span class="badge bg-<?= ($subject["subjects_status"] == 'Available') ? 'success' : 'secondary' ?>">
-                                <i class="fa-solid fa-circle fa-xs me-1"></i>
-                                <?= htmlspecialchars($subject["subjects_status"] ?? 'Unavailable') ?>
-                            </span>
-                        </td>
-                        <td width="15%">
-                            <small><?= date('M d, Y', strtotime($subject["created_date"])) ?></small>
-                        </td>
-                        <td width="20%">
-                            <div class="d-flex gap-1 justify-content-center">
-                                <button type="button" data-id="<?= $subject['subject_id'] ?>"
-                                    class="btn btn-sm btn-info editSubjectBtn" title="Edit Subject">
-                                    <i class="fa-solid fa-pen me-1"></i> Edit
-                                </button>
-                                <button type="button" data-id="<?= $subject['subject_id'] ?>"
-                                    class="btn btn-sm btn-danger deleteSubjectBtn" title="Delete Subject">
-                                    <i class="fa-solid fa-trash me-1"></i> Delete
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
+                        foreach ($subjects as $subject) : ?>
+                            <tr class="subject-row"
+                                data-name="<?= htmlspecialchars(strtolower($subject["subject_name"])) ?>"
+                                data-code="<?= htmlspecialchars(strtolower($subject["subject_code"])) ?>"
+                                data-grade="<?= htmlspecialchars(strtolower($subject["grade_level"])) ?>"
+                                data-status="<?= htmlspecialchars(strtolower($subject["subjects_status"])) ?>">
+                                <td width="5%"><?= $count++ ?></td>
+                                <td width="20%" class="subject-name">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-placeholder me-2">
+                                            <i class="fa-solid fa-book text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <strong><?= htmlspecialchars($subject["subject_name"]) ?></strong>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td width="10%">
+                                    <span class="badge bg-dark"><?= htmlspecialchars($subject["subject_code"] ?? 'N/A') ?></span>
+                                </td>
+                                <td width="10%">
+                                    <span class="badge bg-info"><?= htmlspecialchars($subject["subject_units"]) ?> units</span>
+                                </td>
+                                <td width="15%">
+                                    <span class="badge bg-secondary"><?= htmlspecialchars($subject["grade_level"]) ?></span>
+                                </td>
+                                <td width="15%">
+                                    <span class="badge bg-<?= ($subject["subjects_status"] == 'Available') ? 'success' : 'secondary' ?>">
+                                        <i class="fa-solid fa-circle fa-xs me-1"></i>
+                                        <?= htmlspecialchars($subject["subjects_status"] ?? 'Unavailable') ?>
+                                    </span>
+                                </td>
+                                <td width="15%">
+                                    <small><?= date('M d, Y', strtotime($subject["created_date"])) ?></small>
+                                </td>
+                                <td width="20%">
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <button type="button" data-id="<?= $subject['subject_id'] ?>"
+                                            class="btn btn-sm btn-info editSubjectBtn" title="Edit Subject">
+                                            <i class="fa-solid fa-pen me-1"></i> Edit
+                                        </button>
+                                        <button type="button" data-id="<?= $subject['subject_id'] ?>"
+                                            class="btn btn-sm btn-danger deleteSubjectBtn" title="Delete Subject">
+                                            <i class="fa-solid fa-trash me-1"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
                     <?php else: ?>
-                    <tr>
-                        <td colspan="8" class="text-center py-3">No subjects found.</td>
-                    </tr>
+                        <tr>
+                            <td colspan="8" class="text-center py-3">No subjects found.</td>
+                        </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -368,232 +375,232 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
-    const subjectRows = document.querySelectorAll('.subject-row');
-    const subjectsTableBody = document.getElementById('subjectsTableBody');
-    const noResultsDiv = document.getElementById('noResults');
-    const editButtons = document.querySelectorAll('.editSubjectBtn');
-    const deleteButtons = document.querySelectorAll('.deleteSubjectBtn');
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const subjectRows = document.querySelectorAll('.subject-row');
+        const subjectsTableBody = document.getElementById('subjectsTableBody');
+        const noResultsDiv = document.getElementById('noResults');
+        const editButtons = document.querySelectorAll('.editSubjectBtn');
+        const deleteButtons = document.querySelectorAll('.deleteSubjectBtn');
 
-    // Subject data for edit form
-    const subjectsData = <?= json_encode($subjects); ?>;
+        // Subject data for edit form
+        const subjectsData = <?= json_encode($subjects); ?>;
 
-    // Search functionality
-    function filterSubjects() {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        let visibleCount = 0;
+        // Search functionality
+        function filterSubjects() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            let visibleCount = 0;
 
-        subjectRows.forEach(row => {
-            const name = row.getAttribute('data-name');
-            const code = row.getAttribute('data-code');
-            const grade = row.getAttribute('data-grade');
-            const status = row.getAttribute('data-status');
+            subjectRows.forEach(row => {
+                const name = row.getAttribute('data-name');
+                const code = row.getAttribute('data-code');
+                const grade = row.getAttribute('data-grade');
+                const status = row.getAttribute('data-status');
 
-            let matchesSearch = true;
+                let matchesSearch = true;
 
-            if (searchTerm) {
-                matchesSearch = name.includes(searchTerm) ||
-                    code.includes(searchTerm) ||
-                    grade.includes(searchTerm) ||
-                    status.includes(searchTerm);
-            }
-
-            if (matchesSearch) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        if (visibleCount === 0) {
-            subjectsTableBody.style.display = 'none';
-            noResultsDiv.classList.remove('d-none');
-        } else {
-            subjectsTableBody.style.display = '';
-            noResultsDiv.classList.add('d-none');
-        }
-
-        updateRowNumbers();
-    }
-
-    function updateRowNumbers() {
-        let counter = 1;
-        subjectRows.forEach(row => {
-            if (row.style.display !== 'none') {
-                const firstCell = row.querySelector('td:first-child');
-                if (firstCell) {
-                    firstCell.textContent = counter++;
+                if (searchTerm) {
+                    matchesSearch = name.includes(searchTerm) ||
+                        code.includes(searchTerm) ||
+                        grade.includes(searchTerm) ||
+                        status.includes(searchTerm);
                 }
+
+                if (matchesSearch) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (visibleCount === 0) {
+                subjectsTableBody.style.display = 'none';
+                noResultsDiv.classList.remove('d-none');
+            } else {
+                subjectsTableBody.style.display = '';
+                noResultsDiv.classList.add('d-none');
             }
-        });
-    }
 
-    // Edit button click handler
-    editButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const subjectId = this.getAttribute('data-id');
-            const subject = subjectsData.find(s => s.subject_id == subjectId);
-
-            if (subject) {
-                document.getElementById('subject_id_edit').value = subject.subject_id;
-                document.getElementById('subject_name').value = subject.subject_name;
-                document.getElementById('subject_code').value = subject.subject_code;
-                document.getElementById('grade_level').value = subject.grade_level;
-                document.getElementById('subject_units').value = subject.subject_units;
-                document.getElementById('subjects_status').value = subject.subjects_status;
-
-                const modal = new bootstrap.Modal(document.getElementById('editSubjects'));
-                modal.show();
-            }
-        });
-    });
-
-    // Delete button click handler
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const subjectId = this.getAttribute('data-id');
-            const subject = subjectsData.find(s => s.subject_id == subjectId);
-
-            if (subject) {
-                document.getElementById('subject_id_delete').value = subject.subject_id;
-
-                const modal = new bootstrap.Modal(document.getElementById('deleteSubject'));
-                modal.show();
-            }
-        });
-    });
-
-    // Event listeners
-    searchInput.addEventListener('input', filterSubjects);
-
-    clearSearchBtn.addEventListener('click', function() {
-        searchInput.value = '';
-        filterSubjects();
-        searchInput.focus();
-    });
-
-    // Add Enter key support for search
-    searchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            filterSubjects();
+            updateRowNumbers();
         }
-    });
 
-    // Add some styling
-    searchInput.addEventListener('focus', function() {
-        this.parentElement.classList.add('border-primary', 'border-2');
-    });
+        function updateRowNumbers() {
+            let counter = 1;
+            subjectRows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const firstCell = row.querySelector('td:first-child');
+                    if (firstCell) {
+                        firstCell.textContent = counter++;
+                    }
+                }
+            });
+        }
 
-    searchInput.addEventListener('blur', function() {
-        this.parentElement.classList.remove('border-primary', 'border-2');
-    });
+        // Edit button click handler
+        editButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const subjectId = this.getAttribute('data-id');
+                const subject = subjectsData.find(s => s.subject_id == subjectId);
 
-    // Initialize
-    filterSubjects();
-});
+                if (subject) {
+                    document.getElementById('subject_id_edit').value = subject.subject_id;
+                    document.getElementById('subject_name').value = subject.subject_name;
+                    document.getElementById('subject_code').value = subject.subject_code;
+                    document.getElementById('grade_level').value = subject.grade_level;
+                    document.getElementById('subject_units').value = subject.subject_units;
+                    document.getElementById('subjects_status').value = subject.subjects_status;
+
+                    const modal = new bootstrap.Modal(document.getElementById('editSubjects'));
+                    modal.show();
+                }
+            });
+        });
+
+        // Delete button click handler
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const subjectId = this.getAttribute('data-id');
+                const subject = subjectsData.find(s => s.subject_id == subjectId);
+
+                if (subject) {
+                    document.getElementById('subject_id_delete').value = subject.subject_id;
+
+                    const modal = new bootstrap.Modal(document.getElementById('deleteSubject'));
+                    modal.show();
+                }
+            });
+        });
+
+        // Event listeners
+        searchInput.addEventListener('input', filterSubjects);
+
+        clearSearchBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            filterSubjects();
+            searchInput.focus();
+        });
+
+        // Add Enter key support for search
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                filterSubjects();
+            }
+        });
+
+        // Add some styling
+        searchInput.addEventListener('focus', function() {
+            this.parentElement.classList.add('border-primary', 'border-2');
+        });
+
+        searchInput.addEventListener('blur', function() {
+            this.parentElement.classList.remove('border-primary', 'border-2');
+        });
+
+        // Initialize
+        filterSubjects();
+    });
 </script>
 
 <style>
-.scroll-subjects {
-    height: 80vh;
-    overflow-y: scroll;
-    overflow-x: hidden;
-}
+    .scroll-subjects {
+        height: 80vh;
+        overflow-y: scroll;
+        overflow-x: hidden;
+    }
 
-.table-container-wrapper {
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    overflow: hidden;
-}
+    .table-container-wrapper {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
 
-.table thead th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
+    .table thead th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
 
-.table tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05);
-}
+    .table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
 
-.avatar-placeholder {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background-color: #f8f9fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-}
+    .avatar-placeholder {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
 
-.empty-state {
-    padding: 3rem 1rem;
-}
+    .empty-state {
+        padding: 3rem 1rem;
+    }
 
-.empty-state i {
-    opacity: 0.5;
-}
+    .empty-state i {
+        opacity: 0.5;
+    }
 
-.badge {
-    padding: 0.35em 0.65em;
-    font-size: 0.75em;
-    font-weight: 600;
-}
+    .badge {
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 600;
+    }
 
-.btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-}
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
 
-.input-group-text {
-    border-right: none;
-}
+    .input-group-text {
+        border-right: none;
+    }
 
-#searchInput:focus {
-    box-shadow: none;
-    border-color: #86b7fe;
-}
+    #searchInput:focus {
+        box-shadow: none;
+        border-color: #86b7fe;
+    }
 
-#clearSearchBtn:hover {
-    background-color: #e9ecef;
-}
+    #clearSearchBtn:hover {
+        background-color: #e9ecef;
+    }
 
-.btn:hover {
-    transform: translateY(-1px);
-    transition: all 0.2s ease;
-}
+    .btn:hover {
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+    }
 
-/* Custom scrollbar for main container */
-.scroll-subjects::-webkit-scrollbar {
-    width: 8px;
-}
+    /* Custom scrollbar for main container */
+    .scroll-subjects::-webkit-scrollbar {
+        width: 8px;
+    }
 
-.scroll-subjects::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
+    .scroll-subjects::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
 
-.scroll-subjects::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-}
+    .scroll-subjects::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
 
-.scroll-subjects::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
+    .scroll-subjects::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
 
-/* Grade level distribution */
-.bg-light {
-    transition: all 0.2s ease;
-}
+    /* Grade level distribution */
+    .bg-light {
+        transition: all 0.2s ease;
+    }
 
-.bg-light:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
+    .bg-light:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
 </style>

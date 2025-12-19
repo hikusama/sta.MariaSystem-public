@@ -1,35 +1,41 @@
 <?php
-    $query = "SELECT classes.*, users.* FROM classes
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('teacher', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
+$query = "SELECT classes.*, users.* FROM classes
     INNER JOIN users ON classes.adviser_id = users.user_id
     WHERE classes.adviser_id = :adviser_id";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute([
-        'adviser_id' => $user_id
-    ]);
-    $class = $stmt->fetch(PDO::FETCH_ASSOC);
+$stmt = $pdo->prepare($query);
+$stmt->execute([
+    'adviser_id' => $user_id
+]);
+$class = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $query = "SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute();
-    $schoolYear = $stmt->fetch(PDO::FETCH_ASSOC);
+$query = "SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1";
+$stmt = $pdo->prepare($query);
+$stmt->execute();
+$schoolYear = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Fetch students for the adviser
-    $stmt = $pdo->prepare("SELECT DISTINCT grade_level FROM classes WHERE adviser_id = :adviser_id");
-    $stmt->execute([
-        ':adviser_id' => $user_id
-    ]);
-    $getgrade_level = $stmt->fetch(PDO::FETCH_ASSOC);
-    $grade_level = $getgrade_level["grade_level"] ?? '';
-    
-    $stmt = $pdo->prepare("SELECT * FROM student WHERE gradeLevel = :gradeLevel ORDER BY fname ASC");
-    $stmt->execute([
-        ':gradeLevel' => $grade_level
-    ]);
-    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $count = 1;
-    
-    // Get subjects for JS
-    $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
+// Fetch students for the adviser
+$stmt = $pdo->prepare("SELECT DISTINCT grade_level FROM classes WHERE adviser_id = :adviser_id");
+$stmt->execute([
+    ':adviser_id' => $user_id
+]);
+$getgrade_level = $stmt->fetch(PDO::FETCH_ASSOC);
+$grade_level = $getgrade_level["grade_level"] ?? '';
+
+$stmt = $pdo->prepare("SELECT * FROM student WHERE gradeLevel = :gradeLevel ORDER BY fname ASC");
+$stmt->execute([
+    ':gradeLevel' => $grade_level
+]);
+$users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$count = 1;
+
+// Get subjects for JS
+$subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="mx-2">
@@ -37,7 +43,7 @@
     </div>
 </div>
 <style>
-    .scroll-class{
+    .scroll-class {
         max-height: 80vh;
         overflow-y: auto;
     }
@@ -47,7 +53,7 @@
     <div class="row mb-3 justify-content-between align-items-center">
         <div class="col-md-8">
             <div class="input-group">
-                <input type="text" id="searchInput" class="form-control" 
+                <input type="text" id="searchInput" class="form-control"
                     placeholder="Search by name, grade level, or enrollment status...">
             </div>
         </div>
@@ -129,79 +135,79 @@
         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
             <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
                 <tbody id="studentTableBody">
-                    <?php foreach($users as $user) : ?>
-                    <tr class="student-row" 
-                        data-name="<?= htmlspecialchars(strtolower($user["lname"] . " " . $user["fname"])) ?>"
-                        data-grade="<?= htmlspecialchars(strtolower($user["gradeLevel"])) ?>"
-                        data-status="<?= htmlspecialchars(strtolower($user["enrolment_status"] ?? '')) ?>">
-                        <td width="5%"><?= $count++ ?></td>
-                        <td width="20%" class="student-name">
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-placeholder me-2">
-                                    <i class="fa-solid fa-user-circle text-secondary"></i>
+                    <?php foreach ($users as $user) : ?>
+                        <tr class="student-row"
+                            data-name="<?= htmlspecialchars(strtolower($user["lname"] . " " . $user["fname"])) ?>"
+                            data-grade="<?= htmlspecialchars(strtolower($user["gradeLevel"])) ?>"
+                            data-status="<?= htmlspecialchars(strtolower($user["enrolment_status"] ?? '')) ?>">
+                            <td width="5%"><?= $count++ ?></td>
+                            <td width="20%" class="student-name">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-placeholder me-2">
+                                        <i class="fa-solid fa-user-circle text-secondary"></i>
+                                    </div>
+                                    <div>
+                                        <strong><?= htmlspecialchars($user["lname"] . ", " . $user["fname"]) ?></strong>
+                                        <?php if (!empty($user["mname"])): ?>
+                                            <br><small class="text-muted"><?= htmlspecialchars($user["mname"]) ?></small>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
-                                <div>
-                                    <strong><?= htmlspecialchars($user["lname"] . ", " . $user["fname"]) ?></strong>
-                                    <?php if(!empty($user["mname"])): ?>
-                                    <br><small class="text-muted"><?= htmlspecialchars($user["mname"]) ?></small>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </td>
-                        <td width="15%">
-                            <span class="badge bg-info"><?= htmlspecialchars($user["gradeLevel"]) ?></span>
-                        </td>
-                        <td width="15%">
-                            <?php
-                            $status = $user["enrolment_status"] ?? '';
-                            $statusText = '';
-                            $badgeClass = '';
-                            
-                            if ($status == 'active') {
-                                $statusText = 'Enrolled';
-                                $badgeClass = 'success';
-                            } elseif ($status == 'rejected') {
-                                $statusText = 'Rejected';
-                                $badgeClass = 'danger';
-                            } else {
-                                $statusText = 'Pending';
-                                $badgeClass = 'secondary';
-                            }
-                            ?>
-                            <span class="badge bg-<?= $badgeClass ?>">
-                                <i class="fa-solid fa-circle fa-xs me-1"></i>
-                                <?= $statusText ?>
-                            </span>
-                        </td>
-                        <td width="20%">
-                            <?php if(!empty($user["enrolled_date"])): ?>
-                            <small><?= date('M d, Y', strtotime($user["enrolled_date"])) ?></small>
-                            <?php else: ?>
-                            <small class="text-muted">Not enrolled yet</small>
-                            <?php endif; ?>
-                        </td>
-                        <td width="25%">
-                            <div class="d-flex gap-1 justify-content-center">
-                                <a href="index.php?page=contents/form&student_id=<?= htmlspecialchars($user["student_id"]) ?>" 
-                                   class="btn btn-sm btn-info" title="View Enrollment Form">
-                                    <i class="fa-solid fa-file-lines me-1"></i> Form
-                                </a>
-                                <?php if(($user["enrolment_status"] ?? '') != 'active'): ?>
-                                 <button type="button" class="btn btn-sm btn-success open-enrolment"
-                                    data-id="<?= htmlspecialchars($user["student_id"]) ?>" id="approvalBtn"
-                                    data-gradelevel="<?= htmlspecialchars($user["gradeLevel"]) ?>"
-                                    data-name="<?= htmlspecialchars($user["lname"] . ", " . $user["fname"]) ?>">
-                                    <i class="fa-solid fa-check me-1"></i> Approve
-                                </button>
+                            </td>
+                            <td width="15%">
+                                <span class="badge bg-info"><?= htmlspecialchars($user["gradeLevel"]) ?></span>
+                            </td>
+                            <td width="15%">
+                                <?php
+                                $status = $user["enrolment_status"] ?? '';
+                                $statusText = '';
+                                $badgeClass = '';
+
+                                if ($status == 'active') {
+                                    $statusText = 'Enrolled';
+                                    $badgeClass = 'success';
+                                } elseif ($status == 'rejected') {
+                                    $statusText = 'Rejected';
+                                    $badgeClass = 'danger';
+                                } else {
+                                    $statusText = 'Pending';
+                                    $badgeClass = 'secondary';
+                                }
+                                ?>
+                                <span class="badge bg-<?= $badgeClass ?>">
+                                    <i class="fa-solid fa-circle fa-xs me-1"></i>
+                                    <?= $statusText ?>
+                                </span>
+                            </td>
+                            <td width="20%">
+                                <?php if (!empty($user["enrolled_date"])): ?>
+                                    <small><?= date('M d, Y', strtotime($user["enrolled_date"])) ?></small>
+                                <?php else: ?>
+                                    <small class="text-muted">Not enrolled yet</small>
                                 <?php endif; ?>
-                                <button type="button" class="btn btn-sm btn-danger open-rejection"
-                                    data-id="<?= htmlspecialchars($user["student_id"]) ?>"
-                                    title="Reject Enrollment" id="rejectionBtn">
-                                    <i class="fa-solid fa-xmark me-1"></i> Reject
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
+                            </td>
+                            <td width="25%">
+                                <div class="d-flex gap-1 justify-content-center">
+                                    <a href="index.php?page=contents/form&student_id=<?= htmlspecialchars($user["student_id"]) ?>"
+                                        class="btn btn-sm btn-info" title="View Enrollment Form">
+                                        <i class="fa-solid fa-file-lines me-1"></i> Form
+                                    </a>
+                                    <?php if (($user["enrolment_status"] ?? '') != 'active'): ?>
+                                        <button type="button" class="btn btn-sm btn-success open-enrolment"
+                                            data-id="<?= htmlspecialchars($user["student_id"]) ?>" id="approvalBtn"
+                                            data-gradelevel="<?= htmlspecialchars($user["gradeLevel"]) ?>"
+                                            data-name="<?= htmlspecialchars($user["lname"] . ", " . $user["fname"]) ?>">
+                                            <i class="fa-solid fa-check me-1"></i> Approve
+                                        </button>
+                                    <?php endif; ?>
+                                    <button type="button" class="btn btn-sm btn-danger open-rejection"
+                                        data-id="<?= htmlspecialchars($user["student_id"]) ?>"
+                                        title="Reject Enrollment" id="rejectionBtn">
+                                        <i class="fa-solid fa-xmark me-1"></i> Reject
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
                     <?php endforeach ?>
                 </tbody>
             </table>
@@ -313,272 +319,272 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Store all subjects data from PHP
-    const allSubjects = <?= json_encode($subjects); ?>;
-    
-    // Store student data from PHP
-    const allStudents = <?= json_encode($users); ?>;
+    document.addEventListener('DOMContentLoaded', () => {
+        // Store all subjects data from PHP
+        const allSubjects = <?= json_encode($subjects); ?>;
 
-    // Open enrolment modal
-    const openEnrolmentButtons = document.querySelectorAll('.open-enrolment');
-    const studentIdInput = document.getElementById('student_id');
-    const gradeLevelDisplay = document.getElementById('gradeLevelDisplay');
-    const gradeLevelValue = document.getElementById('gradeLevelValue');
-    const subjectListContainer = document.getElementById('subjectListContainer');
+        // Store student data from PHP
+        const allStudents = <?= json_encode($users); ?>;
 
-    openEnrolmentButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const studentId = button.getAttribute('data-id');
-            const gradeLevel = button.getAttribute('data-gradelevel');
+        // Open enrolment modal
+        const openEnrolmentButtons = document.querySelectorAll('.open-enrolment');
+        const studentIdInput = document.getElementById('student_id');
+        const gradeLevelDisplay = document.getElementById('gradeLevelDisplay');
+        const gradeLevelValue = document.getElementById('gradeLevelValue');
+        const subjectListContainer = document.getElementById('subjectListContainer');
 
-            // Set values in the form
-            studentIdInput.value = studentId;
-            gradeLevelDisplay.textContent = gradeLevel;
-            gradeLevelValue.value = gradeLevel;
+        openEnrolmentButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const studentId = button.getAttribute('data-id');
+                const gradeLevel = button.getAttribute('data-gradelevel');
 
-            // Display subjects for this grade level
-            displaySubjectsForGradeLevel(gradeLevel);
+                // Set values in the form
+                studentIdInput.value = studentId;
+                gradeLevelDisplay.textContent = gradeLevel;
+                gradeLevelValue.value = gradeLevel;
 
-            // Show the modal
-            const modal = new bootstrap.Modal(document.getElementById('AddNewAccount'));
-            modal.show();
+                // Display subjects for this grade level
+                displaySubjectsForGradeLevel(gradeLevel);
+
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('AddNewAccount'));
+                modal.show();
+            });
         });
-    });
 
-    function displaySubjectsForGradeLevel(gradeLevel) {
-        // Clear previous content
-        subjectListContainer.innerHTML = '';
+        function displaySubjectsForGradeLevel(gradeLevel) {
+            // Clear previous content
+            subjectListContainer.innerHTML = '';
 
-        // Filter subjects by grade level
-        const filteredSubjects = allSubjects.filter(s => s.grade_level === gradeLevel);
+            // Filter subjects by grade level
+            const filteredSubjects = allSubjects.filter(s => s.grade_level === gradeLevel);
 
-        if (filteredSubjects.length === 0) {
-            subjectListContainer.innerHTML = `
+            if (filteredSubjects.length === 0) {
+                subjectListContainer.innerHTML = `
                 <div class="col-12">
                     <div class="alert alert-warning">No subjects available for ${gradeLevel}.</div>
                 </div>
             `;
-            return;
-        }
+                return;
+            }
 
-        // Create a list of subjects
-        const listGroup = document.createElement('div');
-        listGroup.classList.add('list-group');
+            // Create a list of subjects
+            const listGroup = document.createElement('div');
+            listGroup.classList.add('list-group');
 
-        filteredSubjects.forEach(subject => {
-            const listItem = document.createElement('div');
-            listItem.classList.add('list-group-item', 'd-flex', 'justify-content-between',
-                'align-items-center');
+            filteredSubjects.forEach(subject => {
+                const listItem = document.createElement('div');
+                listItem.classList.add('list-group-item', 'd-flex', 'justify-content-between',
+                    'align-items-center');
 
-            const subjectInfo = document.createElement('div');
-            subjectInfo.innerHTML = `
+                const subjectInfo = document.createElement('div');
+                subjectInfo.innerHTML = `
                 <strong>${subject.subject_code}</strong> - ${subject.subject_name}
                 <input type="hidden" name="subjects[]" value="${subject.subject_id}">
             `;
 
-            listItem.appendChild(subjectInfo);
-            listGroup.appendChild(listItem);
-        });
+                listItem.appendChild(subjectInfo);
+                listGroup.appendChild(listItem);
+            });
 
-        subjectListContainer.appendChild(listGroup);
-    }
-});
+            subjectListContainer.appendChild(listGroup);
+        }
+    });
 
-// Search and filter functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
-    const categoryFilter = document.getElementById('categoryFilter');
-    const studentRows = document.querySelectorAll('.student-row');
-    const studentTableBody = document.getElementById('studentTableBody');
-    const noResultsDiv = document.getElementById('noResults');
-    
-    function filterStudents() {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        const filterValue = categoryFilter.value.toLowerCase();
-        
-        let visibleCount = 0;
+    // Search and filter functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const studentRows = document.querySelectorAll('.student-row');
+        const studentTableBody = document.getElementById('studentTableBody');
+        const noResultsDiv = document.getElementById('noResults');
 
-        studentRows.forEach(row => {
-            const name = row.getAttribute('data-name');
-            const grade = row.getAttribute('data-grade');
-            const status = row.getAttribute('data-status');
-            
-            let matchesSearch = true;
-            let matchesStatus = true;
-            
-            // Apply search filter
-            if (searchTerm) {
-                matchesSearch = name.includes(searchTerm) || 
-                               grade.includes(searchTerm) || 
-                               status.includes(searchTerm);
-            }
-            
-            // Apply status filter
-            if (filterValue) {
-                if (filterValue === 'enrolled') {
-                    matchesStatus = status === 'active';
-                } else if (filterValue === 'pending') {
-                    matchesStatus = status === '' || status === 'pending';
-                } else if (filterValue === 'rejected') {
-                    matchesStatus = status === 'rejected';
-                } else if (filterValue === 'transferred') {
-                    matchesStatus = status === 'transferred';
-                } else if (filterValue === 'dropped') {
-                    matchesStatus = status === 'dropped';
+        function filterStudents() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const filterValue = categoryFilter.value.toLowerCase();
+
+            let visibleCount = 0;
+
+            studentRows.forEach(row => {
+                const name = row.getAttribute('data-name');
+                const grade = row.getAttribute('data-grade');
+                const status = row.getAttribute('data-status');
+
+                let matchesSearch = true;
+                let matchesStatus = true;
+
+                // Apply search filter
+                if (searchTerm) {
+                    matchesSearch = name.includes(searchTerm) ||
+                        grade.includes(searchTerm) ||
+                        status.includes(searchTerm);
+                }
+
+                // Apply status filter
+                if (filterValue) {
+                    if (filterValue === 'enrolled') {
+                        matchesStatus = status === 'active';
+                    } else if (filterValue === 'pending') {
+                        matchesStatus = status === '' || status === 'pending';
+                    } else if (filterValue === 'rejected') {
+                        matchesStatus = status === 'rejected';
+                    } else if (filterValue === 'transferred') {
+                        matchesStatus = status === 'transferred';
+                    } else if (filterValue === 'dropped') {
+                        matchesStatus = status === 'dropped';
+                    } else {
+                        matchesStatus = true; // Show all if no match
+                    }
+                }
+
+                // Show/hide row based on filters
+                if (matchesSearch && matchesStatus) {
+                    row.style.display = '';
+                    visibleCount++;
                 } else {
-                    matchesStatus = true; // Show all if no match
+                    row.style.display = 'none';
                 }
-            }
-            
-            // Show/hide row based on filters
-            if (matchesSearch && matchesStatus) {
-                row.style.display = '';
-                visibleCount++;
+            });
+
+            // Show/hide no results message
+            if (visibleCount === 0) {
+                studentTableBody.style.display = 'none';
+                noResultsDiv.classList.remove('d-none');
             } else {
-                row.style.display = 'none';
+                studentTableBody.style.display = '';
+                noResultsDiv.classList.add('d-none');
             }
-        });
-        
-        // Show/hide no results message
-        if (visibleCount === 0) {
-            studentTableBody.style.display = 'none';
-            noResultsDiv.classList.remove('d-none');
-        } else {
-            studentTableBody.style.display = '';
-            noResultsDiv.classList.add('d-none');
+
+            // Update row numbers
+            updateRowNumbers();
         }
-        
-        // Update row numbers
-        updateRowNumbers();
-    }
-    
-    function updateRowNumbers() {
-        let counter = 1;
-        studentRows.forEach(row => {
-            if (row.style.display !== 'none') {
-                const firstCell = row.querySelector('td:first-child');
-                if (firstCell) {
-                    firstCell.textContent = counter++;
+
+        function updateRowNumbers() {
+            let counter = 1;
+            studentRows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const firstCell = row.querySelector('td:first-child');
+                    if (firstCell) {
+                        firstCell.textContent = counter++;
+                    }
                 }
+            });
+        }
+
+        // Event listeners
+        searchInput.addEventListener('input', filterStudents);
+        categoryFilter.addEventListener('change', filterStudents);
+
+        clearSearchBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            categoryFilter.value = '';
+            filterStudents();
+            searchInput.focus();
+        });
+
+        // Add Enter key support for search
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                filterStudents();
             }
         });
-    }
-    
-    // Event listeners
-    searchInput.addEventListener('input', filterStudents);
-    categoryFilter.addEventListener('change', filterStudents);
-    
-    clearSearchBtn.addEventListener('click', function() {
-        searchInput.value = '';
-        categoryFilter.value = '';
+
+        // Add some styling
+        searchInput.addEventListener('focus', function() {
+            this.parentElement.classList.add('border-primary', 'border-2');
+        });
+
+        searchInput.addEventListener('blur', function() {
+            this.parentElement.classList.remove('border-primary', 'border-2');
+        });
+
+        categoryFilter.addEventListener('focus', function() {
+            this.parentElement.classList.add('border-primary', 'border-2');
+        });
+
+        categoryFilter.addEventListener('blur', function() {
+            this.parentElement.classList.remove('border-primary', 'border-2');
+        });
+
+        // Initialize
         filterStudents();
-        searchInput.focus();
     });
-    
-    // Add Enter key support for search
-    searchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            filterStudents();
-        }
-    });
-    
-    // Add some styling
-    searchInput.addEventListener('focus', function() {
-        this.parentElement.classList.add('border-primary', 'border-2');
-    });
-    
-    searchInput.addEventListener('blur', function() {
-        this.parentElement.classList.remove('border-primary', 'border-2');
-    });
-    
-    categoryFilter.addEventListener('focus', function() {
-        this.parentElement.classList.add('border-primary', 'border-2');
-    });
-    
-    categoryFilter.addEventListener('blur', function() {
-        this.parentElement.classList.remove('border-primary', 'border-2');
-    });
-    
-    // Initialize
-    filterStudents();
-});
 </script>
 
 <style>
-.table-container-wrapper {
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    overflow: hidden;
-}
+    .table-container-wrapper {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
 
-.table thead th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
+    .table thead th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
 
-.table tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05);
-}
+    .table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
 
-.avatar-placeholder {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background-color: #f8f9fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-}
+    .avatar-placeholder {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
 
-.empty-state {
-    padding: 3rem 1rem;
-}
+    .empty-state {
+        padding: 3rem 1rem;
+    }
 
-.empty-state i {
-    opacity: 0.5;
-}
+    .empty-state i {
+        opacity: 0.5;
+    }
 
-.badge {
-    padding: 0.35em 0.65em;
-    font-size: 0.75em;
-    font-weight: 600;
-}
+    .badge {
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 600;
+    }
 
-.btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-}
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
 
-.input-group-text {
-    border-right: none;
-}
+    .input-group-text {
+        border-right: none;
+    }
 
-#searchInput:focus {
-    box-shadow: none;
-    border-color: #86b7fe;
-}
+    #searchInput:focus {
+        box-shadow: none;
+        border-color: #86b7fe;
+    }
 
-.form-control.bg-light {
-    background-color: #f8f9fa !important;
-    border: 1px solid #dee2e6;
-    font-weight: 500;
-}
+    .form-control.bg-light {
+        background-color: #f8f9fa !important;
+        border: 1px solid #dee2e6;
+        font-weight: 500;
+    }
 
-.card {
-    border: 1px solid rgba(0,0,0,0.125);
-}
+    .card {
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
 
-.btn:hover {
-    transform: translateY(-1px);
-    transition: all 0.2s ease;
-}
+    .btn:hover {
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+    }
 
-#clearSearch:hover {
-    background-color: #e9ecef;
-}
+    #clearSearch:hover {
+        background-color: #e9ecef;
+    }
 </style>

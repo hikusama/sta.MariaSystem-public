@@ -23,7 +23,7 @@ $pdo = db_connect();
 //     );
 //     $local_hosts = ['localhost', '127.0.0.1', '::1'];
 //     if (in_array($_SERVER['HTTP_HOST'], $local_hosts)) {
-//         return $protocol . "://" . $_SERVER['HTTP_HOST'] . '/sta.MariaSystem/';
+//         return $protocol . "://" . $_SERVER['HTTP_HOST'] . '/sta.MariaSystpem/';
 //     }
 //     return $protocol . "://" . $_SERVER['HTTP_HOST'] . '/';
 
@@ -39,14 +39,14 @@ $pdo = db_connect();
 //     $path = explode('/', trim($_SERVER['SCRIPT_NAME'], '/'))[0];
 //     return $protocol . '://' . $_SERVER['SERVER_NAME'] . '/' . $path . '/';
 // }
-function base_url()
+function base_url(): string
 {
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'];
-    $project = '/sta.MariaSystem/'; // your project folder
-
-    return $protocol . '://' . $host . $project;
+    return $protocol . '://' . $host . '/sta.MariaSystem/';
 }
+
+
 
 
 function get_current_page()
@@ -133,6 +133,51 @@ function get_option($key)
         return '';
     }
 }
+function checkURI(string $allowedRole, int $times = 1): array
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    $base = str_repeat('../', $times);
+
+    // Always point back to main index.php
+    $uri = 'Location: ' . $base . 'index.php';
+    $res = false;
+
+    /* =========================
+       ADMIN SESSION
+    ========================= */
+    if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
+
+        if (
+            $allowedRole !== 'admin' ||
+            $_SESSION['admin_role'] !== 'admin'
+        ) {
+            $res = true;
+        }
+
+        return compact('uri', 'res');
+    }
+
+    /* =========================
+       USER SESSION
+    ========================= */
+    if (!isset($_SESSION['user_id'], $_SESSION['user_role'])) {
+        $res = true; // not logged in
+        return compact('uri', 'res');
+    }
+
+    // Role mismatch → kick back to index.php
+    if (strtoupper($allowedRole) !== $_SESSION['user_role']) {
+        $res = true;
+    }
+
+    return compact('uri', 'res');
+}
+
+
+
 
 function get_userData($key, $id)
 {
@@ -179,4 +224,3 @@ function verify_init($id)
         return '';
     }
 }
-

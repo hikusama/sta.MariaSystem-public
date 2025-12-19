@@ -1,5 +1,12 @@
 <?php
 // Database connection (adjust as needed)
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('admin', 2);
+
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 $conn = new mysqli("localhost", "root", "", "stamariadb");
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
@@ -100,7 +107,7 @@ function attachRowClickEvents() {
         row.addEventListener('click', function() {
             const studentId = this.getAttribute('data-id');
             if (studentId) {
-                window.location.href = '/sta.MariaSystem/src/UI-Admin/contents/schoolform10.php?student_id=' + studentId;
+                    window.location.href = '<?php echo BASE_FR; ?>/src/UI-Admin/contents/schoolform10.php?student_id=' + studentId;
             }
         });
     });

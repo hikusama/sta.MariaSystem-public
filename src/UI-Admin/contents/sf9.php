@@ -1,4 +1,10 @@
 <?php
+require __DIR__ . '/../../../tupperware.php';
+$result = checkURI('admin', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 $servername = "localhost";
 $username = "root";
 $password = "";
@@ -54,12 +60,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
         <h4 class="m-0">SF9 Learner's Progress Report Card</h4>
 
         <div style="width: 280px;">
-            <input 
-                type="text" 
-                id="searchInput" 
-                class="form-control" 
-                placeholder="Search LRN, Name, Grade, or Sex..."
-            >
+            <input
+                type="text"
+                id="searchInput"
+                class="form-control"
+                placeholder="Search LRN, Name, Grade, or Sex...">
         </div>
     </div>
 
@@ -106,35 +111,34 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
 </div>
 
 <script>
-document.getElementById('searchInput').addEventListener('keyup', function() {
-    const search = this.value.trim();
-    const xhr = new XMLHttpRequest();
-
-   
-    xhr.open('GET', 'contents/sf9.php?ajax=1&search=' + encodeURIComponent(search), true);
-
-    xhr.onload = function() {
-        if (this.status === 200) {
-            document.getElementById('studentTable').innerHTML = this.responseText;
-            attachRowClickEvents(); 
-        }
-    };
-
-    xhr.send();
-});
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+        const search = this.value.trim();
+        const xhr = new XMLHttpRequest();
 
 
-function attachRowClickEvents() {
-    const rows = document.querySelectorAll('.student-row');
-    rows.forEach(row => {
-        row.addEventListener('click', function() {
-            const studentId = this.getAttribute('data-id');
-            if (studentId) {
-               
-                  window.location.href = '/sta.MariaSystem/src/UI-Admin/contents/schoolform9.php?student_id=' + studentId;
+        xhr.open('GET', 'contents/sf9.php?ajax=1&search=' + encodeURIComponent(search), true);
+
+        xhr.onload = function() {
+            if (this.status === 200) {
+                document.getElementById('studentTable').innerHTML = this.responseText;
+                attachRowClickEvents();
             }
-        });
+        };
+
+        xhr.send();
     });
-}
-attachRowClickEvents();
+
+
+    function attachRowClickEvents() {
+        const rows = document.querySelectorAll('.student-row');
+        rows.forEach(row => {
+            row.addEventListener('click', function() {
+                const studentId = this.getAttribute('data-id');
+                if (studentId) {
+                    window.location.href = '<?php echo BASE_FR; ?>/src/UI-Admin/contents/schoolform9.php?student_id=' + studentId;
+                }
+            });
+        });
+    }
+    attachRowClickEvents();
 </script>

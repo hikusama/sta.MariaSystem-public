@@ -1,3 +1,11 @@
+<?php 
+require_once __DIR__ . '/../../tupperware.php';
+$result = checkURI('teacher', 1);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
+?>
 <style>
     /* Modern Scrollbar */
     section::-webkit-scrollbar {

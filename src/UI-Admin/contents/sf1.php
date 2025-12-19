@@ -1,5 +1,18 @@
 <?php
 // Get selected grade level and section from filter
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('admin', 2);
+
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
+$result = checkURI('admin', 2);
+
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 $selectedGrade = $_POST['gradeLevelCategory'] ?? '';
 $selectedSection = $_POST['section'] ?? '';
 
@@ -23,7 +36,7 @@ if (!empty($selectedSection)) {
     $stmtSectionName->bindParam(':section_id', $selectedSection);
     $stmtSectionName->execute();
     $sectionData = $stmtSectionName->fetch(PDO::FETCH_ASSOC);
-    
+
     if ($sectionData) {
         $sectionName = $sectionData['section_name'];
         $sql .= " AND enrolment.section_name = :section_name";
@@ -195,9 +208,9 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
 
 <main>
     <?php
-        $stmt = $pdo->prepare("SELECT * FROM sf_add_data");
-        $stmt->execute();
-        $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT * FROM sf_add_data");
+    $stmt->execute();
+    $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
     ?>
     <form class="main-container" id="sfFour-form" method="POST">
         <div class="mt-3 text-start">
@@ -256,9 +269,9 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
                     <div class="d-flex align-items-center mb-2">
                         <label class="me-2 col-4">School Year</label>
                         <?php
-                            $stmt = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
-                            $stmt->execute();
-                            $sy = $stmt->fetch(PDO::FETCH_ASSOC);
+                        $stmt = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
+                        $stmt->execute();
+                        $sy = $stmt->fetch(PDO::FETCH_ASSOC);
                         ?>
                         <input readonly class="form-control" type="text" name="school_year_name" value="<?= $sy["school_year_name"] ?>">
                     </div>
@@ -280,27 +293,27 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
                                         <option value="Grade 6" <?= $selectedGrade == 'Grade 6' ? 'selected' : '' ?>>Grade 6</option>
                                     </select>
                                 </div>
-                                
+
                                 <div class="col-md-12 d-flex align-items-center">
                                     <label class="me-2 col-2">Section</label>
                                     <select name="section" id="section" class="form-select">
                                         <option value="">All Sections</option>
-                                        <?php foreach($availableSections as $section): ?>
-                                        <option value="<?= $section["section_id"] ?>" <?= $selectedSection == $section["section_id"] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($section["section_name"]) ?>
-                                        </option>
+                                        <?php foreach ($availableSections as $section): ?>
+                                            <option value="<?= $section["section_id"] ?>" <?= $selectedSection == $section["section_id"] ? 'selected' : '' ?>>
+                                                <?= htmlspecialchars($section["section_name"]) ?>
+                                            </option>
                                         <?php endforeach ?>
                                     </select>
                                 </div>
-                                
+
                             </div>
                             <!-- Hidden submit button -->
                             <button type="submit" style="display: none;">Submit</button>
                         </form>
-                    </div> 
+                    </div>
                 </div>
             </div>
-            
+
             <div class="scroll-container">
                 <div class="responsive-table">
                     <table class="table-bordered" style="width: 100%; border-collapse: collapse; font-size: 11px;">
@@ -327,35 +340,35 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
                                 <!-- NAME sub-headers -->
                                 <th rowspan="2">Last Name</th>
                                 <th rowspan="2">First Name<br>Middle Name</th>
-                                
+
                                 <!-- BIRTH PLACE sub-headers -->
                                 <th rowspan="2">Municipality/<br>City</th>
                                 <th rowspan="2">Province</th>
-                                
+
                                 <!-- ADDRESS sub-headers -->
                                 <th>House # / Street<br>Sitio/Purok</th>
                                 <th>Barangay</th>
                                 <th>Municipality/<br>City</th>
                                 <th>Province</th>
-                                
+
                                 <!-- PARENTS sub-headers -->
                                 <th rowspan="2">Father<br><span style="font-size: 9px; font-weight: normal;">(1st name only if family name identical to learner)</span></th>
                                 <th rowspan="2">Mother<br><span style="font-size: 9px; font-weight: normal;">(Maiden: 1st Name, Middle & Last name)</span></th>
-                                
+
                                 <!-- GUARDIAN sub-headers -->
                                 <th rowspan="2">Name</th>
                                 <th rowspan="2">Relationship</th>
                             </tr>
-                           
+
                         </thead>
                         <tbody id="studentsTableBody">
-                            <?php if(empty($studentsEnrolled)): ?>
+                            <?php if (empty($studentsEnrolled)): ?>
                                 <tr>
                                     <td colspan="20" style="text-align: center; height: 50px;">
                                         <?php
                                         if (!empty($selectedGrade) && !empty($selectedSection)) {
                                             $sectionName = '';
-                                            foreach($availableSections as $section) {
+                                            foreach ($availableSections as $section) {
                                                 if ($section['section_id'] == $selectedSection) {
                                                     $sectionName = $section['section_name'];
                                                     break;
@@ -366,7 +379,7 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
                                             echo 'No students found in ' . $selectedGrade;
                                         } elseif (!empty($selectedSection)) {
                                             $sectionName = '';
-                                            foreach($availableSections as $section) {
+                                            foreach ($availableSections as $section) {
                                                 if ($section['section_id'] == $selectedSection) {
                                                     $sectionName = $section['section_name'];
                                                     break;
@@ -380,7 +393,7 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
                                     </td>
                                 </tr>
                             <?php else: ?>
-                                <?php foreach($studentsEnrolled as $student): ?>
+                                <?php foreach ($studentsEnrolled as $student): ?>
                                     <tr>
                                         <td><?= htmlspecialchars($student['lrn'] ?? '') ?></td>
                                         <td><?= htmlspecialchars($student['lname'] ?? '') ?></td>
@@ -412,164 +425,164 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </form>
 </main>
-<!-- filtering Js --> 
+<!-- filtering Js -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Get references to the filter elements
-    const gradeFilter = document.getElementById('categoryFilter');
-    const sectionFilter = document.getElementById('section');
-    
-    // REMOVE ALL PREVIOUS EVENT LISTENERS FIRST (clean slate)
-    if (gradeFilter) {
-        gradeFilter.replaceWith(gradeFilter.cloneNode(true));
-    }
-    if (sectionFilter) {
-        sectionFilter.replaceWith(sectionFilter.cloneNode(true));
-    }
-    
-    // Get fresh references after cloning
-    const freshGradeFilter = document.getElementById('categoryFilter');
-    const freshSectionFilter = document.getElementById('section');
-    
-    // Find the form that contains the filters
-    let form = null;
-    if (freshGradeFilter && freshGradeFilter.closest('form')) {
-        form = freshGradeFilter.closest('form');
-    }
-    
-    // If there's no form wrapping the filters, we need to create/manage one
-    if (!form) {
-        // Check if the filters are in a form somewhere
-        const possibleForms = document.querySelectorAll('form');
-        for (let f of possibleForms) {
-            if (f.contains(freshGradeFilter) || f.contains(freshSectionFilter)) {
-                form = f;
-                break;
-            }
-        }
-    }
-    
-    // SIMPLE SOLUTION: Just submit the form when filters change
-    if (freshGradeFilter) {
-        freshGradeFilter.addEventListener('change', function() {
-            // Reset section to "All" when grade changes
-            if (freshSectionFilter) {
-                freshSectionFilter.value = "";
-            }
-            
-            // Submit the form
-            if (form) {
-                form.submit();
-            } else {
-                // If no form, redirect with parameters
-                redirectWithFilters();
-            }
-        });
-    }
-    
-    if (freshSectionFilter) {
-        freshSectionFilter.addEventListener('change', function() {
-            // Submit the form
-            if (form) {
-                form.submit();
-            } else {
-                // If no form, redirect with parameters
-                redirectWithFilters();
-            }
-        });
-    }
-    
-    // Helper function to redirect with filter parameters
-    function redirectWithFilters() {
-        const gradeValue = freshGradeFilter ? freshGradeFilter.value : '';
-        const sectionValue = freshSectionFilter ? freshSectionFilter.value : '';
-        
-        // Get current URL
-        const url = new URL(window.location.href);
-        
-        // Update or remove grade parameter
-        if (gradeValue) {
-            url.searchParams.set('gradeLevelCategory', gradeValue);
-        } else {
-            url.searchParams.delete('gradeLevelCategory');
-        }
-        
-        // Update or remove section parameter
-        if (sectionValue) {
-            url.searchParams.set('section', sectionValue);
-        } else {
-            url.searchParams.delete('section');
-        }
-        
-        // Remove pagination if exists
-        url.searchParams.delete('page');
-        
-        // Redirect to new URL
-        window.location.href = url.toString();
-    }
-    
-    // If you want dynamic section loading based on grade (AJAX)
-    // Uncomment this section if you want sections to load dynamically
-    /*
-    if (freshGradeFilter) {
-        freshGradeFilter.addEventListener('change', function() {
-            const gradeLevel = this.value;
-            
-            // Clear and disable section filter while loading
-            if (freshSectionFilter) {
-                // Save current value
-                const currentValue = freshSectionFilter.value;
-                
-                // Clear all options except first
-                while (freshSectionFilter.options.length > 1) {
-                    freshSectionFilter.remove(1);
-                }
-                
-                // Add loading option
-                const loadingOption = new Option('Loading sections...', '', true, true);
-                loadingOption.disabled = true;
-                freshSectionFilter.add(loadingOption);
-                
-                // Disable dropdown
-                freshSectionFilter.disabled = true;
-                
-                // Fetch sections for selected grade
-                fetch(`get-sections.php?grade=${encodeURIComponent(gradeLevel)}`)
-                    .then(response => response.json())
-                    .then(sections => {
-                        // Remove loading option
-                        freshSectionFilter.remove(freshSectionFilter.options.length - 1);
-                        
-                        // Add new sections
-                        sections.forEach(section => {
-                            const option = new Option(section.section_name, section.section_id);
-                            freshSectionFilter.add(option);
-                        });
-                        
-                        // Re-enable dropdown
-                        freshSectionFilter.disabled = false;
-                        
-                        // Try to restore previous selection if it exists in new options
-                        if (currentValue) {
-                            const optionExists = Array.from(freshSectionFilter.options)
-                                .some(opt => opt.value === currentValue);
-                            if (optionExists) {
-                                freshSectionFilter.value = currentValue;
-                            }
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error loading sections:', error);
-                        freshSectionFilter.remove(freshSectionFilter.options.length - 1);
-                        freshSectionFilter.disabled = false;
-                    });
-            }
-        });
-    }
-    */
-});
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get references to the filter elements
+        const gradeFilter = document.getElementById('categoryFilter');
+        const sectionFilter = document.getElementById('section');
 
-// REMOVE ALL OTHER JAVASCRIPT CODE - Only keep the above
+        // REMOVE ALL PREVIOUS EVENT LISTENERS FIRST (clean slate)
+        if (gradeFilter) {
+            gradeFilter.replaceWith(gradeFilter.cloneNode(true));
+        }
+        if (sectionFilter) {
+            sectionFilter.replaceWith(sectionFilter.cloneNode(true));
+        }
+
+        // Get fresh references after cloning
+        const freshGradeFilter = document.getElementById('categoryFilter');
+        const freshSectionFilter = document.getElementById('section');
+
+        // Find the form that contains the filters
+        let form = null;
+        if (freshGradeFilter && freshGradeFilter.closest('form')) {
+            form = freshGradeFilter.closest('form');
+        }
+
+        // If there's no form wrapping the filters, we need to create/manage one
+        if (!form) {
+            // Check if the filters are in a form somewhere
+            const possibleForms = document.querySelectorAll('form');
+            for (let f of possibleForms) {
+                if (f.contains(freshGradeFilter) || f.contains(freshSectionFilter)) {
+                    form = f;
+                    break;
+                }
+            }
+        }
+
+        // SIMPLE SOLUTION: Just submit the form when filters change
+        if (freshGradeFilter) {
+            freshGradeFilter.addEventListener('change', function() {
+                // Reset section to "All" when grade changes
+                if (freshSectionFilter) {
+                    freshSectionFilter.value = "";
+                }
+
+                // Submit the form
+                if (form) {
+                    form.submit();
+                } else {
+                    // If no form, redirect with parameters
+                    redirectWithFilters();
+                }
+            });
+        }
+
+        if (freshSectionFilter) {
+            freshSectionFilter.addEventListener('change', function() {
+                // Submit the form
+                if (form) {
+                    form.submit();
+                } else {
+                    // If no form, redirect with parameters
+                    redirectWithFilters();
+                }
+            });
+        }
+
+        // Helper function to redirect with filter parameters
+        function redirectWithFilters() {
+            const gradeValue = freshGradeFilter ? freshGradeFilter.value : '';
+            const sectionValue = freshSectionFilter ? freshSectionFilter.value : '';
+
+            // Get current URL
+            const url = new URL(window.location.href);
+
+            // Update or remove grade parameter
+            if (gradeValue) {
+                url.searchParams.set('gradeLevelCategory', gradeValue);
+            } else {
+                url.searchParams.delete('gradeLevelCategory');
+            }
+
+            // Update or remove section parameter
+            if (sectionValue) {
+                url.searchParams.set('section', sectionValue);
+            } else {
+                url.searchParams.delete('section');
+            }
+
+            // Remove pagination if exists
+            url.searchParams.delete('page');
+
+            // Redirect to new URL
+            window.location.href = url.toString();
+        }
+
+        // If you want dynamic section loading based on grade (AJAX)
+        // Uncomment this section if you want sections to load dynamically
+        /*
+        if (freshGradeFilter) {
+            freshGradeFilter.addEventListener('change', function() {
+                const gradeLevel = this.value;
+                
+                // Clear and disable section filter while loading
+                if (freshSectionFilter) {
+                    // Save current value
+                    const currentValue = freshSectionFilter.value;
+                    
+                    // Clear all options except first
+                    while (freshSectionFilter.options.length > 1) {
+                        freshSectionFilter.remove(1);
+                    }
+                    
+                    // Add loading option
+                    const loadingOption = new Option('Loading sections...', '', true, true);
+                    loadingOption.disabled = true;
+                    freshSectionFilter.add(loadingOption);
+                    
+                    // Disable dropdown
+                    freshSectionFilter.disabled = true;
+                    
+                    // Fetch sections for selected grade
+                    fetch(`get-sections.php?grade=${encodeURIComponent(gradeLevel)}`)
+                        .then(response => response.json())
+                        .then(sections => {
+                            // Remove loading option
+                            freshSectionFilter.remove(freshSectionFilter.options.length - 1);
+                            
+                            // Add new sections
+                            sections.forEach(section => {
+                                const option = new Option(section.section_name, section.section_id);
+                                freshSectionFilter.add(option);
+                            });
+                            
+                            // Re-enable dropdown
+                            freshSectionFilter.disabled = false;
+                            
+                            // Try to restore previous selection if it exists in new options
+                            if (currentValue) {
+                                const optionExists = Array.from(freshSectionFilter.options)
+                                    .some(opt => opt.value === currentValue);
+                                if (optionExists) {
+                                    freshSectionFilter.value = currentValue;
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error loading sections:', error);
+                            freshSectionFilter.remove(freshSectionFilter.options.length - 1);
+                            freshSectionFilter.disabled = false;
+                        });
+                }
+            });
+        }
+        */
+    });
+
+    // REMOVE ALL OTHER JAVASCRIPT CODE - Only keep the above
 </script>
 
 <!-- Generate report JS -->
@@ -584,7 +597,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Apply filter
         applyFilterBtn.addEventListener('click', filterStudents);
-        
+
         // Clear filter
         clearFilterBtn.addEventListener('click', function() {
             categoryFilter.value = '';
@@ -597,35 +610,35 @@ document.addEventListener('DOMContentLoaded', function() {
             const gradeLevel = categoryFilter.value;
             const section = sectionFilter.value;
             const formData = new FormData();
-            
+
             formData.append('gradeLevelCategory', gradeLevel);
             formData.append('section', section);
 
             studentsTableBody.innerHTML = '<tr><td colspan="20" style="text-align: center;">Loading...</td></tr>';
 
             fetch('', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.text())
-            .then(html => {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = html;
-                const newTableBody = tempDiv.querySelector('#studentsTableBody');
-                if (newTableBody) {
-                    studentsTableBody.innerHTML = newTableBody.innerHTML;
-                }
-                
-                // Update sections dropdown from the response
-                const newSectionFilter = tempDiv.querySelector('#section');
-                if (newSectionFilter) {
-                    sectionFilter.innerHTML = newSectionFilter.innerHTML;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                studentsTableBody.innerHTML = '<tr><td colspan="20" style="text-align: center;">Error loading data</td></tr>';
-            });
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.text())
+                .then(html => {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    const newTableBody = tempDiv.querySelector('#studentsTableBody');
+                    if (newTableBody) {
+                        studentsTableBody.innerHTML = newTableBody.innerHTML;
+                    }
+
+                    // Update sections dropdown from the response
+                    const newSectionFilter = tempDiv.querySelector('#section');
+                    if (newSectionFilter) {
+                        sectionFilter.innerHTML = newSectionFilter.innerHTML;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    studentsTableBody.innerHTML = '<tr><td colspan="20" style="text-align: center;">Error loading data</td></tr>';
+                });
         }
 
         // Generate Report
@@ -649,7 +662,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Create print window
             const printWindow = window.open('', '_blank', 'width=1300,height=800');
-            
+
             printWindow.document.write(`
                 <!DOCTYPE html>
                 <html>

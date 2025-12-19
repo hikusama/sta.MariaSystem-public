@@ -1,3 +1,11 @@
+<?php
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('parent', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
+?>
 <style>
     img {
         width: 90px;
@@ -20,7 +28,7 @@
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     }
 
-    #studentsContainer{
+    #studentsContainer {
         display: flex;
         flex-wrap: wrap;
         gap: 20px;
@@ -482,10 +490,10 @@
                                         $fname = preg_replace("/[^A-Za-z0-9]/", "", strtolower($student["fname"]));
                                         $lname = preg_replace("/[^A-Za-z0-9]/", "", strtolower($student["lname"]));
                                         $grade = str_replace(" ", "", strtolower($student["gradeLevel"]));
-                                        $reportFile = "C:/xampp/htdocs/sta.MariaSystem/sf9_files/{$lrn}_{$fname}_{$lname}_{$grade}.xlsx";
+                                        $reportFile = BASE_PATH . "/sf9_files/{$lrn}_{$fname}_{$lname}_{$grade}.xlsx";
 
                                         if (file_exists($reportFile)) {
-                                            $webPath = "../../sf9_files/{$lrn}_{$fname}_{$lname}_{$grade}.xlsx";
+                                            $webPath = BASE_PATH . "/sf9_files/{$lrn}_{$fname}_{$lname}_{$grade}.xlsx";
                                         ?>
                                             <a href="index.php?page=contents/sf9_view&student_id=<?= htmlspecialchars($student['student_id']) ?>"
                                                 class="flex-fill">
@@ -539,7 +547,7 @@
             searchInput.addEventListener('keyup', function() {
                 const searchTerm = this.value.toLowerCase();
                 console.log(searchTerm);
-                
+
 
                 studentCards.forEach(card => {
                     const text = card.textContent.toLowerCase();
