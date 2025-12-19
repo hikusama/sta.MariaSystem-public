@@ -219,7 +219,7 @@ $count = 1;
         <input type="hidden" name="id" value="<?= htmlspecialchars($data_sf_eight["sf_add_data_id"] ?? '') ?>">
         <div class="col-md-12 d-flex justify-content-between">
             <div class="col-md-3 d-flex align-items-center justify-content-start">
-                <img src="../../assets/image/logo.png" alt="No Image" style="width: auto; height: 150px;">
+                <img id="school_logo" src="../../assets/image/logo.png" alt="No Image" style="width: auto; height: 150px;">
             </div>
             <div class="col-md-6">
                 <div class="form-title text-center w-100">
@@ -228,7 +228,7 @@ $count = 1;
                 </div>
             </div>
             <div class="col-md-3 d-flex align-items-center justify-content-end">
-                <img src="../../assets/image/deped.png" alt="No Image" style="width: 200px; height: auto; transform: translateX(-30px);">
+                <img id="deped_logo" src="../../assets/image/deped.png" alt="No Image" style="width: 200px; height: auto; transform: translateX(-30px);">
             </div>
         </div>
 
@@ -807,28 +807,38 @@ function generateReport() {
     const schoolYear = document.querySelector('input[name="school_year_name"]').value;
     const schoolName = document.querySelector('input[name="school_name"]').value;
     const schoolId = document.querySelector('input[name="school_id"]').value;
+
+    // Get logo sources from the existing page so the print window shows the same images
+    const logoLeftEl = document.getElementById('school_logo');
+    const logoRightEl = document.getElementById('deped_logo');
+    const logoLeftSrc = logoLeftEl ? new URL(logoLeftEl.src, window.location.href).href : (Array.from(document.querySelectorAll('img')).find(img => img.src && img.src.includes('logo.png'))?.src || '');
+    const logoRightSrc = logoRightEl ? new URL(logoRightEl.src, window.location.href).href : (Array.from(document.querySelectorAll('img')).find(img => img.src && img.src.includes('deped.png'))?.src || '');
     
-    // Add header
+    // Add header (including logos)
     printWindow.document.write(`
-        <div class="report-header">
-            <h1>DEPARTMENT OF EDUCATION</h1>
-            <h2>School Form 2 - Daily Attendance Report of Learners</h2>
-            <div class="report-info">
-                <div>
-                    <strong>School:</strong> ${schoolName}<br>
-                    <strong>School ID:</strong> ${schoolId}<br>
-                    <strong>Month:</strong> ${month}
-                </div>
-                <div>
-                    <strong>School Year:</strong> ${schoolYear}<br>
-                    <strong>Grade Level:</strong> ${gradeLevel}<br>
-                    <strong>Section:</strong> ${sectionName}
-                </div>
-                <div>
-                    <strong>Generated:</strong> ${new Date().toLocaleDateString()}<br>
-                    <strong>Time:</strong> ${new Date().toLocaleTimeString()}
+        <div class="report-header" style="display:flex; align-items:center; justify-content:space-between;">
+            <div style="flex:1; text-align:left;"><img src="${logoLeftSrc}" alt="School Logo" style="height:120px; object-fit:contain;"></div>
+            <div style="flex:2; text-align:center;">
+                <h1>DEPARTMENT OF EDUCATION</h1>
+                <h2>School Form 2 - Daily Attendance Report of Learners</h2>
+                <div class="report-info" style="display:flex; justify-content:space-between; margin-top:10px; font-size:14px;">
+                    <div style="text-align:left;">
+                        <strong>School:</strong> ${schoolName}<br>
+                        <strong>School ID:</strong> ${schoolId}<br>
+                        <strong>Month:</strong> ${month}
+                    </div>
+                    <div style="text-align:center;">
+                        <strong>School Year:</strong> ${schoolYear}<br>
+                        <strong>Grade Level:</strong> ${gradeLevel}<br>
+                        <strong>Section:</strong> ${sectionName}
+                    </div>
+                    <div style="text-align:right;">
+                        <strong>Generated:</strong> ${new Date().toLocaleDateString()}<br>
+                        <strong>Time:</strong> ${new Date().toLocaleTimeString()}
+                    </div>
                 </div>
             </div>
+            <div style="flex:1; text-align:right;"><img src="${logoRightSrc}" alt="DepEd Logo" style="height:120px; object-fit:contain;"></div>
         </div>
     `);
     
