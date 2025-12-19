@@ -120,7 +120,7 @@ function db_connect()
                 lname VARCHAR(150) NOT NULL,
                 suffix VARCHAR(5) NOT NULL,
                 sex ENUM('MALE', 'FEMALE'),
-                birthdate date,
+                birthdate DATE,
                 birthplace VARCHAR(150),
                 religion VARCHAR(50),
                 address VARCHAR(255),
@@ -130,6 +130,11 @@ function db_connect()
                 weight DECIMAL(5,2),
                 height DECIMAL(4,2),
                 height_squared DECIMAL(4,2),
+                bmi DECIMAL(5,2),
+                bmi_category VARCHAR(64),
+                hfa VARCHAR(64),
+                medical_remarks VARCHAR(255),
+                medical_updated_at DATETIME,
                 FOREIGN KEY (guardian_id) REFERENCES users(user_id) ON DELETE CASCADE
             )",
             "CREATE TABLE IF NOT EXISTS enrolment (
