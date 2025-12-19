@@ -1,19 +1,38 @@
 <?php
 include '../header.php';
-if (isset($_SESSION['user_id']) && isset($_SESSION['user_role'])) {
-    $user_role = $_SESSION['user_role'];
-    if ($user_role === 'TEACHER') {
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+/* =========================
+   USER ROUTING
+========================= */
+if (isset($_SESSION['user_id'], $_SESSION['user_role'])) {
+
+    if ($_SESSION['user_role'] === 'TEACHER') {
         header('Location: ../src/UI-teacher/index.php');
         exit;
-    } elseif ($user_role === 'PARENT') {
+    }
+
+    if ($_SESSION['user_role'] === 'PARENT') {
         header('Location: ../src/UI-parents/index.php');
         exit;
-    } elseif (isset($_SESSION['admin_role'])) {
-        header('Location: ../src/UI-Admin/index.php');
-        exit;
     }
+
+    session_unset();
+    session_destroy();
 }
+
+/* =========================
+   ADMIN ROUTING
+========================= */
+if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
+    header('Location: ../src/UI-Admin/index.php');
+    exit;
+}
+
 ?>
+
 <style>
     main {
         background: url('../assets/image/bg.jpg');

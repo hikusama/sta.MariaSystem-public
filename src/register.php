@@ -1,4 +1,37 @@
-<?php include '../header.php'; ?>
+<?php include '../header.php'; 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+/* =========================
+   USER ROUTING
+========================= */
+if (isset($_SESSION['user_id'], $_SESSION['user_role'])) {
+
+    if ($_SESSION['user_role'] === 'TEACHER') {
+        header('Location: ../src/UI-teacher/index.php');
+        exit;
+    }
+
+    if ($_SESSION['user_role'] === 'PARENT') {
+        header('Location: ../src/UI-parents/index.php');
+        exit;
+    }
+
+    session_unset();
+    session_destroy();
+}
+
+/* =========================
+   ADMIN ROUTING
+========================= */
+if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
+    header('Location: ../src/UI-Admin/index.php');
+    exit;
+}
+
+
+?>
 <style>
     body {
         background: url('../assets/image/bg.jpg');

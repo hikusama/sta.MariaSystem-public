@@ -1,4 +1,10 @@
 <?php
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('teacher', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 // Database connection
 $servername = "localhost";
 $username = "root";
@@ -286,6 +292,7 @@ body {
 </div>
 
 <script>
+    const BASE_URL = "<?= base_url(); ?>";
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     const studentTable = document.getElementById('studentTable');
@@ -341,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function() {
             row.addEventListener('click', function() {
                 const studentId = this.getAttribute('data-id');
                 if (studentId) {
-                    window.location.href = '/sta.MariaSystem/src/UI-Admin/contents/schoolform10.php?student_id=' + studentId;
+                    window.location.href = BASE_PATH + '/src/UI-Admin/contents/schoolform10.php?student_id=' + studentId;
                 }
             });
         });

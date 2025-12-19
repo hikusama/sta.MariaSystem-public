@@ -1,4 +1,11 @@
 <?php
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('admin', 2);
+
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 $currentSyStmt = $pdo->prepare("SELECT school_year_id FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
 $currentSyStmt->execute();
 $currentSy = $currentSyStmt->fetch(PDO::FETCH_ASSOC);

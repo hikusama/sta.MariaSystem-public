@@ -641,10 +641,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (isset($_POST['LogoutAdmin']) && $_POST['LogoutAdmin'] === 'true') {
         $adminID = $_POST["adminID"];
         try {
-            $query = "INSERT INTO admin_history (admin_id, login_time) VALUES ('$adminID', NOW());";
+            $query = "INSERT INTO admin_history (admin_id, login_time) VALUES (?, NOW());";
             $stmt = $pdo->prepare($query);
-            $stmt->execute();
-
+            $stmt->execute([$adminID]);
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            session_unset();
+            session_destroy();
             header('Location: ../index.php');
         } catch (PDOException $e) {
             die('Query Failed: ' . $e->getMessage());
@@ -653,6 +657,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (isset($_POST['LogoutUser']) && $_POST['LogoutUser'] === 'true') {
         $user_id = $_POST["user_id"];
         try {
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            session_unset();
+            session_destroy();
             header('Location: ../index.php');
         } catch (PDOException $e) {
             die('Query Failed: ' . $e->getMessage());

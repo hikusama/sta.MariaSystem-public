@@ -1,9 +1,16 @@
 <?php
-                $stmt = $pdo->prepare("SELECT * FROM sections ORDER BY created_date DESC");
-                $stmt->execute();
-                $sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                $count = 1;
-            ?>
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('admin', 2);
+
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
+$stmt = $pdo->prepare("SELECT * FROM sections ORDER BY created_date DESC");
+$stmt->execute();
+$sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$count = 1;
+?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="mx-2">
         <h4><i class="fa-solid fa-layer-group me-2"></i>Sections Management</h4>
@@ -16,7 +23,7 @@
         <div class="col-md-8">
             <div class="input-group">
                 <input type="text" class="form-control" name="search" id="searchInput" placeholder="Search sections by name or grade level...">
-                
+
             </div>
         </div>
         <div class="col-md-4 text-end">
@@ -36,7 +43,7 @@
                         <?php
                         $availableCount = array_filter($sections, fn($s) => $s['section_status'] === 'Available');
                         $unavailableCount = array_filter($sections, fn($s) => $s['section_status'] === 'Unavailable');
-                        
+
                         // Count sections by grade level
                         $gradeLevels = array_count_values(array_column($sections, 'section_grade_level'));
                         ?>
@@ -92,56 +99,56 @@
         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
             <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
                 <tbody id="sectionsTableBody">
-                    <?php if(!empty($sections)): 
+                    <?php if (!empty($sections)):
                         $count = 1;
-                        foreach($sections as $section) : ?>
-                    <tr class="section-row" 
-                        data-name="<?= htmlspecialchars(strtolower($section["section_name"])) ?>"
-                        data-grade="<?= htmlspecialchars(strtolower($section["section_grade_level"])) ?>"
-                        data-status="<?= htmlspecialchars(strtolower($section["section_status"])) ?>">
-                        <td width="5%"><?= $count++ ?></td>
-                        <td width="20%" class="section-name">
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-placeholder me-2">
-                                    <i class="fa-solid fa-layer-group text-secondary"></i>
-                                </div>
-                                <div>
-                                    <strong><?= htmlspecialchars($section["section_name"]) ?></strong>
-                                </div>
-                            </div>
-                        </td>
-                        <td width="15%">
-                            <span class="badge bg-info"><?= htmlspecialchars($section["section_grade_level"]) ?></span>
-                        </td>
-                        <td width="15%">
-                            <span class="badge bg-<?= ($section["section_status"] == 'Available') ? 'success' : 'secondary' ?>">
-                                <i class="fa-solid fa-circle fa-xs me-1"></i>
-                                <?= htmlspecialchars($section["section_status"] ?? 'Unavailable') ?>
-                            </span>
-                        </td>
-                        <td width="20%">
-                            <small><?= date('M d, Y', strtotime($section["created_date"])) ?></small>
-                        </td>
-                        <td width="25%">
-                            <div class="d-flex gap-1 justify-content-center">
-                                <button type="button" data-id="<?= $section["section_id"] ?>" 
-                                        class="btn btn-sm btn-info editSectionBtn"
-                                        title="Edit Section">
-                                    <i class="fa-solid fa-pen me-1"></i> Edit
-                                </button>
-                                <button type="button" data-id="<?= $section["section_id"] ?>" 
-                                        class="btn btn-sm btn-danger deleteSectionBtn"
-                                        title="Delete Section">
-                                    <i class="fa-solid fa-trash me-1"></i> Delete
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endforeach ?>
+                        foreach ($sections as $section) : ?>
+                            <tr class="section-row"
+                                data-name="<?= htmlspecialchars(strtolower($section["section_name"])) ?>"
+                                data-grade="<?= htmlspecialchars(strtolower($section["section_grade_level"])) ?>"
+                                data-status="<?= htmlspecialchars(strtolower($section["section_status"])) ?>">
+                                <td width="5%"><?= $count++ ?></td>
+                                <td width="20%" class="section-name">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-placeholder me-2">
+                                            <i class="fa-solid fa-layer-group text-secondary"></i>
+                                        </div>
+                                        <div>
+                                            <strong><?= htmlspecialchars($section["section_name"]) ?></strong>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td width="15%">
+                                    <span class="badge bg-info"><?= htmlspecialchars($section["section_grade_level"]) ?></span>
+                                </td>
+                                <td width="15%">
+                                    <span class="badge bg-<?= ($section["section_status"] == 'Available') ? 'success' : 'secondary' ?>">
+                                        <i class="fa-solid fa-circle fa-xs me-1"></i>
+                                        <?= htmlspecialchars($section["section_status"] ?? 'Unavailable') ?>
+                                    </span>
+                                </td>
+                                <td width="20%">
+                                    <small><?= date('M d, Y', strtotime($section["created_date"])) ?></small>
+                                </td>
+                                <td width="25%">
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <button type="button" data-id="<?= $section["section_id"] ?>"
+                                            class="btn btn-sm btn-info editSectionBtn"
+                                            title="Edit Section">
+                                            <i class="fa-solid fa-pen me-1"></i> Edit
+                                        </button>
+                                        <button type="button" data-id="<?= $section["section_id"] ?>"
+                                            class="btn btn-sm btn-danger deleteSectionBtn"
+                                            title="Delete Section">
+                                            <i class="fa-solid fa-trash me-1"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach ?>
                     <?php else: ?>
-                    <tr>
-                        <td colspan="6" class="text-center py-3">No sections found.</td>
-                    </tr>
+                        <tr>
+                            <td colspan="6" class="text-center py-3">No sections found.</td>
+                        </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -283,195 +290,195 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
-    const sectionRows = document.querySelectorAll('.section-row');
-    const sectionsTableBody = document.getElementById('sectionsTableBody');
-    const noResultsDiv = document.getElementById('noResults');
-    const editButtons = document.querySelectorAll('.editSectionBtn');
-    const deleteButtons = document.querySelectorAll('.deleteSectionBtn');
-    
-    // Sections data for edit form
-    const sectionsData = <?= json_encode($sections); ?>;
-    
-    // Search functionality
-    function filterSections() {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        let visibleCount = 0;
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const sectionRows = document.querySelectorAll('.section-row');
+        const sectionsTableBody = document.getElementById('sectionsTableBody');
+        const noResultsDiv = document.getElementById('noResults');
+        const editButtons = document.querySelectorAll('.editSectionBtn');
+        const deleteButtons = document.querySelectorAll('.deleteSectionBtn');
 
-        sectionRows.forEach(row => {
-            const name = row.getAttribute('data-name');
-            const grade = row.getAttribute('data-grade');
-            const status = row.getAttribute('data-status');
-            
-            let matchesSearch = true;
-            
-            if (searchTerm) {
-                matchesSearch = name.includes(searchTerm) || 
-                               grade.includes(searchTerm) || 
-                               status.includes(searchTerm);
-            }
-            
-            if (matchesSearch) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-        
-        if (visibleCount === 0) {
-            sectionsTableBody.style.display = 'none';
-            noResultsDiv.classList.remove('d-none');
-        } else {
-            sectionsTableBody.style.display = '';
-            noResultsDiv.classList.add('d-none');
-        }
-        
-        updateRowNumbers();
-    }
-    
-    function updateRowNumbers() {
-        let counter = 1;
-        sectionRows.forEach(row => {
-            if (row.style.display !== 'none') {
-                const firstCell = row.querySelector('td:first-child');
-                if (firstCell) {
-                    firstCell.textContent = counter++;
+        // Sections data for edit form
+        const sectionsData = <?= json_encode($sections); ?>;
+
+        // Search functionality
+        function filterSections() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            let visibleCount = 0;
+
+            sectionRows.forEach(row => {
+                const name = row.getAttribute('data-name');
+                const grade = row.getAttribute('data-grade');
+                const status = row.getAttribute('data-status');
+
+                let matchesSearch = true;
+
+                if (searchTerm) {
+                    matchesSearch = name.includes(searchTerm) ||
+                        grade.includes(searchTerm) ||
+                        status.includes(searchTerm);
                 }
+
+                if (matchesSearch) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (visibleCount === 0) {
+                sectionsTableBody.style.display = 'none';
+                noResultsDiv.classList.remove('d-none');
+            } else {
+                sectionsTableBody.style.display = '';
+                noResultsDiv.classList.add('d-none');
             }
-        });
-    }
-    
-    // Edit button click handler
-    editButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const sectionId = this.getAttribute('data-id');
-            const section = sectionsData.find(s => s.section_id == sectionId);
-            
-            if (section) {
-                document.getElementById('section_ids').value = section.section_id;
-                document.getElementById('section_status').value = section.section_status;
-                document.getElementById('section_name').value = section.section_name;
-                document.getElementById('section_grade_level').value = section.section_grade_level;
-                
-                const modal = new bootstrap.Modal(document.getElementById('editSections'));
-                modal.show();
-            }
-        });
-    });
-    
-    // Delete button click handler
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const sectionId = this.getAttribute('data-id');
-            document.getElementById('section_id').value = sectionId;
-            
-            const modal = new bootstrap.Modal(document.getElementById('deleteSection'));
-            modal.show();
-        });
-    });
-    
-    // Event listeners
-    searchInput.addEventListener('input', filterSections);
-    
-    clearSearchBtn.addEventListener('click', function() {
-        searchInput.value = '';
-        filterSections();
-        searchInput.focus();
-    });
-    
-    // Add Enter key support for search
-    searchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            filterSections();
+
+            updateRowNumbers();
         }
+
+        function updateRowNumbers() {
+            let counter = 1;
+            sectionRows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const firstCell = row.querySelector('td:first-child');
+                    if (firstCell) {
+                        firstCell.textContent = counter++;
+                    }
+                }
+            });
+        }
+
+        // Edit button click handler
+        editButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const sectionId = this.getAttribute('data-id');
+                const section = sectionsData.find(s => s.section_id == sectionId);
+
+                if (section) {
+                    document.getElementById('section_ids').value = section.section_id;
+                    document.getElementById('section_status').value = section.section_status;
+                    document.getElementById('section_name').value = section.section_name;
+                    document.getElementById('section_grade_level').value = section.section_grade_level;
+
+                    const modal = new bootstrap.Modal(document.getElementById('editSections'));
+                    modal.show();
+                }
+            });
+        });
+
+        // Delete button click handler
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const sectionId = this.getAttribute('data-id');
+                document.getElementById('section_id').value = sectionId;
+
+                const modal = new bootstrap.Modal(document.getElementById('deleteSection'));
+                modal.show();
+            });
+        });
+
+        // Event listeners
+        searchInput.addEventListener('input', filterSections);
+
+        clearSearchBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            filterSections();
+            searchInput.focus();
+        });
+
+        // Add Enter key support for search
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                filterSections();
+            }
+        });
+
+        // Add some styling
+        searchInput.addEventListener('focus', function() {
+            this.parentElement.classList.add('border-primary', 'border-2');
+        });
+
+        searchInput.addEventListener('blur', function() {
+            this.parentElement.classList.remove('border-primary', 'border-2');
+        });
+
+        // Initialize
+        filterSections();
     });
-    
-    // Add some styling
-    searchInput.addEventListener('focus', function() {
-        this.parentElement.classList.add('border-primary', 'border-2');
-    });
-    
-    searchInput.addEventListener('blur', function() {
-        this.parentElement.classList.remove('border-primary', 'border-2');
-    });
-    
-    // Initialize
-    filterSections();
-});
 </script>
 
 <style>
-.table-container-wrapper {
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    overflow: hidden;
-}
+    .table-container-wrapper {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
 
-.table thead th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
+    .table thead th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
 
-.table tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05);
-}
+    .table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
 
-.avatar-placeholder {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background-color: #f8f9fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-}
+    .avatar-placeholder {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
 
-.empty-state {
-    padding: 3rem 1rem;
-}
+    .empty-state {
+        padding: 3rem 1rem;
+    }
 
-.empty-state i {
-    opacity: 0.5;
-}
+    .empty-state i {
+        opacity: 0.5;
+    }
 
-.badge {
-    padding: 0.35em 0.65em;
-    font-size: 0.75em;
-    font-weight: 600;
-}
+    .badge {
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 600;
+    }
 
-.btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-}
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
 
-.input-group-text {
-    border-right: none;
-}
+    .input-group-text {
+        border-right: none;
+    }
 
-#searchInput:focus {
-    box-shadow: none;
-    border-color: #86b7fe;
-}
+    #searchInput:focus {
+        box-shadow: none;
+        border-color: #86b7fe;
+    }
 
-#clearSearch:hover {
-    background-color: #e9ecef;
-}
+    #clearSearch:hover {
+        background-color: #e9ecef;
+    }
 
-.form-control.bg-light {
-    background-color: #f8f9fa !important;
-    border: 1px solid #dee2e6;
-    color: #495057;
-}
+    .form-control.bg-light {
+        background-color: #f8f9fa !important;
+        border: 1px solid #dee2e6;
+        color: #495057;
+    }
 
-.btn:hover {
-    transform: translateY(-1px);
-    transition: all 0.2s ease;
-}
+    .btn:hover {
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+    }
 </style>

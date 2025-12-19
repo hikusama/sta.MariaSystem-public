@@ -1,4 +1,10 @@
 <?php
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('teacher', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 $servername = "localhost";
 $username = "root";
 $password = "";
@@ -234,6 +240,7 @@ body {
 </div>
 
 <script>
+    const BASE_URL = "<?= base_url(); ?>";
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     const sectionTable = document.getElementById('sectionTable');
@@ -297,7 +304,7 @@ function attachRowClickEvents() {
             const gradeLevel = this.dataset.grade;
             const sectionName = this.dataset.section;
             if (sectionId && gradeLevel && sectionName) {
-               window.location.href = `/sta.MariaSystem/src/UI-Admin/contents/schoolform5.php`
+               window.location.href = BASE_PATH + `/src/UI-Admin/contents/schoolform5.php`
 
                     + `?section_id=${encodeURIComponent(sectionId)}`
                     + `&grade=${encodeURIComponent(gradeLevel)}`

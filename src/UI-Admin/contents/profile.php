@@ -1,4 +1,11 @@
 <?php
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('admin', 2);
+
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 // Use prepared statement with parameter binding
 $student_id = $_GET["student_id"] ?? '';
 $query = "SELECT student.*, 
@@ -30,23 +37,23 @@ if ($student_id) {
     $stmt = $pdo->prepare("SELECT * FROM attendance WHERE student_id = :student_id ORDER BY morning_attendance DESC");
     $stmt->execute([':student_id' => $student_id]);
     $attendanceRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+
     // Organize attendance by date
     foreach ($attendanceRecords as $record) {
         $date = date('Y-m-d', strtotime($record['morning_attendance']));
-        
+
         // Determine daily status based on morning and afternoon
         $morning_status = $record['attendance_type'] ?? null;
         $afternoon_status = $record['A_attendance_type'] ?? null;
         $summary = $record['attendance_summary'] ?? null;
-        
+
         $attendanceData[$date] = [
             'morning' => $morning_status,
             'afternoon' => $afternoon_status,
             'summary' => $summary,
             'recorded_at' => $record['attendance_at'] ?? null
         ];
-        
+
         // For list view
         $attendanceList[] = [
             'date' => $date,
@@ -55,10 +62,10 @@ if ($student_id) {
             'summary' => $summary,
             'recorded_at' => $record['attendance_at'] ?? null
         ];
-        
+
         // Update summary counts
         if ($summary) {
-            switch(strtolower($summary)) {
+            switch (strtolower($summary)) {
                 case 'present':
                     $attendanceSummary['present']++;
                     break;
@@ -103,8 +110,8 @@ $gradesData = [];
                 </nav>
             </div>
             <div>
-                <a href="index.php?page=contents/student" 
-                   class="btn btn-outline-secondary d-flex align-items-center">
+                <a href="index.php?page=contents/student"
+                    class="btn btn-outline-secondary d-flex align-items-center">
                     <i class="fas fa-arrow-left me-2"></i>Back
                 </a>
             </div>
@@ -119,9 +126,9 @@ $gradesData = [];
                     <div class="text-center mb-4">
                         <div class="profile-avatar-container mx-auto mb-3">
                             <div class="profile-avatar position-relative">
-                                <?php if($student_info["student_profile_img"] !== null): ?>
-                                    <img src="../../authentication/uploads/<?php echo htmlspecialchars($student_info["student_profile_img"]);?>" 
-                                         class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Profile Picture">
+                                <?php if ($student_info["student_profile_img"] !== null): ?>
+                                    <img src="../../authentication/uploads/<?php echo htmlspecialchars($student_info["student_profile_img"]); ?>"
+                                        class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Profile Picture">
                                 <?php else: ?>
                                     <img src="../../assets/image/users.png" class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Default Profile">
                                 <?php endif; ?>
@@ -130,34 +137,34 @@ $gradesData = [];
                                 </span>
                             </div>
                         </div>
-                        
+
                         <h4 class="fw-bold mb-1">
-                            <?= htmlspecialchars($student_info["lname"] ?? '') . ', ' . 
-                               htmlspecialchars($student_info["fname"] ?? '') ?>
+                            <?= htmlspecialchars($student_info["lname"] ?? '') . ', ' .
+                                htmlspecialchars($student_info["fname"] ?? '') ?>
                         </h4>
                         <p class="text-muted mb-2">
-                            <?= !empty($student_info["mname"]) ? 
-                               htmlspecialchars(substr($student_info["mname"], 0, 1)) . '. ' : '' ?>
-                            <?= !empty($student_info["suffix"]) ? 
-                               htmlspecialchars($student_info["suffix"]) : '' ?>
+                            <?= !empty($student_info["mname"]) ?
+                                htmlspecialchars(substr($student_info["mname"], 0, 1)) . '. ' : '' ?>
+                            <?= !empty($student_info["suffix"]) ?
+                                htmlspecialchars($student_info["suffix"]) : '' ?>
                         </p>
-                        
+
                         <div class="mb-3">
                             <div class="badge bg-info text-dark fs-6">
                                 <i class="fas fa-id-card me-1"></i>
                                 LRN: <?= htmlspecialchars($student_info["lrn"] ?? 'N/A') ?>
                             </div>
                         </div>
-                        
+
                         <?php if (!empty($student_info["firstname"])): ?>
-                        <div class="text-muted">
-                            <i class="fas fa-user-shield me-1"></i>
-                            Guardian: <?= htmlspecialchars($student_info["lastname"] ?? '') . ', ' . 
-                                       htmlspecialchars($student_info["firstname"] ?? '') ?>
-                        </div>
+                            <div class="text-muted">
+                                <i class="fas fa-user-shield me-1"></i>
+                                Guardian: <?= htmlspecialchars($student_info["lastname"] ?? '') . ', ' .
+                                                htmlspecialchars($student_info["firstname"] ?? '') ?>
+                            </div>
                         <?php endif; ?>
                     </div>
-                    
+
                     <!-- Attendance Summary Stats -->
                     <div class="profile-stats mt-4 pt-4 border-top">
                         <h6 class="fw-semibold mb-3 text-muted">
@@ -190,7 +197,7 @@ $gradesData = [];
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Quick Stats -->
                     <div class="quick-stats mt-4 pt-4 border-top">
                         <h6 class="fw-semibold mb-3 text-muted">
@@ -236,7 +243,7 @@ $gradesData = [];
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="mt-4 text-center">
                         <small class="text-muted">
                             <i class="fas fa-calendar-alt me-1"></i>
@@ -253,16 +260,16 @@ $gradesData = [];
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body p-3">
                     <div class="d-flex nav-tabs-custom" role="tablist">
-                        <button class="nav-link-tab active" id="personal-tab" data-bs-toggle="tab" 
-                                data-bs-target="#personal-info" type="button">
+                        <button class="nav-link-tab active" id="personal-tab" data-bs-toggle="tab"
+                            data-bs-target="#personal-info" type="button">
                             <i class="fas fa-user-circle me-2"></i>Personal Info
                         </button>
-                        <button class="nav-link-tab" id="attendance-tab" data-bs-toggle="tab" 
-                                data-bs-target="#attendance-info" type="button">
+                        <button class="nav-link-tab" id="attendance-tab" data-bs-toggle="tab"
+                            data-bs-target="#attendance-info" type="button">
                             <i class="fas fa-calendar-check me-2"></i>Attendance
                         </button>
-                        <button class="nav-link-tab" id="medical-tab" data-bs-toggle="tab" 
-                                data-bs-target="#medical-info" type="button">
+                        <button class="nav-link-tab" id="medical-tab" data-bs-toggle="tab"
+                            data-bs-target="#medical-info" type="button">
                             <i class="fas fa-heartbeat me-2"></i>Medical
                         </button>
                     </div>
@@ -282,7 +289,7 @@ $gradesData = [];
                         <div class="card-body p-4">
                             <form id="student-update-form" class="row g-3" enctype="multipart/form-data">
                                 <input type="hidden" name="student_id" value="<?= htmlspecialchars($student_info["student_id"] ?? '') ?>">
-                                
+
                                 <!-- Student Basic Info -->
                                 <div class="col-12">
                                     <h6 class="fw-semibold border-bottom pb-2 mb-3">
@@ -297,54 +304,54 @@ $gradesData = [];
                                     <label class="form-label fw-semibold">First Name</label>
                                     <div class="input-group">
                                         <input type="text" name="fname" class="form-control"
-                                               value="<?= htmlspecialchars($student_info["fname"] ?? '') ?>">
+                                            value="<?= htmlspecialchars($student_info["fname"] ?? '') ?>">
                                         <span class="input-group-text bg-transparent border-0">
                                             <i class="fas fa-signature text-muted"></i>
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Middle Name</label>
                                     <div class="input-group">
                                         <input type="text" name="mname" class="form-control"
-                                               value="<?= htmlspecialchars($student_info["mname"] ?? '') ?>">
+                                            value="<?= htmlspecialchars($student_info["mname"] ?? '') ?>">
                                         <span class="input-group-text bg-transparent border-0">
                                             <i class="fas fa-signature text-muted"></i>
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Last Name</label>
                                     <div class="input-group">
                                         <input type="text" name="lname" class="form-control"
-                                               value="<?= htmlspecialchars($student_info["lname"] ?? '') ?>">
+                                            value="<?= htmlspecialchars($student_info["lname"] ?? '') ?>">
                                         <span class="input-group-text bg-transparent border-0">
                                             <i class="fas fa-signature text-muted"></i>
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Suffix</label>
                                     <input type="text" name="suffix" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["suffix"] ?? '') ?>"
-                                           placeholder="Jr., Sr., etc">
+                                        value="<?= htmlspecialchars($student_info["suffix"] ?? '') ?>"
+                                        placeholder="Jr., Sr., etc">
                                 </div>
-                                
+
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">LRN</label>
                                     <input readonly type="text" name="lrn" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["lrn"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["lrn"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Grade Level</label>
                                     <input readonly type="text" name="gradeLevel" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["gradeLevel"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["gradeLevel"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Gender</label>
                                     <select name="gender" class="form-select">
@@ -353,37 +360,37 @@ $gradesData = [];
                                         <option value="FEMALE" <?= ($student_info["sex"] ?? '') == 'FEMALE' ? 'selected' : '' ?>>Female</option>
                                     </select>
                                 </div>
-                                
+
                                 <!-- Birth Information -->
                                 <div class="col-12 mt-3">
                                     <h6 class="fw-semibold border-bottom pb-2 mb-3">
                                         <i class="fas fa-birthday-cake me-2"></i>Birth Information
                                     </h6>
                                 </div>
-                                
+
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Birth Date</label>
                                     <div class="input-group">
                                         <input type="date" name="birthdate" class="form-control"
-                                               value="<?= htmlspecialchars($student_info["birthdate"] ?? '') ?>">
+                                            value="<?= htmlspecialchars($student_info["birthdate"] ?? '') ?>">
                                         <span class="input-group-text bg-transparent border-0">
                                             <i class="fas fa-calendar-day text-muted"></i>
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Birth Place</label>
                                     <input type="text" name="birthplace" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["birthplace"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["birthplace"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Age</label>
-                                    <input type="text" readonly class="form-control bg-light" 
-                                           id="calculatedAge" value="<?= $age ?>">
+                                    <input type="text" readonly class="form-control bg-light"
+                                        id="calculatedAge" value="<?= $age ?>">
                                 </div>
-                                
+
                                 <!-- Religion & Mother Tongue -->
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Religion</label>
@@ -395,131 +402,131 @@ $gradesData = [];
                                         <!-- Add other options -->
                                     </select>
                                 </div>
-                                
+
                                 <!-- Parent Information -->
                                 <div class="col-12 mt-4">
                                     <h6 class="fw-semibold border-bottom pb-2 mb-3">
                                         <i class="fas fa-users me-2"></i>Parent/Guardian Information
                                     </h6>
                                 </div>
-                                
+
                                 <!-- Father's Information -->
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Father's First Name</label>
                                     <input type="text" name="f_firstname" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["f_firstname"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["f_firstname"] ?? '') ?>">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Father's Middle Name</label>
                                     <input type="text" name="f_middlename" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["f_middlename"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["f_middlename"] ?? '') ?>">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Father's Last Name</label>
                                     <input type="text" name="f_lastname" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["f_lastname"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["f_lastname"] ?? '') ?>">
                                 </div>
-                                
+
                                 <!-- Mother's Information -->
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Mother's First Name</label>
                                     <input type="text" name="m_firstname" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["m_firstname"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["m_firstname"] ?? '') ?>">
                                 </div>
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Mother's Middle Name</label>
                                     <input type="text" name="m_middlename" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["m_middlename"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["m_middlename"] ?? '') ?>">
                                 </div>
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Mother's Last Name</label>
                                     <input type="text" name="m_lastname" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["m_lastname"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["m_lastname"] ?? '') ?>">
                                 </div>
-                                
+
                                 <!-- Guardian Information -->
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Guardian's First Name</label>
                                     <input type="text" name="g_firstname" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["g_firstname"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["g_firstname"] ?? '') ?>">
                                 </div>
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Guardian's Middle Name</label>
                                     <input type="text" name="g_middlename" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["g_middlename"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["g_middlename"] ?? '') ?>">
                                 </div>
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Guardian's Last Name</label>
                                     <input type="text" name="g_lastname" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["g_lastname"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["g_lastname"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Relationship</label>
                                     <input type="text" name="g_relationship" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["g_relationship"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["g_relationship"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Contact Number</label>
                                     <div class="input-group">
                                         <input type="text" name="p_contact" class="form-control"
-                                               value="<?= htmlspecialchars($student_info["p_contact"] ?? '') ?>">
+                                            value="<?= htmlspecialchars($student_info["p_contact"] ?? '') ?>">
                                         <span class="input-group-text bg-transparent border-0">
                                             <i class="fas fa-phone text-muted"></i>
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Address Information -->
                                 <div class="col-12 mt-4">
                                     <h6 class="fw-semibold border-bottom pb-2 mb-3">
                                         <i class="fas fa-home me-2"></i>Address Information
                                     </h6>
                                 </div>
-                                
+
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">House No.</label>
                                     <input type="text" name="house_no" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["house_no"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["house_no"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Street</label>
                                     <input type="text" name="street" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["street"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["street"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Barangay</label>
                                     <input type="text" name="barnagay" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["barnagay"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["barnagay"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">City</label>
                                     <input type="text" name="city" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["city"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["city"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Province</label>
                                     <input type="text" name="province" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["province"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["province"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Country</label>
                                     <input type="text" name="country" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["country"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["country"] ?? '') ?>">
                                 </div>
-                                
+
                                 <div class="col-md-4 mt-3">
                                     <label class="form-label fw-semibold">Zip Code</label>
                                     <input type="text" name="zip_code" class="form-control"
-                                           value="<?= htmlspecialchars($student_info["zip_code"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["zip_code"] ?? '') ?>">
                                 </div>
-                                
+
                                 <!-- Submit Button -->
                                 <div class="col-12 mt-4 pt-3 border-top">
                                     <div class="d-flex justify-content-end gap-2">
@@ -549,27 +556,27 @@ $gradesData = [];
                         <div class="card-body p-4">
                             <!-- Calendar View -->
                             <div id="calendarView">
-                                <?php 
+                                <?php
                                 $currentYear = date("Y");
                                 $currentMonth = date("n");
                                 $monthsToShow = 6; // Show last 6 months including current
-                                
+
                                 for ($m = $currentMonth - ($monthsToShow - 1); $m <= $currentMonth; $m++):
                                     $monthIndex = $m;
                                     $year = $currentYear;
-                                    
+
                                     // Handle year wrap-around
                                     if ($monthIndex < 1) {
                                         $monthIndex += 12;
                                         $year -= 1;
                                     }
-                                    
+
                                     $monthName = date("F", mktime(0, 0, 0, $monthIndex, 1));
                                     $daysInMonth = date("t", mktime(0, 0, 0, $monthIndex, 1, $year));
-                                    
+
                                     // Get first day of the month (0=Sunday, 1=Monday, etc.)
                                     $firstDay = date("w", mktime(0, 0, 0, $monthIndex, 1, $year));
-                                    
+
                                     // Count days recorded in this month
                                     $daysRecorded = 0;
                                     foreach ($attendanceData as $date => $record) {
@@ -577,14 +584,14 @@ $gradesData = [];
                                             $daysRecorded++;
                                         }
                                     }
-                                    ?>
-                                    
+                                ?>
+
                                     <div class="month-card mb-5">
                                         <h6 class="fw-semibold mb-3 text-primary d-flex justify-content-between align-items-center">
                                             <span><?= $monthName ?> <?= $year ?></span>
                                             <small class="text-muted fw-normal"><?= $daysRecorded ?> days recorded</small>
                                         </h6>
-                                        
+
                                         <!-- Day Headers -->
                                         <div class="days-header mb-2">
                                             <div class="d-flex">
@@ -597,28 +604,28 @@ $gradesData = [];
                                                 <div class="day-header text-center" style="width: 14.28%;">Sat</div>
                                             </div>
                                         </div>
-                                        
+
                                         <!-- Calendar Grid -->
                                         <div class="calendar-grid mb-3">
                                             <div class="d-flex flex-wrap">
                                                 <!-- Empty days for first week -->
                                                 <?php for ($i = 0; $i < $firstDay; $i++): ?>
-                                                <div class="day-cell empty" style="width: 14.28%;"></div>
+                                                    <div class="day-cell empty" style="width: 14.28%;"></div>
                                                 <?php endfor; ?>
-                                                
+
                                                 <!-- Days of the month -->
-                                                <?php for ($day = 1; $day <= $daysInMonth; $day++): 
+                                                <?php for ($day = 1; $day <= $daysInMonth; $day++):
                                                     $dateStr = sprintf("%04d-%02d-%02d", $year, $monthIndex, $day);
                                                     $dayOfWeek = ($firstDay + $day - 1) % 7;
-                                                    
+
                                                     // Determine cell class based on attendance
                                                     $cellClass = "day-cell";
                                                     $attendanceStatus = $attendanceData[$dateStr] ?? null;
                                                     $tooltip = "";
-                                                    
+
                                                     if ($attendanceStatus) {
                                                         $summary = strtolower($attendanceStatus['summary'] ?? '');
-                                                        switch($summary) {
+                                                        switch ($summary) {
                                                             case 'present':
                                                                 $cellClass .= " present";
                                                                 $tooltip = "Present - All Day";
@@ -633,13 +640,13 @@ $gradesData = [];
                                                                 break;
                                                             case 'half-day':
                                                                 $cellClass .= " half-day";
-                                                                $tooltip = "Half Day - " . 
-                                                                          ($attendanceStatus['morning'] == 'Present' ? 'Morning Only' : 'Afternoon Only');
+                                                                $tooltip = "Half Day - " .
+                                                                    ($attendanceStatus['morning'] == 'Present' ? 'Morning Only' : 'Afternoon Only');
                                                                 break;
                                                             case 'half-day-late':
                                                                 $cellClass .= " half-day-late";
-                                                                $tooltip = "Half Day Late - " . 
-                                                                          ($attendanceStatus['morning'] == 'Late' ? 'Morning Only' : 'Afternoon Only');
+                                                                $tooltip = "Half Day Late - " .
+                                                                    ($attendanceStatus['morning'] == 'Late' ? 'Morning Only' : 'Afternoon Only');
                                                                 break;
                                                             default:
                                                                 $cellClass .= " unknown";
@@ -657,55 +664,57 @@ $gradesData = [];
                                                             $tooltip = "No attendance record";
                                                         }
                                                     }
-                                                    
+
                                                     // Weekend styling
                                                     if ($dayOfWeek == 0 || $dayOfWeek == 6) {
                                                         $cellClass .= " weekend";
                                                     }
-                                                    
+
                                                     // Today highlighting
                                                     if ($dateStr == date('Y-m-d')) {
                                                         $cellClass .= " today";
                                                     }
-                                                    ?>
-                                                    
-                                                    <div class="<?= $cellClass ?>" style="width: 14.28%;" 
-                                                         data-bs-toggle="tooltip" data-bs-placement="top" 
-                                                         title="<?= $tooltip ?>">
+                                                ?>
+
+                                                    <div class="<?= $cellClass ?>" style="width: 14.28%;"
+                                                        data-bs-toggle="tooltip" data-bs-placement="top"
+                                                        title="<?= $tooltip ?>">
                                                         <?= $day ?>
                                                         <?php if ($attendanceStatus): ?>
-                                                        <div class="day-indicators">
-                                                            <?php if ($attendanceStatus['morning']): ?>
-                                                            <span class="indicator <?= strtolower($attendanceStatus['morning']) ?>" 
-                                                                  title="Morning: <?= $attendanceStatus['morning'] ?>"></span>
-                                                            <?php endif; ?>
-                                                            <?php if ($attendanceStatus['afternoon']): ?>
-                                                            <span class="indicator <?= strtolower($attendanceStatus['afternoon']) ?>" 
-                                                                  title="Afternoon: <?= $attendanceStatus['afternoon'] ?>"></span>
-                                                            <?php endif; ?>
-                                                        </div>
+                                                            <div class="day-indicators">
+                                                                <?php if ($attendanceStatus['morning']): ?>
+                                                                    <span class="indicator <?= strtolower($attendanceStatus['morning']) ?>"
+                                                                        title="Morning: <?= $attendanceStatus['morning'] ?>"></span>
+                                                                <?php endif; ?>
+                                                                <?php if ($attendanceStatus['afternoon']): ?>
+                                                                    <span class="indicator <?= strtolower($attendanceStatus['afternoon']) ?>"
+                                                                        title="Afternoon: <?= $attendanceStatus['afternoon'] ?>"></span>
+                                                                <?php endif; ?>
+                                                            </div>
                                                         <?php endif; ?>
                                                     </div>
-                                                    
+
                                                     <?php if (($firstDay + $day) % 7 == 0 && $day != $daysInMonth): ?>
-                                            </div><div class="d-flex flex-wrap">
-                                                    <?php endif; ?>
-                                                <?php endfor; ?>
-                                                
-                                                <!-- Empty days for last week -->
-                                                <?php 
-                                                $remainingDays = 7 - (($firstDay + $daysInMonth) % 7);
-                                                if ($remainingDays < 7) {
-                                                    for ($i = 0; $i < $remainingDays; $i++):
-                                                ?>
+                                            </div>
+                                            <div class="d-flex flex-wrap">
+                                            <?php endif; ?>
+                                        <?php endfor; ?>
+
+                                        <!-- Empty days for last week -->
+                                        <?php
+                                        $remainingDays = 7 - (($firstDay + $daysInMonth) % 7);
+                                        if ($remainingDays < 7) {
+                                            for ($i = 0; $i < $remainingDays; $i++):
+                                        ?>
                                                 <div class="day-cell empty" style="width: 14.28%;"></div>
-                                                <?php endfor; } ?>
+                                        <?php endfor;
+                                        } ?>
                                             </div>
                                         </div>
                                     </div>
                                 <?php endfor; ?>
                             </div>
-                            
+
                             <!-- List View (Hidden by default) -->
                             <div id="listView" class="d-none">
                                 <div class="table-responsive">
@@ -721,88 +730,86 @@ $gradesData = [];
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <?php if (!empty($attendanceList)): 
+                                            <?php if (!empty($attendanceList)):
                                                 // Sort by date descending
-                                                usort($attendanceList, function($a, $b) {
+                                                usort($attendanceList, function ($a, $b) {
                                                     return strtotime($b['date']) - strtotime($a['date']);
                                                 });
-                                                
+
                                                 foreach ($attendanceList as $record):
                                                     $dateObj = new DateTime($record['date']);
                                                     $dayName = $dateObj->format('l');
                                                     $formattedDate = $dateObj->format('M d, Y');
                                                     $isToday = $record['date'] == date('Y-m-d');
                                             ?>
-                                            <tr class="<?= $isToday ? 'table-info' : '' ?>">
-                                                <td>
-                                                    <?= $formattedDate ?>
-                                                    <?php if ($isToday): ?>
-                                                    <span class="badge bg-primary ms-1">Today</span>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td><?= $dayName ?></td>
-                                                <td>
-                                                    <?php if ($record['morning']): ?>
-                                                    <span class="badge bg-<?= strtolower($record['morning']) == 'present' ? 'success' : 
-                                                                           (strtolower($record['morning']) == 'absent' ? 'danger' : 'warning') ?>">
-                                                        <?= $record['morning'] ?>
-                                                    </span>
-                                                    <?php else: ?>
-                                                    <span class="badge bg-secondary">No record</span>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td>
-                                                    <?php if ($record['afternoon']): ?>
-                                                    <span class="badge bg-<?= strtolower($record['afternoon']) == 'present' ? 'success' : 
-                                                                           (strtolower($record['afternoon']) == 'absent' ? 'danger' : 'warning') ?>">
-                                                        <?= $record['afternoon'] ?>
-                                                    </span>
-                                                    <?php else: ?>
-                                                    <span class="badge bg-secondary">No record</span>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td>
-                                                    <?php if ($record['summary']): 
-                                                        $summaryClass = match(strtolower($record['summary'])) {
-                                                            'present' => 'success',
-                                                            'absent' => 'danger',
-                                                            'late' => 'warning',
-                                                            'half-day' => 'info',
-                                                            'half-day-late' => 'warning',
-                                                            default => 'secondary'
-                                                        };
-                                                    ?>
-                                                    <span class="badge bg-<?= $summaryClass ?>">
-                                                        <?= ucfirst(str_replace('-', ' ', $record['summary'])) ?>
-                                                    </span>
-                                                    <?php else: ?>
-                                                    <span class="badge bg-secondary">No summary</span>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td>
-                                                    <?php if ($record['recorded_at']): ?>
-                                                    <small class="text-muted">
-                                                        <?= date('h:i A', strtotime($record['recorded_at'])) ?>
-                                                    </small>
-                                                    <?php else: ?>
-                                                    <small class="text-muted">N/A</small>
-                                                    <?php endif; ?>
-                                                </td>
-                                            </tr>
-                                            <?php endforeach; ?>
+                                                    <tr class="<?= $isToday ? 'table-info' : '' ?>">
+                                                        <td>
+                                                            <?= $formattedDate ?>
+                                                            <?php if ($isToday): ?>
+                                                                <span class="badge bg-primary ms-1">Today</span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                        <td><?= $dayName ?></td>
+                                                        <td>
+                                                            <?php if ($record['morning']): ?>
+                                                                <span class="badge bg-<?= strtolower($record['morning']) == 'present' ? 'success' : (strtolower($record['morning']) == 'absent' ? 'danger' : 'warning') ?>">
+                                                                    <?= $record['morning'] ?>
+                                                                </span>
+                                                            <?php else: ?>
+                                                                <span class="badge bg-secondary">No record</span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                        <td>
+                                                            <?php if ($record['afternoon']): ?>
+                                                                <span class="badge bg-<?= strtolower($record['afternoon']) == 'present' ? 'success' : (strtolower($record['afternoon']) == 'absent' ? 'danger' : 'warning') ?>">
+                                                                    <?= $record['afternoon'] ?>
+                                                                </span>
+                                                            <?php else: ?>
+                                                                <span class="badge bg-secondary">No record</span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                        <td>
+                                                            <?php if ($record['summary']):
+                                                                $summaryClass = match (strtolower($record['summary'])) {
+                                                                    'present' => 'success',
+                                                                    'absent' => 'danger',
+                                                                    'late' => 'warning',
+                                                                    'half-day' => 'info',
+                                                                    'half-day-late' => 'warning',
+                                                                    default => 'secondary'
+                                                                };
+                                                            ?>
+                                                                <span class="badge bg-<?= $summaryClass ?>">
+                                                                    <?= ucfirst(str_replace('-', ' ', $record['summary'])) ?>
+                                                                </span>
+                                                            <?php else: ?>
+                                                                <span class="badge bg-secondary">No summary</span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                        <td>
+                                                            <?php if ($record['recorded_at']): ?>
+                                                                <small class="text-muted">
+                                                                    <?= date('h:i A', strtotime($record['recorded_at'])) ?>
+                                                                </small>
+                                                            <?php else: ?>
+                                                                <small class="text-muted">N/A</small>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
                                             <?php else: ?>
-                                            <tr>
-                                                <td colspan="6" class="text-center py-4">
-                                                    <i class="fas fa-calendar-times fa-2x text-muted mb-3"></i>
-                                                    <h6 class="text-muted">No attendance records found</h6>
-                                                </td>
-                                            </tr>
+                                                <tr>
+                                                    <td colspan="6" class="text-center py-4">
+                                                        <i class="fas fa-calendar-times fa-2x text-muted mb-3"></i>
+                                                        <h6 class="text-muted">No attendance records found</h6>
+                                                    </td>
+                                                </tr>
                                             <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
-                            
+
                             <!-- Legend -->
                             <div class="attendance-legend mt-4 p-3 bg-light rounded">
                                 <h6 class="fw-semibold mb-3">Attendance Legend:</h6>
@@ -840,7 +847,7 @@ $gradesData = [];
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Morning/Afternoon Indicators -->
                                 <div class="mt-3 pt-3 border-top">
                                     <small class="d-block mb-2">Day Indicators:</small>
@@ -879,33 +886,33 @@ $gradesData = [];
                         <div class="card-body p-4">
                             <form id="medical-update" class="row g-3">
                                 <input type="hidden" name="student_id" value="<?= htmlspecialchars($student_info["student_id"] ?? '') ?>">
-                                
+
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">
                                         <i class="fas fa-weight me-1 text-muted"></i> Weight (kg)
                                     </label>
-                                    <input type="number" step="0.1" class="form-control" name="weight" 
-                                           value="<?= htmlspecialchars($student_info["weight"] ?? '') ?>" 
-                                           placeholder="e.g., 45.5">
+                                    <input type="number" step="0.1" class="form-control" name="weight"
+                                        value="<?= htmlspecialchars($student_info["weight"] ?? '') ?>"
+                                        placeholder="e.g., 45.5">
                                 </div>
-                                
+
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">
                                         <i class="fas fa-ruler-vertical me-1 text-muted"></i> Height (m)
                                     </label>
-                                    <input type="number" step="0.01" class="form-control" name="height" 
-                                           value="<?= htmlspecialchars($student_info["height"] ?? '') ?>" 
-                                           placeholder="e.g., 1.65">
+                                    <input type="number" step="0.01" class="form-control" name="height"
+                                        value="<?= htmlspecialchars($student_info["height"] ?? '') ?>"
+                                        placeholder="e.g., 1.65">
                                 </div>
-                                
+
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">
                                         <i class="fas fa-calculator me-1 text-muted"></i> Height² (m²)
                                     </label>
                                     <input type="text" class="form-control" name="height_squared" readonly
-                                           value="<?= htmlspecialchars($student_info["height_squared"] ?? '') ?>">
+                                        value="<?= htmlspecialchars($student_info["height_squared"] ?? '') ?>">
                                 </div>
-                                
+
                                 <!-- BMI Results -->
                                 <div class="col-12 mt-4">
                                     <div class="card border">
@@ -916,16 +923,16 @@ $gradesData = [];
                                             <div class="row g-3">
                                                 <div class="col-md-6">
                                                     <label class="form-label fw-semibold">BMI Result</label>
-                                                    <input type="text" id="bm-result" readonly 
-                                                           class="form-control bg-light">
+                                                    <input type="text" id="bm-result" readonly
+                                                        class="form-control bg-light">
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label fw-semibold">BMI Category</label>
-                                                    <input type="text" id="bm-category" readonly 
-                                                           class="form-control bg-light">
+                                                    <input type="text" id="bm-category" readonly
+                                                        class="form-control bg-light">
                                                 </div>
                                             </div>
-                                            
+
                                             <!-- BMI Chart -->
                                             <div class="mt-4">
                                                 <div class="bmi-chart d-flex align-items-center mt-3">
@@ -942,7 +949,7 @@ $gradesData = [];
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="col-12 mt-4 pt-3 border-top">
                                     <div class="d-flex justify-content-end gap-2">
                                         <button type="submit" class="btn btn-primary px-4">
@@ -960,748 +967,788 @@ $gradesData = [];
     </div>
 </div>
 <style>
-/* Main Container */
-.student-profile-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 15px;
-}
-
-/* Header */
-.profile-header {
-    border-bottom: 2px solid #f1f3f5;
-    padding-bottom: 1rem;
-}
-
-.breadcrumb-nav {
-    --bs-breadcrumb-divider: '›';
-}
-
-/* Avatar */
-.profile-avatar-container {
-    position: relative;
-}
-
-.profile-avatar {
-    position: relative;
-}
-
-/* Stats Cards */
-.profile-stats .stat-card,
-.quick-stats .stat-card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    height: 100%;
-    border: 1px solid rgba(0,0,0,0.05);
-}
-
-.profile-stats .stat-card:hover,
-.quick-stats .stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
-}
-
-/* Custom Tab Navigation */
-.nav-tabs-custom {
-    gap: 5px;
-    overflow-x: auto;
-    padding-bottom: 5px;
-}
-
-.nav-link-tab {
-    background: none;
-    border: none;
-    padding: 12px 20px;
-    color: #6c757d;
-    font-weight: 500;
-    border-radius: 8px;
-    transition: all 0.3s ease;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    position: relative;
-}
-
-.nav-link-tab:hover {
-    background-color: #f8f9fa;
-    color: #0d6efd;
-}
-
-.nav-link-tab.active {
-    background-color: #e7f1ff;
-    color: #0d6efd;
-    font-weight: 600;
-}
-
-.nav-link-tab.active::after {
-    content: '';
-    position: absolute;
-    bottom: -8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80%;
-    height: 3px;
-    background-color: #0d6efd;
-    border-radius: 3px;
-}
-
-/* Tab Content */
-.tab-content {
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Form Styling */
-.form-label {
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-    color: #495057;
-}
-
-.input-group .input-group-text {
-    border-left: 0;
-    background-color: #f8f9fa;
-}
-
-.form-control, .form-select {
-    border: 2px solid #e9ecef;
-    transition: all 0.3s ease;
-    background-color: #fff;
-}
-
-.form-control:focus, .form-select:focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
-    background-color: #fff;
-}
-
-.form-control:read-only {
-    background-color: #f8f9fa;
-    cursor: not-allowed;
-}
-
-.bg-light {
-    background-color: #f8f9fa !important;
-}
-
-/* Card Styling */
-.card {
-    border: none;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    transition: box-shadow 0.3s ease;
-}
-
-.card:hover {
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-    background-color: rgba(255, 255, 255, 0.95);
-    border-bottom: 1px solid rgba(0,0,0,0.1);
-}
-
-/* Attendance Calendar Styles */
-.calendar-grid {
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    overflow: hidden;
-    background: white;
-}
-
-.days-header {
-    border-bottom: 2px solid #dee2e6;
-    padding-bottom: 8px;
-    background: #f8f9fa;
-    border-radius: 8px 8px 0 0;
-}
-
-.day-header {
-    font-weight: 600;
-    color: #495057;
-    font-size: 0.85rem;
-    padding: 10px 5px;
-    text-transform: uppercase;
-}
-
-.day-cell {
-    height: 70px;
-    border-right: 1px solid #dee2e6;
-    border-bottom: 1px solid #dee2e6;
-    padding: 8px 5px;
-    position: relative;
-    transition: all 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-.day-cell:nth-child(7n) {
-    border-right: none;
-}
-
-.day-cell.weekend {
-    background-color: #f8f9fa;
-}
-
-.day-cell.today {
-    border: 2px solid #0d6efd !important;
-    background-color: #e7f1ff !important;
-    font-weight: bold;
-}
-
-.day-cell:hover {
-    transform: scale(1.05);
-    z-index: 1;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
-
-/* Attendance Status Colors */
-.day-cell.present {
-    background-color: #d1e7dd;
-    color: #0f5132;
-}
-
-.day-cell.absent {
-    background-color: #f8d7da;
-    color: #842029;
-}
-
-.day-cell.late {
-    background-color: #fff3cd;
-    color: #664d03;
-}
-
-.day-cell.half-day {
-    background-color: #cff4fc;
-    color: #055160;
-}
-
-.day-cell.half-day-late {
-    background-color: #ffe7cc;
-    color: #663c00;
-}
-
-.day-cell.no-record {
-    background-color: #f8f9fa;
-    color: #6c757d;
-}
-
-.day-cell.future {
-    background-color: #ffffff;
-    color: #adb5bd;
-    opacity: 0.7;
-}
-
-.day-cell.empty {
-    background-color: #ffffff;
-    border: none;
-}
-
-.day-cell.unknown {
-    background-color: #e9ecef;
-    color: #6c757d;
-}
-
-/* Day Indicators */
-.day-indicators {
-    display: flex;
-    gap: 3px;
-    margin-top: 3px;
-}
-
-.indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-.indicator.present {
-    background-color: #198754;
-    border: 1px solid #0f5132;
-}
-
-.indicator.absent {
-    background-color: #dc3545;
-    border: 1px solid #842029;
-}
-
-.indicator.late {
-    background-color: #ffc107;
-    border: 1px solid #664d03;
-}
-
-.indicator.no-record {
-    background-color: #6c757d;
-    border: 1px solid #495057;
-}
-
-/* Legend */
-.attendance-legend {
-    background: #f8f9fa;
-    border-radius: 10px;
-    border: 1px solid #dee2e6;
-}
-
-.legend-box {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
-    border: 1px solid rgba(0,0,0,0.1);
-}
-
-.legend-box.present {
-    background: #d1e7dd;
-}
-
-.legend-box.absent {
-    background: #f8d7da;
-}
-
-.legend-box.late {
-    background: #fff3cd;
-}
-
-.legend-box.half-day {
-    background: #cff4fc;
-}
-
-.legend-box.half-day-late {
-    background: #ffe7cc;
-}
-
-.legend-box.no-record {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-}
-
-/* Table Styling for List View */
-#listView table th {
-    font-weight: 600;
-    color: #495057;
-    background-color: #f8f9fa;
-}
-
-#listView table td {
-    vertical-align: middle;
-    padding: 12px 8px;
-}
-
-#listView table tr:hover {
-    background-color: rgba(0,0,0,0.02);
-}
-
-/* Badge Styling */
-.badge {
-    padding: 0.4em 0.8em;
-    font-weight: 500;
-    font-size: 0.85em;
-}
-
-/* BMI Chart */
-.bmi-chart {
-    height: 30px;
-    border-radius: 5px;
-    overflow: hidden;
-    background: linear-gradient(90deg, 
-        #17a2b8 0%, 
-        #17a2b8 18.5%, 
-        #28a745 18.5%, 
-        #28a745 25%, 
-        #ffc107 25%, 
-        #ffc107 30%, 
-        #dc3545 30%, 
-        #dc3545 100%);
-    margin-top: 10px;
-    position: relative;
-}
-
-.bmi-chart::before {
-    content: '';
-    position: absolute;
-    left: 18.5%;
-    width: 0;
-    height: 100%;
-    border-left: 2px dashed white;
-}
-
-.bmi-chart::after {
-    content: '';
-    position: absolute;
-    left: 25%;
-    width: 0;
-    height: 100%;
-    border-left: 2px dashed white;
-}
-
-.bmi-chart span {
-    position: relative;
-    z-index: 2;
-}
-
-/* Month Card Styling */
-.month-card {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    margin-bottom: 30px;
-    border: 1px solid #e9ecef;
-}
-
-.month-card:last-child {
-    margin-bottom: 0;
-}
-
-/* Button Styling */
-.btn-outline-primary {
-    border: 2px solid #0d6efd;
-    color: #0d6efd;
-    font-weight: 500;
-}
-
-.btn-outline-primary:hover {
-    background-color: #0d6efd;
-    color: white;
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, #0d6efd, #0b5ed7);
-    border: none;
-    padding: 10px 30px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(135deg, #0b5ed7, #0a58ca);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);
-}
-
-/* Animation for form submission */
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-}
-
-.btn-primary:active {
-    animation: pulse 0.3s ease;
-}
-
-/* Loading Spinner */
-.fa-spinner {
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Scrollbar Styling */
-.scroll-visible::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-.scroll-visible::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
-}
-
-.scroll-visible::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 10px;
-}
-
-.scroll-visible::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .nav-tabs-custom {
-        flex-wrap: nowrap;
-        overflow-x: auto;
+    /* Main Container */
+    .student-profile-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 0 15px;
     }
-    
-    .nav-link-tab {
-        padding: 10px 15px;
-        font-size: 0.9rem;
-        min-width: max-content;
+
+    /* Header */
+    .profile-header {
+        border-bottom: 2px solid #f1f3f5;
+        padding-bottom: 1rem;
     }
-    
-    .day-cell {
-        height: 50px;
-        font-size: 0.8rem;
-        padding: 5px 3px;
+
+    .breadcrumb-nav {
+        --bs-breadcrumb-divider: '›';
     }
-    
-    .day-indicators {
-        gap: 2px;
-    }
-    
-    .indicator {
-        width: 6px;
-        height: 6px;
-    }
-    
+
+    /* Avatar */
     .profile-avatar-container {
-        width: 150px;
-        height: 150px;
+        position: relative;
     }
-    
+
+    .profile-avatar {
+        position: relative;
+    }
+
+    /* Stats Cards */
+    .profile-stats .stat-card,
+    .quick-stats .stat-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .profile-stats .stat-card:hover,
+    .quick-stats .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* Custom Tab Navigation */
+    .nav-tabs-custom {
+        gap: 5px;
+        overflow-x: auto;
+        padding-bottom: 5px;
+    }
+
+    .nav-link-tab {
+        background: none;
+        border: none;
+        padding: 12px 20px;
+        color: #6c757d;
+        font-weight: 500;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        position: relative;
+    }
+
+    .nav-link-tab:hover {
+        background-color: #f8f9fa;
+        color: #0d6efd;
+    }
+
+    .nav-link-tab.active {
+        background-color: #e7f1ff;
+        color: #0d6efd;
+        font-weight: 600;
+    }
+
+    .nav-link-tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80%;
+        height: 3px;
+        background-color: #0d6efd;
+        border-radius: 3px;
+    }
+
+    /* Tab Content */
+    .tab-content {
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Form Styling */
+    .form-label {
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        color: #495057;
+    }
+
+    .input-group .input-group-text {
+        border-left: 0;
+        background-color: #f8f9fa;
+    }
+
+    .form-control,
+    .form-select {
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+        background-color: #fff;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+        background-color: #fff;
+    }
+
+    .form-control:read-only {
+        background-color: #f8f9fa;
+        cursor: not-allowed;
+    }
+
+    .bg-light {
+        background-color: #f8f9fa !important;
+    }
+
+    /* Card Styling */
+    .card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transition: box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header {
+        background-color: rgba(255, 255, 255, 0.95);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    /* Attendance Calendar Styles */
+    .calendar-grid {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+        background: white;
+    }
+
+    .days-header {
+        border-bottom: 2px solid #dee2e6;
+        padding-bottom: 8px;
+        background: #f8f9fa;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .day-header {
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.85rem;
+        padding: 10px 5px;
+        text-transform: uppercase;
+    }
+
+    .day-cell {
+        height: 70px;
+        border-right: 1px solid #dee2e6;
+        border-bottom: 1px solid #dee2e6;
+        padding: 8px 5px;
+        position: relative;
+        transition: all 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .day-cell:nth-child(7n) {
+        border-right: none;
+    }
+
+    .day-cell.weekend {
+        background-color: #f8f9fa;
+    }
+
+    .day-cell.today {
+        border: 2px solid #0d6efd !important;
+        background-color: #e7f1ff !important;
+        font-weight: bold;
+    }
+
+    .day-cell:hover {
+        transform: scale(1.05);
+        z-index: 1;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Attendance Status Colors */
+    .day-cell.present {
+        background-color: #d1e7dd;
+        color: #0f5132;
+    }
+
+    .day-cell.absent {
+        background-color: #f8d7da;
+        color: #842029;
+    }
+
+    .day-cell.late {
+        background-color: #fff3cd;
+        color: #664d03;
+    }
+
+    .day-cell.half-day {
+        background-color: #cff4fc;
+        color: #055160;
+    }
+
+    .day-cell.half-day-late {
+        background-color: #ffe7cc;
+        color: #663c00;
+    }
+
+    .day-cell.no-record {
+        background-color: #f8f9fa;
+        color: #6c757d;
+    }
+
+    .day-cell.future {
+        background-color: #ffffff;
+        color: #adb5bd;
+        opacity: 0.7;
+    }
+
+    .day-cell.empty {
+        background-color: #ffffff;
+        border: none;
+    }
+
+    .day-cell.unknown {
+        background-color: #e9ecef;
+        color: #6c757d;
+    }
+
+    /* Day Indicators */
+    .day-indicators {
+        display: flex;
+        gap: 3px;
+        margin-top: 3px;
+    }
+
+    .indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .indicator.present {
+        background-color: #198754;
+        border: 1px solid #0f5132;
+    }
+
+    .indicator.absent {
+        background-color: #dc3545;
+        border: 1px solid #842029;
+    }
+
+    .indicator.late {
+        background-color: #ffc107;
+        border: 1px solid #664d03;
+    }
+
+    .indicator.no-record {
+        background-color: #6c757d;
+        border: 1px solid #495057;
+    }
+
+    /* Legend */
+    .attendance-legend {
+        background: #f8f9fa;
+        border-radius: 10px;
+        border: 1px solid #dee2e6;
+    }
+
+    .legend-box {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .legend-box.present {
+        background: #d1e7dd;
+    }
+
+    .legend-box.absent {
+        background: #f8d7da;
+    }
+
+    .legend-box.late {
+        background: #fff3cd;
+    }
+
+    .legend-box.half-day {
+        background: #cff4fc;
+    }
+
+    .legend-box.half-day-late {
+        background: #ffe7cc;
+    }
+
+    .legend-box.no-record {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+    }
+
+    /* Table Styling for List View */
+    #listView table th {
+        font-weight: 600;
+        color: #495057;
+        background-color: #f8f9fa;
+    }
+
+    #listView table td {
+        vertical-align: middle;
+        padding: 12px 8px;
+    }
+
+    #listView table tr:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    /* Badge Styling */
+    .badge {
+        padding: 0.4em 0.8em;
+        font-weight: 500;
+        font-size: 0.85em;
+    }
+
+    /* BMI Chart */
+    .bmi-chart {
+        height: 30px;
+        border-radius: 5px;
+        overflow: hidden;
+        background: linear-gradient(90deg,
+                #17a2b8 0%,
+                #17a2b8 18.5%,
+                #28a745 18.5%,
+                #28a745 25%,
+                #ffc107 25%,
+                #ffc107 30%,
+                #dc3545 30%,
+                #dc3545 100%);
+        margin-top: 10px;
+        position: relative;
+    }
+
+    .bmi-chart::before {
+        content: '';
+        position: absolute;
+        left: 18.5%;
+        width: 0;
+        height: 100%;
+        border-left: 2px dashed white;
+    }
+
+    .bmi-chart::after {
+        content: '';
+        position: absolute;
+        left: 25%;
+        width: 0;
+        height: 100%;
+        border-left: 2px dashed white;
+    }
+
+    .bmi-chart span {
+        position: relative;
+        z-index: 2;
+    }
+
+    /* Month Card Styling */
     .month-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        margin-bottom: 30px;
+        border: 1px solid #e9ecef;
+    }
+
+    .month-card:last-child {
+        margin-bottom: 0;
+    }
+
+    /* Button Styling */
+    .btn-outline-primary {
+        border: 2px solid #0d6efd;
+        color: #0d6efd;
+        font-weight: 500;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: #0d6efd;
+        color: white;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+        border: none;
+        padding: 10px 30px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #0b5ed7, #0a58ca);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);
+    }
+
+    /* Animation for form submission */
+    @keyframes pulse {
+        0% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.05);
+        }
+
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    .btn-primary:active {
+        animation: pulse 0.3s ease;
+    }
+
+    /* Loading Spinner */
+    .fa-spinner {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Scrollbar Styling */
+    .scroll-visible::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .scroll-visible::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .scroll-visible::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 10px;
+    }
+
+    .scroll-visible::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .nav-tabs-custom {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+        }
+
+        .nav-link-tab {
+            padding: 10px 15px;
+            font-size: 0.9rem;
+            min-width: max-content;
+        }
+
+        .day-cell {
+            height: 50px;
+            font-size: 0.8rem;
+            padding: 5px 3px;
+        }
+
+        .day-indicators {
+            gap: 2px;
+        }
+
+        .indicator {
+            width: 6px;
+            height: 6px;
+        }
+
+        .profile-avatar-container {
+            width: 150px;
+            height: 150px;
+        }
+
+        .month-card {
+            padding: 15px;
+        }
+
+        .btn-primary {
+            padding: 8px 20px;
+            font-size: 0.9rem;
+        }
+    }
+
+    /* Tooltip */
+    .tooltip {
+        font-size: 0.875rem;
+    }
+
+    /* Form Section Headers */
+    h6.fw-semibold.border-bottom {
+        color: #495057;
+        font-weight: 600 !important;
+    }
+
+    /* Input Group Focus States */
+    .input-group:focus-within .input-group-text {
+        border-color: #0d6efd;
+        background-color: #e7f1ff;
+    }
+
+    /* Custom checkbox and radio */
+    .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+    /* Alert Styling */
+    .alert {
+        border: none;
+        border-radius: 8px;
         padding: 15px;
     }
-    
-    .btn-primary {
-        padding: 8px 20px;
-        font-size: 0.9rem;
+
+    /* Status Badges */
+    .badge.bg-success {
+        background-color: #198754 !important;
     }
-}
 
-/* Tooltip */
-.tooltip {
-    font-size: 0.875rem;
-}
+    .badge.bg-danger {
+        background-color: #dc3545 !important;
+    }
 
-/* Form Section Headers */
-h6.fw-semibold.border-bottom {
-    color: #495057;
-    font-weight: 600 !important;
-}
+    .badge.bg-warning {
+        background-color: #ffc107 !important;
+        color: #000 !important;
+    }
 
-/* Input Group Focus States */
-.input-group:focus-within .input-group-text {
-    border-color: #0d6efd;
-    background-color: #e7f1ff;
-}
+    .badge.bg-info {
+        background-color: #0dcaf0 !important;
+    }
 
-/* Custom checkbox and radio */
-.form-check-input:checked {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
-}
+    .badge.bg-primary {
+        background-color: #0d6efd !important;
+    }
 
-/* Alert Styling */
-.alert {
-    border: none;
-    border-radius: 8px;
-    padding: 15px;
-}
-
-/* Status Badges */
-.badge.bg-success { background-color: #198754 !important; }
-.badge.bg-danger { background-color: #dc3545 !important; }
-.badge.bg-warning { background-color: #ffc107 !important; color: #000 !important; }
-.badge.bg-info { background-color: #0dcaf0 !important; }
-.badge.bg-primary { background-color: #0d6efd !important; }
-.badge.bg-secondary { background-color: #6c757d !important; }
+    .badge.bg-secondary {
+        background-color: #6c757d !important;
+    }
 </style>
 <script>
-// Calculate age on birthdate change
-document.addEventListener('DOMContentLoaded', function() {
-    const birthdateInput = document.querySelector('input[name="birthdate"]');
-    const ageInput = document.getElementById('calculatedAge');
-    
-    function calculateAge() {
-        if (!birthdateInput.value) {
-            ageInput.value = '';
-            return;
-        }
-        
-        const birthDate = new Date(birthdateInput.value);
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-        
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-        
-        ageInput.value = age;
-    }
-    
-    calculateAge();
-    birthdateInput.addEventListener('change', calculateAge);
-});
+    // Calculate age on birthdate change
+    document.addEventListener('DOMContentLoaded', function() {
+        const birthdateInput = document.querySelector('input[name="birthdate"]');
+        const ageInput = document.getElementById('calculatedAge');
 
-// BMI Calculator
-document.addEventListener('DOMContentLoaded', function() {
-    const weightInput = document.querySelector('input[name="weight"]');
-    const heightInput = document.querySelector('input[name="height"]');
-    const heightSqInput = document.querySelector('input[name="height_squared"]');
-    const bmiResult = document.getElementById('bm-result');
-    const bmiCategory = document.getElementById('bm-category');
-    
-    function calculateBMI() {
-        const weight = parseFloat(weightInput.value);
-        const height = parseFloat(heightInput.value);
-        
-        if (!isNaN(weight) && !isNaN(height) && height > 0) {
-            // Calculate height squared
-            const heightSq = (height * height).toFixed(2);
-            heightSqInput.value = heightSq;
-            
-            // Calculate BMI
-            const bmi = (weight / (height * height)).toFixed(2);
-            bmiResult.value = bmi;
-            
-            // Determine category
-            let category = '';
-            if (bmi < 18.5) {
-                category = 'Underweight';
-            } else if (bmi < 25) {
-                category = 'Normal';
-            } else if (bmi < 30) {
-                category = 'Overweight';
-            } else {
-                category = 'Obese';
+        function calculateAge() {
+            if (!birthdateInput.value) {
+                ageInput.value = '';
+                return;
             }
-            
-            bmiCategory.value = category;
-        } else {
-            heightSqInput.value = '';
-            bmiResult.value = '';
-            bmiCategory.value = '';
+
+            const birthDate = new Date(birthdateInput.value);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+
+            ageInput.value = age;
         }
-    }
-    
-    // Auto-convert height from cm to m if > 3
-    heightInput.addEventListener('blur', function() {
-        let value = parseFloat(this.value);
-        if (!isNaN(value) && value > 3) {
-            this.value = (value / 100).toFixed(2);
+
+        calculateAge();
+        birthdateInput.addEventListener('change', calculateAge);
+    });
+
+    // BMI Calculator
+    document.addEventListener('DOMContentLoaded', function() {
+        const weightInput = document.querySelector('input[name="weight"]');
+        const heightInput = document.querySelector('input[name="height"]');
+        const heightSqInput = document.querySelector('input[name="height_squared"]');
+        const bmiResult = document.getElementById('bm-result');
+        const bmiCategory = document.getElementById('bm-category');
+
+        function calculateBMI() {
+            const weight = parseFloat(weightInput.value);
+            const height = parseFloat(heightInput.value);
+
+            if (!isNaN(weight) && !isNaN(height) && height > 0) {
+                // Calculate height squared
+                const heightSq = (height * height).toFixed(2);
+                heightSqInput.value = heightSq;
+
+                // Calculate BMI
+                const bmi = (weight / (height * height)).toFixed(2);
+                bmiResult.value = bmi;
+
+                // Determine category
+                let category = '';
+                if (bmi < 18.5) {
+                    category = 'Underweight';
+                } else if (bmi < 25) {
+                    category = 'Normal';
+                } else if (bmi < 30) {
+                    category = 'Overweight';
+                } else {
+                    category = 'Obese';
+                }
+
+                bmiCategory.value = category;
+            } else {
+                heightSqInput.value = '';
+                bmiResult.value = '';
+                bmiCategory.value = '';
+            }
+        }
+
+        // Auto-convert height from cm to m if > 3
+        heightInput.addEventListener('blur', function() {
+            let value = parseFloat(this.value);
+            if (!isNaN(value) && value > 3) {
+                this.value = (value / 100).toFixed(2);
+                calculateBMI();
+            }
+        });
+
+        weightInput.addEventListener('input', calculateBMI);
+        heightInput.addEventListener('input', calculateBMI);
+
+        // Initialize BMI calculation if values exist
+        if (weightInput.value || heightInput.value) {
             calculateBMI();
         }
     });
-    
-    weightInput.addEventListener('input', calculateBMI);
-    heightInput.addEventListener('input', calculateBMI);
-    
-    // Initialize BMI calculation if values exist
-    if (weightInput.value || heightInput.value) {
-        calculateBMI();
-    }
-});
 
-// Form Submissions with AJAX
-document.addEventListener('DOMContentLoaded', function() {
-    // Personal Information Form
-    const personalForm = document.getElementById('displayStudentInfo');
-    if (personalForm) {
-        personalForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            
-            // Show loading state
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
-            submitBtn.disabled = true;
-            
-            // AJAX request
-            fetch('update_student.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 1) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: data.message,
-                        timer: 2000,
-                        showConfirmButton: false
+    // Form Submissions with AJAX
+    document.addEventListener('DOMContentLoaded', function() {
+        // Personal Information Form
+        const personalForm = document.getElementById('displayStudentInfo');
+        if (personalForm) {
+            personalForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const formData = new FormData(this);
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+
+                // Show loading state
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+                submitBtn.disabled = true;
+
+                // AJAX request
+                fetch('update_student.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 1) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Success!',
+                                text: data.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: data.message
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to update. Please try again.'
+                        });
+                    })
+                    .finally(() => {
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
                     });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: data.message
-                    });
-                }
-            })
-            .catch(error => {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Failed to update. Please try again.'
-                });
-            })
-            .finally(() => {
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
             });
-        });
-    }
-    
-    // Medical Form
-    const medicalForm = document.getElementById('medical-update');
-    if (medicalForm) {
-        medicalForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
-            submitBtn.disabled = true;
-            
-            fetch('update_medical.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 1) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: data.message,
-                        timer: 2000,
-                        showConfirmButton: false
+        }
+
+        // Medical Form
+        const medicalForm = document.getElementById('medical-update');
+        if (medicalForm) {
+            medicalForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const formData = new FormData(this);
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+                submitBtn.disabled = true;
+
+                fetch('update_medical.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 1) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Success!',
+                                text: data.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: data.message
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to update medical info.'
+                        });
+                    })
+                    .finally(() => {
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
                     });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: data.message
-                    });
-                }
-            })
-            .catch(error => {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Failed to update medical info.'
-                });
-            })
-            .finally(() => {
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
             });
-        });
-    }
-    
-    // Initialize Bootstrap tabs
-    const triggerTabList = [].slice.call(document.querySelectorAll('.nav-link-tab'));
-    triggerTabList.forEach(function (triggerEl) {
-        const tabTrigger = new bootstrap.Tab(triggerEl);
-        triggerEl.addEventListener('click', function (event) {
-            event.preventDefault();
-            tabTrigger.show();
+        }
+
+        // Initialize Bootstrap tabs
+        const triggerTabList = [].slice.call(document.querySelectorAll('.nav-link-tab'));
+        triggerTabList.forEach(function(triggerEl) {
+            const tabTrigger = new bootstrap.Tab(triggerEl);
+            triggerEl.addEventListener('click', function(event) {
+                event.preventDefault();
+                tabTrigger.show();
+            });
         });
     });
-});
 </script>

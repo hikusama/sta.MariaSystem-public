@@ -1,4 +1,11 @@
 <?php
+require_once __DIR__ . '/../../../tupperware.php';
+$result = checkURI('admin', 2);
+
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
     $stmt = $pdo->prepare("SELECT * FROM school_year ORDER BY created_date DESC");
     $stmt->execute();
     $school_year = $stmt->fetchAll(PDO::FETCH_ASSOC);
