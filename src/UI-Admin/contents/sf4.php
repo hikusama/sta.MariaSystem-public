@@ -139,9 +139,17 @@ $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
         </div>
         <input type="hidden" name="id" value="<?= htmlspecialchars($data_sf_four["sf_add_data_id"] ?? '') ?>">
 
-        <div class="form-title text-center w-100">
-            <h2>School Form 4 (SF4) Monthly Learner's Movement and Attendance</h2>
-            <p class="text-muted">(this replaces Form 3 & STS Form 4-Absenteeism and Dropout Profile)</p>
+        <div class="form-title text-center w-100" style="display:flex; align-items:center; justify-content:space-between;">
+            <div style="flex:1; text-align:left;">
+                <img id="school_logo" src="../../assets/image/logo.png" alt="School Logo" style="height:120px; object-fit:contain;">
+            </div>
+            <div style="flex:2; text-align:center;">
+                <h2 style="margin:0;">School Form 4 (SF4) Monthly Learner's Movement and Attendance</h2>
+                <p class="text-muted" style="margin:5px 0 0 0;">(this replaces Form 3 & STS Form 4-Absenteeism and Dropout Profile)</p>
+            </div>
+            <div style="flex:1; text-align:right;">
+                <img id="deped_logo" src="../../assets/image/deped.png" alt="DepEd Logo" style="height:120px; object-fit:contain;">
+            </div>
         </div>
 
         <div class="form-section">
@@ -916,6 +924,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Open print window
         const printWindow = window.open('', '_blank', 'width=1000,height=600');
 
+        // Get logo sources from the page (use absolute URLs)
+        const logoLeftEl = document.getElementById('school_logo');
+        const logoRightEl = document.getElementById('deped_logo');
+        const logoLeftSrc = logoLeftEl ? new URL(logoLeftEl.src, window.location.href).href : '';
+        const logoRightSrc = logoRightEl ? new URL(logoRightEl.src, window.location.href).href : '';
+
         printWindow.document.write(`
             <!DOCTYPE html>
             <html>
@@ -930,20 +944,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     .print-container {
                         width: 100%;
                     }
-                    .form-title {
+                    .report-header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        margin-bottom: 6px;
+                    }
+                    .report-header img { height: 120px; object-fit: contain; }
+                    .form-subtitle {
                         text-align: center;
-                        border-bottom: 2px solid #0d6efd;
-                        padding-bottom: 10px;
-                        margin-bottom: 20px;
-                    }
-                    .form-title h2 {
-                        margin: 0;
-                        font-size: 18px;
-                    }
-                    .form-title p {
-                        margin: 5px 0 0 0;
-                        font-size: 12px;
-                        color: #666;
+                        margin-bottom: 10px;
                     }
                     .school-info {
                         margin-bottom: 20px;
@@ -1009,6 +1019,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 </style>
             </head>
             <body>
+                <div class="report-header">
+                    <div style="flex:1; text-align:left;"><img src="${logoLeftSrc}" alt="School Logo"></div>
+                    <div style="flex:2; text-align:center;">
+                        <h1 style="margin:0; font-size:18px;">DEPARTMENT OF EDUCATION</h1>
+                        <h2 style="margin:4px 0 0 0; font-size:16px;">School Form 4 (SF4) Monthly Learner's Movement and Attendance</h2>
+                    </div>
+                    <div style="flex:1; text-align:right;"><img src="${logoRightSrc}" alt="DepEd Logo"></div>
+                </div>
                 ${printContent}
                 <script>
                     window.onload = function() {
