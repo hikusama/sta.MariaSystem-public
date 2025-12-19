@@ -914,14 +914,28 @@ $gradesData = [];
                                                 <i class="fas fa-chart-line me-2 text-primary"></i>BMI Calculation
                                             </h6>
                                             <div class="row g-3">
-                                                <div class="col-md-6">
+                                                <div class="col-md-4">
                                                     <label class="form-label fw-semibold">BMI Result</label>
-                                                    <input type="text" id="bm-result" readonly 
+                                                    <input type="text" id="bm-result" name="bmi" readonly 
+                                                           value="<?= htmlspecialchars($student_info['bmi'] ?? '') ?>"
                                                            class="form-control bg-light">
                                                 </div>
-                                                <div class="col-md-6">
+                                                <div class="col-md-4">
                                                     <label class="form-label fw-semibold">BMI Category</label>
-                                                    <input type="text" id="bm-category" readonly 
+                                                    <input type="text" id="bm-category" name="bmi_category" readonly 
+                                                           value="<?= htmlspecialchars($student_info['bmi_category'] ?? '') ?>"
+                                                           class="form-control bg-light">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label fw-semibold">Height for Age (HFA)</label>
+                                                    <input type="text" id="hfa-result" name="hfa" readonly 
+                                                           value="<?= htmlspecialchars($student_info['hfa'] ?? '') ?>"
+                                                           class="form-control bg-light">
+                                                </div>
+                                                <div class="col-12 mt-3">
+                                                    <label class="form-label fw-semibold">Medical Remarks</label>
+                                                    <input type="text" id="medical-remarks" name="medical_remarks" readonly 
+                                                           value="<?= htmlspecialchars($student_info['medical_remarks'] ?? '') ?>"
                                                            class="form-control bg-light">
                                                 </div>
                                             </div>
@@ -1544,33 +1558,55 @@ document.addEventListener('DOMContentLoaded', function() {
     function calculateBMI() {
         const weight = parseFloat(weightInput.value);
         const height = parseFloat(heightInput.value);
-        
+        const age = parseInt(document.getElementById('calculatedAge')?.value) || null;
+        const hfaResult = document.getElementById('hfa-result');
+        const medicalRemarks = document.getElementById('medical-remarks');
+
         if (!isNaN(weight) && !isNaN(height) && height > 0) {
             // Calculate height squared
             const heightSq = (height * height).toFixed(2);
             heightSqInput.value = heightSq;
             
             // Calculate BMI
-            const bmi = (weight / (height * height)).toFixed(2);
-            bmiResult.value = bmi;
+            const bmi = (weight / (height * height));
+            const bmiRounded = isFinite(bmi) ? bmi.toFixed(2) : '';
+            bmiResult.value = bmiRounded;
             
-            // Determine category
+            // Determine category (basic adult thresholds, refined for children below if age available)
             let category = '';
-            if (bmi < 18.5) {
-                category = 'Underweight';
-            } else if (bmi < 25) {
-                category = 'Normal';
-            } else if (bmi < 30) {
-                category = 'Overweight';
+            if (age && age >= 2 && age < 19) {
+                // Use simplified children/adolescent ranges similar to SF8 logic
+                if (bmi < 14.5) category = 'Severely Underweight';
+                else if (bmi < 16.5) category = 'Underweight';
+                else if (bmi <= 22.9) category = 'Normal';
+                else if (bmi <= 27.9) category = 'Overweight';
+                else category = 'Obese';
             } else {
-                category = 'Obese';
+                // Adult ranges
+                if (bmi < 16) category = 'Severely Underweight';
+                else if (bmi < 18.5) category = 'Underweight';
+                else if (bmi < 25) category = 'Normal';
+                else if (bmi < 30) category = 'Overweight';
+                else category = 'Obese';
             }
             
             bmiCategory.value = category;
+
+            // Calculate Height for Age (HFA)
+            const hfa = calculateHFA(height, age);
+            hfaResult.value = hfa;
+
+            // Generate remarks from BMI category & HFA
+            const remarks = generateRemarks(category, hfa);
+            medicalRemarks.value = remarks;
+
         } else {
+            // Mark measurements as Not Measured (consistent with SF8 behavior)
             heightSqInput.value = '';
             bmiResult.value = '';
-            bmiCategory.value = '';
+            bmiCategory.value = 'Not Measured';
+            if (hfaResult) hfaResult.value = 'Not Measured';
+            if (medicalRemarks) medicalRemarks.value = 'Not Measured';
         }
     }
     
@@ -1582,6 +1618,71 @@ document.addEventListener('DOMContentLoaded', function() {
             calculateBMI();
         }
     });
+
+    // Height-for-age calculation adapted from SF8
+    function calculateHFA(height, age) {
+        if (!height || !age) return 'N/A';
+
+        const expectedHeightRanges = {
+            5: { min: 1.05, max: 1.15 },
+            6: { min: 1.10, max: 1.22 },
+            7: { min: 1.15, max: 1.28 },
+            8: { min: 1.20, max: 1.34 },
+            9: { min: 1.25, max: 1.39 },
+            10: { min: 1.30, max: 1.44 },
+            11: { min: 1.35, max: 1.49 },
+            12: { min: 1.40, max: 1.55 },
+            13: { min: 1.45, max: 1.60 },
+            14: { min: 1.50, max: 1.65 },
+            15: { min: 1.53, max: 1.68 },
+            16: { min: 1.55, max: 1.70 },
+            17: { min: 1.57, max: 1.72 },
+            18: { min: 1.58, max: 1.73 },
+            19: { min: 1.59, max: 1.74 }
+        };
+
+        if (expectedHeightRanges[age]) {
+            const { min, max } = expectedHeightRanges[age];
+            if (height < min - 0.05) return 'Severely Stunted';
+            if (height < min) return 'Stunted';
+            if (height > max + 0.05) return 'Tall';
+            if (height > max) return 'Above Average';
+            return 'Normal';
+        }
+
+        return 'N/A';
+    }
+
+    // Generate remarks similar to SF8
+    function generateRemarks(bmiCategory, hfa) {
+        const remarks = [];
+
+        if (!bmiCategory || bmiCategory === 'Not Measured') remarks.push('No measurements');
+
+        if (bmiCategory.includes('Severely Underweight')) {
+            remarks.push('Urgent nutritional intervention needed');
+        } else if (bmiCategory === 'Underweight') {
+            remarks.push('Needs nutritional support');
+        } else if (bmiCategory === 'Overweight') {
+            remarks.push('Monitor diet and increase physical activity');
+        } else if (bmiCategory === 'Obese') {
+            remarks.push('Comprehensive weight management program needed');
+        }
+
+        if (hfa && hfa.includes('Severely Stunted')) {
+            remarks.push('Urgent growth monitoring and intervention');
+        } else if (hfa === 'Stunted') {
+            remarks.push('Growth monitoring needed');
+        } else if (hfa === 'Tall' || hfa === 'Above Average') {
+            remarks.push('Monitor growth pattern');
+        }
+
+        if (bmiCategory === 'Normal' && hfa === 'Normal') {
+            remarks.push('Healthy - maintain current lifestyle');
+        }
+
+        return remarks.length > 0 ? remarks.join(', ') : 'No significant concerns';
+    }
     
     weightInput.addEventListener('input', calculateBMI);
     heightInput.addEventListener('input', calculateBMI);
@@ -1665,6 +1766,15 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.status === 1) {
+                    // If server returns computed values, update the UI inputs
+                    if (data.updated) {
+                        if (data.updated.height_squared !== undefined) document.querySelector('input[name="height_squared"]').value = data.updated.height_squared || '';
+                        if (data.updated.bmi !== undefined) document.querySelector('input[name="bmi"]').value = data.updated.bmi || '';
+                        if (data.updated.bmi_category !== undefined) document.querySelector('input[name="bmi_category"]').value = data.updated.bmi_category || '';
+                        if (data.updated.hfa !== undefined) document.querySelector('input[name="hfa"]').value = data.updated.hfa || '';
+                        if (data.updated.medical_remarks !== undefined) document.querySelector('input[name="medical_remarks"]').value = data.updated.medical_remarks || '';
+                    }
+
                     Swal.fire({
                         icon: 'success',
                         title: 'Success!',

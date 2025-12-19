@@ -167,17 +167,20 @@ $studentsEnrolled = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
         $stmt->execute();
         $data_sf_eight = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $stmtAdviser_data = $pdo->prepare("SELECT * FROM users
+        $stmtAdviser_data = $pdo->prepare("SELECT users.*, classes.grade_level, classes.section_name FROM users
         INNER JOIN classes ON users.user_id = classes.adviser_id
-        WHERE classes.adviser_id = '$user_id'");
+        WHERE classes.adviser_id = :user_id");
+        $stmtAdviser_data->bindParam(':user_id', $user_id, PDO::PARAM_INT);
         $stmtAdviser_data->execute();
         $adviser_data = $stmtAdviser_data->fetch(PDO::FETCH_ASSOC);
     ?>
     <form class="main-container" id="sfEight-form">
-        <div class="mt-3 text-start">
-            <button type="submit" class="btn btn-danger">Save Data</button>
-            <button type="button" class="btn btn-secondary" onclick="generateReport()">Generate Report</button>
-        </div>
+    <input type="hidden" name="sf_type" value="sf_8">
+    <div class="mt-3 text-start">
+        <button type="button" class="btn btn-danger" onclick="submitSF8()">Save Data</button>
+        <button type="button" class="btn btn-secondary" onclick="generateReport()">Generate Report</button>
+    </div>
+
         <input type="hidden" name="id" value="<?= htmlspecialchars($data_sf_eight["sf_add_data_id"] ?? '') ?>">
         <div class="col-md-12 d-flex justify-content-between">
             <div class="col-md-3 d-flex align-items-center justify-content-start">
@@ -272,19 +275,20 @@ $studentsEnrolled = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
             </div>
             <div class="responsive-table">
                 <?php
-                    $stmtMedicalRecordsMale = $pdo->prepare("SELECT * FROM student
+                    $stmtMedicalRecords = $pdo->prepare("SELECT * FROM student
                     INNER JOIN enrolment ON student.student_id = enrolment.student_id
                     INNER JOIN users ON enrolment.adviser_id = users.user_id
-                    WHERE users.user_id = '$user_id' AND student.sex = 'MALE'");
-                    $stmtMedicalRecordsMale->execute();
-                    $studentsMale = $stmtMedicalRecordsMale->fetchAll(PDO::FETCH_ASSOC);
+                    WHERE users.user_id = :user_id ORDER BY student.lname, student.fname");
+                    $stmtMedicalRecords->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+                    $stmtMedicalRecords->execute();
+                    $allStudents = $stmtMedicalRecords->fetchAll(PDO::FETCH_ASSOC);
 
-                    $stmtMedicalRecordsFeMale = $pdo->prepare("SELECT * FROM student
-                    INNER JOIN enrolment ON student.student_id = enrolment.student_id
-                    INNER JOIN users ON enrolment.adviser_id = users.user_id
-                    WHERE users.user_id = '$user_id' AND student.sex = 'FEMALE'");
-                    $stmtMedicalRecordsFeMale->execute();
-                    $studentsFemale = $stmtMedicalRecordsFeMale->fetchAll(PDO::FETCH_ASSOC);
+                    $studentsMale = array_filter($allStudents, function($student) {
+                        return strtoupper($student['sex']) === 'MALE';
+                    });
+                    $studentsFemale = array_filter($allStudents, function($student) {
+                        return strtoupper($student['sex']) === 'FEMALE';
+                    });
                     $student_count = 1;
                 ?>
                 <table class="table-bordered table-sm">
@@ -358,8 +362,8 @@ $studentsEnrolled = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
                     <thead>
                         <tr>
                             <th rowspan="3">SEX</th>
-                            <th colspan="6">Nutritional Status</th>
-                            <th colspan="5">Height for Age (HFA)</th>
+                            <th colspan="7">Nutritional Status</th>
+                            <th colspan="6">Height for Age (HFA)</th>
                         </tr>
                         <tr>
                             <th>Severly Wasted</th>
@@ -367,17 +371,21 @@ $studentsEnrolled = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
                             <th>Normal</th>
                             <th>Overweight</th>
                             <th>Obese</th>
+                            <th>Not Measured</th>
                             <th>TOTAL</th>
                             <th>Severly Stunted</th>
                             <th>Stunted</th>
                             <th>Normal</th>
                             <th>Tall</th>
+                            <th>Not Measured</th>
                             <th>Total</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <th>MALE</th>
+                            <th></th>
+                            <th></th>
                             <th></th>
                             <th></th>
                             <th></th>
@@ -425,6 +433,36 @@ $studentsEnrolled = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
     </form>
 </main>
 <script>
+function submitSF8() {
+    const form = document.getElementById('sfEight-form');
+    const formData = new FormData(form);
+    const mainContainer = document.querySelector('.main-container');
+    mainContainer.classList.add('loading');
+
+    // Assuming you have an action file to handle the form submission
+    fetch('../actions/sf_actions.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        mainContainer.classList.remove('loading');
+        if (data.success) {
+            alert('Data saved successfully!');
+            if(data.new_id) {
+                form.querySelector('input[name="id"]').value = data.new_id;
+            }
+        } else {
+            alert('Error saving data: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        mainContainer.classList.remove('loading');
+        console.error('Error:', error);
+        alert('An error occurred while saving the data. Check the console for details.');
+    });
+}
+
 function calculateNutritionalData() {
     const tbody = document.querySelector('tbody');
     const rows = tbody.querySelectorAll('tr');
@@ -437,58 +475,49 @@ function calculateNutritionalData() {
 
         const cells = row.querySelectorAll('th');
 
-        // Get the input values - adjust indices since we're using <th> for all cells
         const birthdate = cells[3].textContent.trim();
         const weight = parseFloat(cells[5].textContent) || 0;
         const height = parseFloat(cells[6].textContent) || 0;
 
-        // Skip calculation if essential data is missing
         if (!birthdate || weight <= 0 || height <= 0) {
-            // Clear calculated fields if data is missing
-            cells[4].textContent = '';
+
+            cells[4].textContent = birthdate ? calculateAge(birthdate) : '';
             cells[7].textContent = '';
             cells[8].textContent = '';
-            cells[9].textContent = '';
-            cells[10].textContent = '';
-            cells[11].textContent = 'Missing data';
+            cells[9].textContent = 'Not Measured';
+            cells[10].textContent = 'Not Measured';
+            cells[11].textContent = 'Not Measured';
             return;
         }
 
-        // Calculate Age
         const age = calculateAge(birthdate);
         cells[4].textContent = age;
 
-        // Calculate Height² (m²)
         const height2 = Math.pow(height, 2);
         cells[7].textContent = height2.toFixed(4);
 
-        // Calculate BMI
         const bmi = weight / height2;
         cells[8].textContent = bmi.toFixed(2);
 
-        // Calculate BMI Category
         const bmiCategory = getBMICategory(bmi, age);
         cells[9].textContent = bmiCategory;
 
-        // Calculate Height for Age (HFA)
         const hfa = calculateHFA(height, age);
         cells[10].textContent = hfa;
 
-        // Generate Remarks
         const remarks = generateRemarks(bmiCategory, hfa);
         cells[11].textContent = remarks;
-
-        // Add visual styling based on BMI category
         applyRowStyling(row, bmiCategory, hfa);
     });
+    // Mark not-measured cells visually and update summary
+    try { markNotMeasuredCells(); } catch (e) { console.error(e); }
+    try { calculateSummaryTable(); } catch (e) { /* summary may be handled elsewhere */ }
 }
 
 function calculateAge(birthdate) {
     try {
-        // Handle different date formats
         let birthDate;
         if (birthdate.includes('/')) {
-            // MM/DD/YY format
             const [month, day, year] = birthdate.split('/');
             const fullYear = year.length === 2 ? `20${year}` : year;
             birthDate = new Date(`${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
@@ -515,23 +544,19 @@ function calculateAge(birthdate) {
 function getBMICategory(bmi, age) {
     if (!bmi || !age) return 'N/A';
 
-    // More accurate BMI categories based on WHO standards for children and adolescents
     if (age >= 2 && age < 5) {
-        // For toddlers (2-5 years)
         if (bmi < 14) return 'Severely Underweight';
         if (bmi < 14.5) return 'Underweight';
         if (bmi <= 16.9) return 'Normal';
         if (bmi <= 17.9) return 'Overweight';
         return 'Obese';
     } else if (age >= 5 && age < 19) {
-        // For children and adolescents (5-18 years) - simplified ranges
         if (bmi < 14.5) return 'Severely Underweight';
         if (bmi < 16.5) return 'Underweight';
         if (bmi <= 22.9) return 'Normal';
         if (bmi <= 27.9) return 'Overweight';
         return 'Obese';
     } else {
-        // For adults (19+ years) - standard WHO categories
         if (bmi < 16) return 'Severely Underweight';
         if (bmi < 18.5) return 'Underweight';
         if (bmi < 25) return 'Normal';
@@ -542,8 +567,6 @@ function getBMICategory(bmi, age) {
 
 function calculateHFA(height, age) {
     if (!height || !age) return 'N/A';
-
-    // More comprehensive height-for-age ranges based on WHO growth standards
     const expectedHeightRanges = {
         5: {
             min: 1.05,
@@ -625,7 +648,6 @@ function calculateHFA(height, age) {
 function generateRemarks(bmiCategory, hfa) {
     const remarks = [];
 
-    // BMI-based remarks
     if (bmiCategory.includes('Severely Underweight')) {
         remarks.push('Urgent nutritional intervention needed');
     } else if (bmiCategory === 'Underweight') {
@@ -636,7 +658,6 @@ function generateRemarks(bmiCategory, hfa) {
         remarks.push('Comprehensive weight management program needed');
     }
 
-    // Height-based remarks
     if (hfa.includes('Severely Stunted')) {
         remarks.push('Urgent growth monitoring and intervention');
     } else if (hfa === 'Stunted') {
@@ -645,7 +666,6 @@ function generateRemarks(bmiCategory, hfa) {
         remarks.push('Monitor growth pattern');
     }
 
-    // Positive remarks
     if (bmiCategory === 'Normal' && hfa === 'Normal') {
         remarks.push('Healthy - maintain current lifestyle');
     }
@@ -654,7 +674,6 @@ function generateRemarks(bmiCategory, hfa) {
 }
 
 function applyRowStyling(row, bmiCategory, hfa) {
-    // Remove existing styling
     row.classList.remove(
         'row-severely-underweight',
         'row-underweight',
@@ -664,7 +683,6 @@ function applyRowStyling(row, bmiCategory, hfa) {
         'row-stunted'
     );
 
-    // Apply BMI-based styling
     if (bmiCategory.includes('Severely Underweight')) {
         row.classList.add('row-severely-underweight');
     } else if (bmiCategory === 'Underweight') {
@@ -677,60 +695,18 @@ function applyRowStyling(row, bmiCategory, hfa) {
         row.classList.add('row-obese');
     }
 
-    // Apply height-based styling
     if (hfa.includes('Stunted')) {
         row.classList.add('row-stunted');
     }
 }
 
-function displaySummaryInUI(summary) {
-    // Create or update summary display in your HTML
-    let summaryElement = document.getElementById('summary-statistics');
-
-    if (!summaryElement) {
-        summaryElement = document.createElement('div');
-        summaryElement.id = 'summary-statistics';
-        summaryElement.className = 'alert alert-info mt-3';
-        document.querySelector('.form-section').appendChild(summaryElement);
-    }
-
-    const normalPercentage = summary.totalStudents > 0 ?
-        ((summary.bmiCategories.Normal / summary.totalStudents) * 100).toFixed(1) : 0;
-
-    summaryElement.innerHTML = `
-        <h5>Summary Statistics</h5>
-        <div class="row">
-            <div class="col-md-3">
-                <strong>Total Students:</strong> ${summary.totalStudents}<br>
-                <strong>Male:</strong> ${summary.maleCount}<br>
-                <strong>Female:</strong> ${summary.femaleCount}
-            </div>
-            <div class="col-md-5">
-                <strong>BMI Categories:</strong><br>
-                Normal: ${summary.bmiCategories.Normal} (${normalPercentage}%)<br>
-                Underweight: ${summary.bmiCategories.Underweight + summary.bmiCategories['Severely Underweight']}<br>
-                Overweight/Obese: ${summary.bmiCategories.Overweight + summary.bmiCategories.Obese}
-            </div>
-            <div class="col-md-4">
-                <strong>Height Status:</strong><br>
-                Normal: ${summary.hfaCategories.Normal}<br>
-                Stunted: ${summary.hfaCategories.Stunted + summary.hfaCategories['Severely Stunted']}<br>
-                Above Average: ${summary.hfaCategories['Above Average'] + summary.hfaCategories.Tall}
-            </div>
-        </div>
-    `;
-}
-
-// Enhanced initialization with error handling
 function initializeCalculation() {
     try {
-        // Add CSS for row styling
         addCalculationStyles();
+        addSummaryTableStyles();
 
-        // Calculate immediately
         calculateNutritionalData();
 
-        // Recalculate every 5 seconds in case data changes (optional)
         setInterval(calculateNutritionalData, 5000);
 
         console.log('Nutritional data calculation initialized');
@@ -755,20 +731,16 @@ function addCalculationStyles() {
     document.head.appendChild(styleSheet);
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeCalculation);
-} else {
-    initializeCalculation();
-}
-</script>
-<script>
-    // Function to calculate and populate summary table
 function calculateSummaryTable() {
-    const tbody = document.querySelector('tbody');
+    const mainTable = document.querySelector('.table-bordered');
+    if (!mainTable) return;
+
+    const tbody = mainTable.querySelector('tbody');
+    if (!tbody) return;
+
     const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.classList.contains('bg-warning'));
     
-    // Initialize counters
+    // Initialize counters including Not Measured
     const summaryData = {
         male: {
             nutritional: {
@@ -777,6 +749,7 @@ function calculateSummaryTable() {
                 normal: 0,
                 overweight: 0,
                 obese: 0,
+                notMeasured: 0,
                 total: 0
             },
             hfa: {
@@ -784,6 +757,7 @@ function calculateSummaryTable() {
                 stunted: 0,
                 normal: 0,
                 tall: 0,
+                notMeasured: 0,
                 total: 0
             }
         },
@@ -794,6 +768,7 @@ function calculateSummaryTable() {
                 normal: 0,
                 overweight: 0,
                 obese: 0,
+                notMeasured: 0,
                 total: 0
             },
             hfa: {
@@ -801,30 +776,27 @@ function calculateSummaryTable() {
                 stunted: 0,
                 normal: 0,
                 tall: 0,
+                notMeasured: 0,
                 total: 0
             }
         }
     };
     
-    let currentGender = 'male';
-    
-    // Count each student's data
+    let isFemaleSection = false;
     rows.forEach(row => {
-        // Check if we've moved to female section
-        if (row.previousElementSibling && row.previousElementSibling.textContent.includes('FEMALE')) {
-            currentGender = 'female';
-        }
-        
-        const cells = row.querySelectorAll('th');
-        const bmiCategory = cells[9]?.textContent.trim();
-        const hfa = cells[10]?.textContent.trim();
-        
-        // Skip if data is not calculated
-        if (!bmiCategory || bmiCategory === 'N/A' || !hfa || hfa === 'N/A') {
+        if (row.classList.contains('bg-warning')) {
+            if (row.textContent.includes('FEMALE')) isFemaleSection = true;
             return;
         }
+        const currentGender = isFemaleSection ? 'female' : 'male';
+        const cells = row.querySelectorAll('th');
+        let bmiCategory = cells[9]?.textContent.trim();
+        let hfa = cells[10]?.textContent.trim();
         
-        // Count nutritional status
+        // Treat missing or N/A as Not Measured so they are included in totals
+        if (!bmiCategory || bmiCategory === 'N/A' || bmiCategory === 'Missing data') bmiCategory = 'Not Measured';
+        if (!hfa || hfa === 'N/A' || hfa === 'Missing data') hfa = 'Not Measured';
+        
         switch(bmiCategory) {
             case 'Severely Underweight':
                 summaryData[currentGender].nutritional.severelyWasted++;
@@ -841,9 +813,13 @@ function calculateSummaryTable() {
             case 'Obese':
                 summaryData[currentGender].nutritional.obese++;
                 break;
+            case 'Not Measured':
+                summaryData[currentGender].nutritional.notMeasured++;
+                break;
+            default:
+                summaryData[currentGender].nutritional.notMeasured++;
         }
         
-        // Count height for age
         switch(hfa) {
             case 'Severely Stunted':
                 summaryData[currentGender].hfa.severelyStunted++;
@@ -858,14 +834,17 @@ function calculateSummaryTable() {
             case 'Above Average':
                 summaryData[currentGender].hfa.tall++;
                 break;
+            case 'Not Measured':
+                summaryData[currentGender].hfa.notMeasured++;
+                break;
+            default:
+                summaryData[currentGender].hfa.notMeasured++;
         }
         
-        // Increment totals
         summaryData[currentGender].nutritional.total++;
         summaryData[currentGender].hfa.total++;
     });
     
-    // Calculate totals
     const total = {
         nutritional: {
             severelyWasted: summaryData.male.nutritional.severelyWasted + summaryData.female.nutritional.severelyWasted,
@@ -873,6 +852,7 @@ function calculateSummaryTable() {
             normal: summaryData.male.nutritional.normal + summaryData.female.nutritional.normal,
             overweight: summaryData.male.nutritional.overweight + summaryData.female.nutritional.overweight,
             obese: summaryData.male.nutritional.obese + summaryData.female.nutritional.obese,
+            notMeasured: summaryData.male.nutritional.notMeasured + summaryData.female.nutritional.notMeasured,
             total: summaryData.male.nutritional.total + summaryData.female.nutritional.total
         },
         hfa: {
@@ -880,83 +860,80 @@ function calculateSummaryTable() {
             stunted: summaryData.male.hfa.stunted + summaryData.female.hfa.stunted,
             normal: summaryData.male.hfa.normal + summaryData.female.hfa.normal,
             tall: summaryData.male.hfa.tall + summaryData.female.hfa.tall,
+            notMeasured: summaryData.male.hfa.notMeasured + summaryData.female.hfa.notMeasured,
             total: summaryData.male.hfa.total + summaryData.female.hfa.total
         }
     };
     
-    // Populate summary table
     populateSummaryTable(summaryData, total);
-    
-    return summaryData;
 }
 
-// Function to populate the summary table with calculated data
 function populateSummaryTable(summaryData, total) {
-    const summaryTbody = document.querySelector('.responsive-table:last-child tbody');
+    const summaryTable = document.querySelectorAll('.table-bordered')[1];
+    if (!summaryTable) return;
+    const summaryTbody = summaryTable.querySelector('tbody');
     const rows = summaryTbody.querySelectorAll('tr');
-    
-    // Male row
     const maleCells = rows[0].querySelectorAll('th');
     maleCells[1].textContent = summaryData.male.nutritional.severelyWasted;
     maleCells[2].textContent = summaryData.male.nutritional.wasted;
     maleCells[3].textContent = summaryData.male.nutritional.normal;
     maleCells[4].textContent = summaryData.male.nutritional.overweight;
     maleCells[5].textContent = summaryData.male.nutritional.obese;
-    maleCells[6].textContent = summaryData.male.nutritional.total;
-    maleCells[7].textContent = summaryData.male.hfa.severelyStunted;
-    maleCells[8].textContent = summaryData.male.hfa.stunted;
-    maleCells[9].textContent = summaryData.male.hfa.normal;
-    maleCells[10].textContent = summaryData.male.hfa.tall;
-    maleCells[11].textContent = summaryData.male.hfa.total;
+    maleCells[6].textContent = summaryData.male.nutritional.notMeasured;
+    maleCells[7].textContent = summaryData.male.nutritional.total;
+    maleCells[8].textContent = summaryData.male.hfa.severelyStunted;
+    maleCells[9].textContent = summaryData.male.hfa.stunted;
+    maleCells[10].textContent = summaryData.male.hfa.normal;
+    maleCells[11].textContent = summaryData.male.hfa.tall;
+    maleCells[12].textContent = summaryData.male.hfa.notMeasured;
+    maleCells[13].textContent = summaryData.male.hfa.total;
     
-    // Female row
     const femaleCells = rows[1].querySelectorAll('th');
     femaleCells[1].textContent = summaryData.female.nutritional.severelyWasted;
     femaleCells[2].textContent = summaryData.female.nutritional.wasted;
     femaleCells[3].textContent = summaryData.female.nutritional.normal;
     femaleCells[4].textContent = summaryData.female.nutritional.overweight;
     femaleCells[5].textContent = summaryData.female.nutritional.obese;
-    femaleCells[6].textContent = summaryData.female.nutritional.total;
-    femaleCells[7].textContent = summaryData.female.hfa.severelyStunted;
-    femaleCells[8].textContent = summaryData.female.hfa.stunted;
-    femaleCells[9].textContent = summaryData.female.hfa.normal;
-    femaleCells[10].textContent = summaryData.female.hfa.tall;
-    femaleCells[11].textContent = summaryData.female.hfa.total;
-    
-    // Total row
+    femaleCells[6].textContent = summaryData.female.nutritional.notMeasured;
+    femaleCells[7].textContent = summaryData.female.nutritional.total;
+    femaleCells[8].textContent = summaryData.female.hfa.severelyStunted;
+    femaleCells[9].textContent = summaryData.female.hfa.stunted;
+    femaleCells[10].textContent = summaryData.female.hfa.normal;
+    femaleCells[11].textContent = summaryData.female.hfa.tall;
+    femaleCells[12].textContent = summaryData.female.hfa.notMeasured;
+    femaleCells[13].textContent = summaryData.female.hfa.total;
+
     const totalCells = rows[2].querySelectorAll('th');
     totalCells[1].textContent = total.nutritional.severelyWasted;
     totalCells[2].textContent = total.nutritional.wasted;
     totalCells[3].textContent = total.nutritional.normal;
     totalCells[4].textContent = total.nutritional.overweight;
     totalCells[5].textContent = total.nutritional.obese;
-    totalCells[6].textContent = total.nutritional.total;
-    totalCells[7].textContent = total.hfa.severelyStunted;
-    totalCells[8].textContent = total.hfa.stunted;
-    totalCells[9].textContent = total.hfa.normal;
-    totalCells[10].textContent = total.hfa.tall;
-    totalCells[11].textContent = total.hfa.total;
-    
-    // Add visual indicators for high numbers
+    totalCells[6].textContent = total.nutritional.notMeasured;
+    totalCells[7].textContent = total.nutritional.total;
+    totalCells[8].textContent = total.hfa.severelyStunted;
+    totalCells[9].textContent = total.hfa.stunted;
+    totalCells[10].textContent = total.hfa.normal;
+    totalCells[11].textContent = total.hfa.tall;
+    totalCells[12].textContent = total.hfa.notMeasured;
+    totalCells[13].textContent = total.hfa.total;
+
     highlightSummaryTable();
+    try { markNotMeasuredCells(); } catch (e) { console.error(e); }
 }
 
-// Function to add visual highlighting to summary table
 function highlightSummaryTable() {
-    const summaryTbody = document.querySelector('.responsive-table:last-child tbody');
+    const summaryTable = document.querySelectorAll('.table-bordered')[1];
+    if (!summaryTable) return;
+    const summaryTbody = summaryTable.querySelector('tbody');
     const rows = summaryTbody.querySelectorAll('tr');
     
     rows.forEach(row => {
         const cells = row.querySelectorAll('th');
-        
-        // Skip the first cell (SEX label)
         for (let i = 1; i < cells.length; i++) {
             const value = parseInt(cells[i].textContent) || 0;
-            
-            // Remove previous highlighting
             cells[i].classList.remove('highlight-high', 'highlight-medium', 'highlight-low');
             
-            // Add highlighting based on value (adjust thresholds as needed)
             if (value >= 5) {
                 cells[i].classList.add('highlight-high');
             } else if (value >= 3) {
@@ -968,158 +945,37 @@ function highlightSummaryTable() {
     });
 }
 
-// Function to calculate percentages (optional - for detailed analysis)
-function calculatePercentages(summaryData) {
-    const percentages = {
-        male: {
-            nutritional: {},
-            hfa: {}
-        },
-        female: {
-            nutritional: {},
-            hfa: {}
-        },
-        total: {
-            nutritional: {},
-            hfa: {}
+function markNotMeasuredCells() {
+    try {
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.querySelectorAll('th').forEach(cell => {
+                if (cell.textContent.trim() === 'Not Measured') {
+                    cell.classList.add('text-muted');
+                    cell.style.fontStyle = 'italic';
+                }
+            });
+        });
+
+        const summaryTable = document.querySelectorAll('.table-bordered')[1];
+        const summaryTbody = summaryTable ? summaryTable.querySelector('tbody') : null;
+        if (summaryTbody) {
+            summaryTbody.querySelectorAll('th').forEach(cell => {
+                if (cell.textContent.trim() === 'Not Measured') {
+                    cell.classList.add('text-muted');
+                    cell.style.fontStyle = 'italic';
+                }
+            });
         }
-    };
-    
-    // Calculate male percentages
-    Object.keys(summaryData.male.nutritional).forEach(key => {
-        percentages.male.nutritional[key] = summaryData.male.nutritional.total > 0 ? 
-            ((summaryData.male.nutritional[key] / summaryData.male.nutritional.total) * 100).toFixed(1) + '%' : '0%';
-    });
-    
-    Object.keys(summaryData.male.hfa).forEach(key => {
-        percentages.male.hfa[key] = summaryData.male.hfa.total > 0 ? 
-            ((summaryData.male.hfa[key] / summaryData.male.hfa.total) * 100).toFixed(1) + '%' : '0%';
-    });
-    
-    // Calculate female percentages
-    Object.keys(summaryData.female.nutritional).forEach(key => {
-        percentages.female.nutritional[key] = summaryData.female.nutritional.total > 0 ? 
-            ((summaryData.female.nutritional[key] / summaryData.female.nutritional.total) * 100).toFixed(1) + '%' : '0%';
-    });
-    
-    Object.keys(summaryData.female.hfa).forEach(key => {
-        percentages.female.hfa[key] = summaryData.female.hfa.total > 0 ? 
-            ((summaryData.female.hfa[key] / summaryData.female.hfa.total) * 100).toFixed(1) + '%' : '0%';
-    });
-    
-    return percentages;
-}
-
-// Function to export summary data (optional)
-function exportSummaryData() {
-    const summaryData = calculateSummaryTable();
-    const percentages = calculatePercentages(summaryData);
-    
-    console.log('Summary Data:', summaryData);
-    console.log('Percentages:', percentages);
-    
-    // You can add code here to export to CSV, Excel, or display in a modal
-    displaySummaryAnalysis(summaryData, percentages);
-}
-
-// Function to display detailed analysis (optional)
-function displaySummaryAnalysis(summaryData, percentages) {
-    let analysisElement = document.getElementById('summary-analysis');
-    
-    if (!analysisElement) {
-        analysisElement = document.createElement('div');
-        analysisElement.id = 'summary-analysis';
-        analysisElement.className = 'alert alert-secondary mt-3';
-        document.querySelector('.form-section').appendChild(analysisElement);
+    } catch (err) {
+        console.error('Error in markNotMeasuredCells:', err);
     }
-    
-    analysisElement.innerHTML = `
-        <h5>Detailed Analysis</h5>
-        <div class="row">
-            <div class="col-md-6">
-                <strong>Male Students (${summaryData.male.nutritional.total}):</strong><br>
-                - Normal BMI: ${summaryData.male.nutritional.normal} (${percentages.male.nutritional.normal})<br>
-                - Underweight: ${summaryData.male.nutritional.wasted + summaryData.male.nutritional.severelyWasted} (${percentages.male.nutritional.wasted})<br>
-                - Overweight/Obese: ${summaryData.male.nutritional.overweight + summaryData.male.nutritional.obese} (${percentages.male.nutritional.overweight})
-            </div>
-            <div class="col-md-6">
-                <strong>Female Students (${summaryData.female.nutritional.total}):</strong><br>
-                - Normal BMI: ${summaryData.female.nutritional.normal} (${percentages.female.nutritional.normal})<br>
-                - Underweight: ${summaryData.female.nutritional.wasted + summaryData.female.nutritional.severelyWasted} (${percentages.female.nutritional.wasted})<br>
-                - Overweight/Obese: ${summaryData.female.nutritional.overweight + summaryData.female.nutritional.obese} (${percentages.female.nutritional.overweight})
-            </div>
-        </div>
-    `;
 }
 
-// Update your existing calculateNutritionalData function to include summary calculation
-function calculateNutritionalData() {
-    const tbody = document.querySelector('tbody');
-    const rows = tbody.querySelectorAll('tr');
-
-    rows.forEach(row => {
-        // Skip the header rows (MALE/FEMALE sections)
-        if (row.classList.contains('bg-warning')) {
-            return;
-        }
-
-        const cells = row.querySelectorAll('th');
-
-        // Get the input values
-        const birthdate = cells[3].textContent.trim();
-        const weight = parseFloat(cells[5].textContent) || 0;
-        const height = parseFloat(cells[6].textContent) || 0;
-
-        // Skip calculation if essential data is missing
-        if (!birthdate || weight <= 0 || height <= 0) {
-            cells[4].textContent = '';
-            cells[7].textContent = '';
-            cells[8].textContent = '';
-            cells[9].textContent = '';
-            cells[10].textContent = '';
-            cells[11].textContent = 'Missing data';
-            return;
-        }
-
-        // Calculate Age
-        const age = calculateAge(birthdate);
-        cells[4].textContent = age;
-
-        // Calculate Height² (m²)
-        const height2 = Math.pow(height, 2);
-        cells[7].textContent = height2.toFixed(4);
-
-        // Calculate BMI
-        const bmi = weight / height2;
-        cells[8].textContent = bmi.toFixed(2);
-
-        // Calculate BMI Category
-        const bmiCategory = getBMICategory(bmi, age);
-        cells[9].textContent = bmiCategory;
-
-        // Calculate Height for Age (HFA)
-        const hfa = calculateHFA(height, age);
-        cells[10].textContent = hfa;
-
-        // Generate Remarks
-        const remarks = generateRemarks(bmiCategory, hfa);
-        cells[11].textContent = remarks;
-
-        // Add visual styling based on BMI category
-        applyRowStyling(row, bmiCategory, hfa);
-    });
-    
-    // Calculate and populate summary table after all individual calculations
-    calculateSummaryTable();
-}
-
-// Add CSS for summary table highlighting
 function addSummaryTableStyles() {
     const styles = `
         .highlight-high { background-color: #ffcccc !important; font-weight: bold; }
         .highlight-medium { background-color: #fff0cc !important; }
         .highlight-low { background-color: #e6ffe6 !important; }
-        #summary-analysis { font-size: 0.85rem; }
     `;
     
     const styleSheet = document.createElement('style');
@@ -1127,49 +983,12 @@ function addSummaryTableStyles() {
     document.head.appendChild(styleSheet);
 }
 
-// Update your initialization function
-function initializeCalculation() {
-    try {
-        // Add CSS for row styling
-        addCalculationStyles();
-        addSummaryTableStyles();
-
-        // Calculate immediately
-        calculateNutritionalData();
-
-        // Recalculate every 5 seconds in case data changes
-        setInterval(calculateNutritionalData, 5000);
-
-        console.log('Nutritional data calculation initialized');
-    } catch (error) {
-        console.error('Error initializing calculation:', error);
-    }
-}
-
-// You can also add a button to manually refresh the summary
-function addSummaryRefreshButton() {
-    const buttonContainer = document.querySelector('.mt-3.text-start');
-    const refreshButton = document.createElement('button');
-    refreshButton.type = 'button';
-    refreshButton.className = 'btn btn-info ms-2';
-    refreshButton.textContent = 'Refresh Summary';
-    refreshButton.onclick = calculateSummaryTable;
-    
-    buttonContainer.appendChild(refreshButton);
-}
-
-// Call this in your initialization
-addSummaryRefreshButton();
-</script>
-<script>
-    // Simple Generate Report Function
 function generateReport() {
     console.log('Generate Report function called');
     
-    // First ensure all calculations are up to date
     calculateNutritionalData();
     
-    // Small delay to ensure calculations complete
+    // A small delay to ensure the DOM updates with the latest calculations before printing.
     setTimeout(() => {
         try {
             // Get all the data from the form
@@ -1189,15 +1008,12 @@ function generateReport() {
                 day: 'numeric'
             });
             
-            // Create a new window for printing
             const printWindow = window.open('', '_blank', 'width=1200,height=800');
             
             if (!printWindow) {
                 alert('Please allow pop-ups for this site to generate the report.');
                 return;
             }
-            
-            // Write the report content to the new window
             printWindow.document.write(`
                 <!DOCTYPE html>
                 <html lang="en">
@@ -1492,48 +1308,30 @@ function generateReport() {
             `);
             
             printWindow.document.close();
+            printWindow.focus();
+            // Use a timeout to ensure content is loaded before printing
+            setTimeout(() => { printWindow.print(); }, 500);
             
         } catch (error) {
             console.error('Error generating report:', error);
             alert('Error generating report. Please check the console for details.');
         }
-    }, 1000);
+    }, 500);
 }
 
-// Test function to verify the button works
-function testGenerateReport() {
-    console.log('Test function called - button is working!');
-    alert('Generate Report button is working! The report will open in a new window.');
-    generateReport();
-}
-
-// Initialize the application
 function initializeApplication() {
     console.log('Initializing SF8 Application...');
-    
-    // Add CSS for row styling
     addCalculationStyles();
     addSummaryTableStyles();
-
-    // Calculate data immediately
     calculateNutritionalData();
-
     console.log('SF8 Application initialized successfully');
 }
 
-// Make sure the functions are available globally
-window.generateReport = generateReport;
-window.testGenerateReport = testGenerateReport;
-
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing application...');
     initializeApplication();
 });
-
-// If DOM is already loaded, initialize immediately
-if (document.readyState === 'interactive' || document.readyState === 'complete') {
-    console.log('DOM already ready, initializing immediately...');
-    initializeApplication();
-}
+document.getElementById('sfEight-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+});
 </script>
