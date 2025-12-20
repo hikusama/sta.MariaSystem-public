@@ -382,11 +382,11 @@ $count = 1;
         // Event listeners
         searchInput.addEventListener('input', filterSections);
 
-        clearSearchBtn.addEventListener('click', function() {
-            searchInput.value = '';
-            filterSections();
-            searchInput.focus();
-        });
+        // clearSearchBtn.addEventListener('click', function() {
+        //     searchInput.value = '';
+        //     filterSections();
+        //     searchInput.focus();
+        // });
 
         // Add Enter key support for search
         searchInput.addEventListener('keypress', function(e) {

@@ -498,11 +498,11 @@ $schoolYears = $currentSy ?? [];
         // Event listeners
         searchInput.addEventListener('input', filterClassrooms);
 
-        clearSearchBtn.addEventListener('click', function() {
-            searchInput.value = '';
-            filterClassrooms();
-            searchInput.focus();
-        });
+        // clearSearchBtn.addEventListener('click', function() {
+        //     searchInput.value = '';
+        //     filterClassrooms();
+        //     searchInput.focus();
+        // });
 
         // Add Enter key support for search
         searchInput.addEventListener('keypress', function(e) {

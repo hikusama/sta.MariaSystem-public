@@ -361,13 +361,13 @@ if ($result['res']) {
         statusFilter.addEventListener('change', filterLearners);
         gradeFilter.addEventListener('change', filterLearners);
 
-        clearSearchBtn.addEventListener('click', function() {
-            searchInput.value = '';
-            statusFilter.value = '';
-            gradeFilter.value = '';
-            filterLearners();
-            searchInput.focus();
-        });
+        // clearSearchBtn.addEventListener('click', function() {
+        //     searchInput.value = '';
+        //     statusFilter.value = '';
+        //     gradeFilter.value = '';
+        //     filterLearners();
+        //     searchInput.focus();
+        // });
 
         // Add Enter key support for search
         searchInput.addEventListener('keypress', function(e) {

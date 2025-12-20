@@ -449,13 +449,13 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
         statusFilter.addEventListener('change', filterStudents);
         gradeFilter.addEventListener('change', filterStudents);
 
-        clearSearchBtn.addEventListener('click', function() {
-            searchInput.value = '';
-            statusFilter.value = '';
-            gradeFilter.value = '';
-            filterStudents();
-            searchInput.focus();
-        });
+        // clearSearchBtn.addEventListener('click', function() {
+        //     searchInput.value = '';
+        //     statusFilter.value = '';
+        //     gradeFilter.value = '';
+        //     filterStudents();
+        //     searchInput.focus();
+        // });
 
         // Add Enter key support for search
         searchInput.addEventListener('keypress', function(e) {

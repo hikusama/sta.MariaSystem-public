@@ -359,11 +359,11 @@ $count = 1;
         searchInput.addEventListener('input', filterStudents);
         categoryFilter.addEventListener('change', toggleTables);
 
-        clearSearchBtn.addEventListener('click', function() {
-            searchInput.value = '';
-            filterStudents();
-            searchInput.focus();
-        });
+        // clearSearchBtn.addEventListener('click', function() {
+        //     searchInput.value = '';
+        //     filterStudents();
+        //     searchInput.focus();
+        // });
 
         // Add Enter key support for search
         searchInput.addEventListener('keypress', function(e) {

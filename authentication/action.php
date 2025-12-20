@@ -14,12 +14,12 @@ if ($action === 'save_installation_data') {
 		echo $installer;
 	}
 }
-if($action === 'admin_register'){
-	$registration = $crud->admin_register();
-	if($registration){
-		echo $registration;
-	}
-}
+// if($action === 'admin_register'){
+// 	$registration = $crud->admin_register();
+// 	if($registration){
+// 		echo $registration;
+// 	}
+// }
 if($action === 'Account_form'){
     $registration = $crud->Account_form();
     if($registration){

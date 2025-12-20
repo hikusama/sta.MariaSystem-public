@@ -404,11 +404,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners
     searchInput.addEventListener('input', filterSchoolYears);
     
-    clearSearchBtn.addEventListener('click', function() {
-        searchInput.value = '';
-        filterSchoolYears();
-        searchInput.focus();
-    });
+    // clearSearchBtn.addEventListener('click', function() {
+    //     searchInput.value = '';
+    //     filterSchoolYears();
+    //     searchInput.focus();
+    // });
 
     // Add Enter key support for search
     searchInput.addEventListener('keypress', function(e) {

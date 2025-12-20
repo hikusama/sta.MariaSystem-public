@@ -370,12 +370,12 @@ $activeSyId = $currentSy['school_year_id'] ?? null;
         searchInput.addEventListener('input', filterUsers);
         categoryFilter.addEventListener('change', filterUsers);
 
-        clearSearchBtn.addEventListener('click', function() {
-            searchInput.value = '';
-            categoryFilter.value = '';
-            filterUsers();
-            searchInput.focus();
-        });
+        // clearSearchBtn.addEventListener('click', function() {
+        //     searchInput.value = '';
+        //     categoryFilter.value = '';
+        //     filterUsers();
+        //     searchInput.focus();
+        // });
 
         // Add Enter key support for search
         searchInput.addEventListener('keypress', function(e) {
