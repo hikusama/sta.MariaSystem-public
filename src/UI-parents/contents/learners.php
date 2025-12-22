@@ -379,17 +379,16 @@ if ($result['res']) {
 
         $students = [];
 
-        if ($activeSyId && $user_id) {
+        if ($user_id) {
             try {
                 $stmt = $pdo->prepare("
             SELECT student.*, users.school_year_id 
             FROM student 
             LEFT JOIN users ON student.guardian_id = users.user_id
             WHERE student.guardian_id = ? 
-              AND users.school_year_id = ?
             ORDER BY student.student_id DESC
         ");
-                $stmt->execute([$user_id, $activeSyId]);
+                $stmt->execute([$user_id]);
                 $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
             } catch (PDOException $e) {
                 $students = [];

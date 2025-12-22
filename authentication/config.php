@@ -75,7 +75,7 @@ function db_connect()
                 section_status ENUM('Available', 'Inavailable'),
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )",
-            "CREATE TABLE IF NOT EXISTS Subjects (
+            "CREATE TABLE IF NOT EXISTS subjects (
                 subject_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 grade_level VARCHAR(7) NOT NULL,
                 subject_name VARCHAR(50) NOT NULL,
@@ -296,7 +296,47 @@ function db_connect()
                             testing_center_address VARCHAR(255),
                             remark VARCHAR(255),
                             scholastic_records JSON,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+                            rem1_area varchar(255) DEFAULT NULL,
+                            rem1_final varchar(50) DEFAULT NULL,
+                            rem1_class_mark varchar(50) DEFAULT NULL,
+                            rem1_recomputed varchar(50) DEFAULT NULL,
+                            rem1_remarks varchar(255) DEFAULT NULL,
+                            rem2_area varchar(255) DEFAULT NULL,
+                            rem2_final varchar(50) DEFAULT NULL,
+                            rem2_class_mark varchar(50) DEFAULT NULL,
+                            rem2_recomputed varchar(50) DEFAULT NULL,
+                            rem2_remarks varchar(255) DEFAULT NULL,
+                            rem3_area varchar(255) DEFAULT NULL,
+                            rem3_final varchar(50) DEFAULT NULL,
+                            rem3_class_mark varchar(50) DEFAULT NULL,
+                            rem3_recomputed varchar(50) DEFAULT NULL,
+                            rem3_remarks varchar(255) DEFAULT NULL,
+                            rem4_area varchar(255) DEFAULT NULL,
+                            rem4_final varchar(50) DEFAULT NULL,
+                            rem4_class_mark varchar(50) DEFAULT NULL,
+                            rem4_recomputed varchar(50) DEFAULT NULL,
+                            rem4_remarks varchar(255) DEFAULT NULL,
+                            rem5_area varchar(255) DEFAULT NULL,
+                            rem5_final varchar(50) DEFAULT NULL,
+                            rem5_class_mark varchar(50) DEFAULT NULL,
+                            rem5_recomputed varchar(50) DEFAULT NULL,
+                            rem5_remarks varchar(255) DEFAULT NULL,
+                            rem6_area varchar(255) DEFAULT NULL,
+                            rem6_final varchar(50) DEFAULT NULL,
+                            rem6_class_mark varchar(50) DEFAULT NULL,
+                            rem6_recomputed varchar(50) DEFAULT NULL,
+                            rem6_remarks varchar(255) DEFAULT NULL,
+                            rem7_area varchar(255) DEFAULT NULL,
+                            rem7_final varchar(50) DEFAULT NULL,
+                            rem7_class_mark varchar(50) DEFAULT NULL,
+                            rem7_recomputed varchar(50) DEFAULT NULL,
+                            rem7_remarks varchar(255) DEFAULT NULL,
+                            rem8_area varchar(255) DEFAULT NULL,
+                            rem8_final varchar(50) DEFAULT NULL,
+                            rem8_class_mark varchar(50) DEFAULT NULL,
+                            rem8_recomputed varchar(50) DEFAULT NULL,
+                            rem8_remarks varchar(255) DEFAULT NULL
                         )",
 
 
@@ -603,6 +643,86 @@ function db_connect()
         }
 
         try {
+            // Drop trigger if it already exists
+            $pdo->exec("DROP TRIGGER IF EXISTS after_enrolment_insert");
+
+            // Create trigger
+            $pdo->exec("
+        CREATE TRIGGER after_enrolment_insert
+        AFTER INSERT ON enrolment
+        FOR EACH ROW
+        BEGIN
+            DECLARE full_name VARCHAR(255);
+            DECLARE sy_name VARCHAR(50);
+            DECLARE student_full_name VARCHAR(255);
+            DECLARE student_lrn VARCHAR(20);
+
+            -- Get adviser full name
+            SELECT CONCAT(firstname, ' ', middlename, ' ', lastname)
+            INTO full_name
+            FROM users
+            WHERE user_id = NEW.adviser_id;
+
+            -- Get school year name
+            SELECT school_year_name
+            INTO sy_name
+            FROM school_year
+            WHERE school_year_id = NEW.school_year_id;
+
+            -- Get student name and LRN
+            SELECT CONCAT(lname, ', ', fname, ' ', mname), lrn
+            INTO student_full_name, student_lrn
+            FROM student
+            WHERE student_id = NEW.student_id;
+
+            -- Insert into sf9_data if not exists
+            IF NOT EXISTS (SELECT 1 FROM sf9_data WHERE student_id = NEW.student_id) THEN
+                INSERT INTO sf9_data (
+                    student_id,
+                    student_name,
+                    lrn,
+                    grade,
+                    section,
+                    school_year,
+                    teacher
+                )
+                VALUES (
+                    NEW.student_id,
+                    student_full_name,
+                    student_lrn,
+                    NEW.Grade_level,
+                    NEW.section_name,
+                    sy_name,
+                    full_name
+                );
+
+                -- Update subjects for the new student
+                UPDATE sf9_data s
+                SET
+                    s.subject_1  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 0,1),
+                    s.subject_2  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 1,1),
+                    s.subject_3  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 2,1),
+                    s.subject_4  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 3,1),
+                    s.subject_5  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 4,1),
+                    s.subject_6  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 5,1),
+                    s.subject_7  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 6,1),
+                    s.subject_8  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 7,1),
+                    s.subject_9  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 8,1),
+                    s.subject_10 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 9,1),
+                    s.subject_11 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 10,1),
+                    s.subject_12 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 11,1),
+                    s.subject_13 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 12,1),
+                    s.subject_14 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 13,1),
+                    s.subject_15 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.Grade_level ORDER BY subject_id LIMIT 14,1)
+                WHERE s.student_id = NEW.student_id;
+            END IF;
+        END;
+    ");
+            // echo "Trigger 'after_enrolment_insert' created successfully.";
+        } catch (PDOException $e) {
+            echo "Error creating trigger: " . $e->getMessage();
+        }
+        try {
 
             $pdo->exec("DROP TRIGGER IF EXISTS after_section_update");
             $pdo->exec("
@@ -620,6 +740,65 @@ function db_connect()
     ");
         } catch (PDOException $e) {
         }
+
+        try {
+            // Drop trigger if it exists
+            $pdo->exec("DROP TRIGGER IF EXISTS after_student_activation");
+
+            // Create trigger
+            $pdo->exec("
+        CREATE TRIGGER after_student_activation
+        AFTER UPDATE ON student
+        FOR EACH ROW
+        BEGIN
+            -- Check if student just became active
+            IF NEW.enrolment_status = 'active' AND OLD.enrolment_status <> 'active' THEN
+
+                -- Insert into sf9_data if not exists
+                IF NOT EXISTS (SELECT 1 FROM sf9_data WHERE student_id = NEW.student_id) THEN
+                    INSERT INTO sf9_data (
+                        student_id,
+                        student_name,
+                        lrn,
+                        grade
+                    )
+                    VALUES (
+                        NEW.student_id,
+                        CONCAT(NEW.lname, ', ', NEW.fname, ' ', NEW.mname),
+                        NEW.lrn,
+                        NEW.gradeLevel
+                    );
+
+                    -- Update subjects for the new student
+                    UPDATE sf9_data s
+                    SET
+                        s.subject_1  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 0,1),
+                        s.subject_2  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 1,1),
+                        s.subject_3  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 2,1),
+                        s.subject_4  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 3,1),
+                        s.subject_5  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 4,1),
+                        s.subject_6  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 5,1),
+                        s.subject_7  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 6,1),
+                        s.subject_8  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 7,1),
+                        s.subject_9  = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 8,1),
+                        s.subject_10 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 9,1),
+                        s.subject_11 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 10,1),
+                        s.subject_12 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 11,1),
+                        s.subject_13 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 12,1),
+                        s.subject_14 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 13,1),
+                        s.subject_15 = (SELECT subject_name FROM subjects WHERE grade_level = NEW.gradeLevel ORDER BY subject_id LIMIT 14,1)
+                    WHERE s.student_id = NEW.student_id;
+
+                END IF;
+
+            END IF;
+        END;
+    ");
+            // echo "Trigger 'after_student_activation' created successfully.";
+        } catch (PDOException $e) {
+            echo "Error creating trigger: " . $e->getMessage();
+        }
+
 
         return $pdo;
     } catch (PDOException $e) {

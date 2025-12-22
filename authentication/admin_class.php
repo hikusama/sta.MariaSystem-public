@@ -9,6 +9,8 @@ use PHPMailer\PHPMailer\Exception;
 
 class Action
 {
+    public $nao = 'now';
+    // public $nao = '2025-01-15 13:00:00';
     private $db;
     public function __construct()
     {
@@ -197,8 +199,8 @@ class Action
 
         try {
             // Check if classroom already exists
-            $checkStmt = $this->db->prepare("SELECT room_name FROM classrooms WHERE room_name = ? AND school_year_id = ?");
-            $checkStmt->execute([$classroom_name, $getActiveSY['school_year_id']]);
+            $checkStmt = $this->db->prepare("SELECT room_name FROM classrooms WHERE room_name = ? ");
+            $checkStmt->execute([$classroom_name]);
             $existingClassroom = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
             if ($existingClassroom) {
@@ -579,8 +581,8 @@ class Action
             }
 
             // Check if student already has an enrolment for this school year
-            $stmt = $this->db->prepare("SELECT enrolment_id FROM enrolment WHERE student_id = ? AND school_year_id = ?");
-            $stmt->execute([$student_id, $schoolyear_id]);
+            $stmt = $this->db->prepare("SELECT enrolment_id FROM enrolment WHERE student_id = ? ");
+            $stmt->execute([$student_id]);
             $existing_enrolment = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($existing_enrolment) {
@@ -1551,10 +1553,15 @@ class Action
         try {
             // Use PHP DateTime with explicit timezone to avoid server timezone mismatch
             $tz = new DateTimeZone('Asia/Manila'); // change if needed
-            $now = new DateTime('now', $tz);
-            $currentTime = $now->format('H:i:s');       // "HH:MM:SS"
-            $today = $now->format('Y-m-d');             // "YYYY-MM-DD"
-            $nowDatetime = $now->format('Y-m-d H:i:s'); // full datetime to store
+            // $now = new DateTime($this->nao, $tz);
+            $now = new DateTime($this->nao, $tz);
+            $currentTime = $now->format('H:i:s');       
+            $today = $now->format('Y-m-d');              
+            $nowDatetime = $now->format('Y-m-d H:i:s');  
+            
+            // $currentTime = $now->format('H:i:s');       
+            // $today = $now->format('Y-m-d');              
+            // $nowDatetime = $now->format('Y-m-d H:i:s');  
 
             // 1) Check if already marked morning attendance for THIS student TODAY
             $checkSql = "SELECT 1 FROM attendance 
@@ -1617,7 +1624,7 @@ class Action
         try {
             // Use PHP DateTime with explicit timezone to avoid server timezone mismatch
             $tz = new DateTimeZone('Asia/Manila'); // change if needed
-            $now = new DateTime('now', $tz);
+            $now = new DateTime($this->nao, $tz);
             $currentTime = $now->format('H:i:s');       // "HH:MM:SS"
             $today = $now->format('Y-m-d');             // "YYYY-MM-DD"
             $nowDatetime = $now->format('Y-m-d H:i:s'); // full datetime to store
@@ -1683,7 +1690,7 @@ class Action
         try {
             // Use PHP DateTime with explicit timezone to avoid server timezone mismatch
             $tz = new DateTimeZone('Asia/Manila'); // change if needed
-            $now = new DateTime('now', $tz);
+            $now = new DateTime($this->nao, $tz);
             $currentTime = $now->format('H:i:s');       // "HH:MM:SS"
             $today = $now->format('Y-m-d');             // "YYYY-MM-DD"
             $nowDatetime = $now->format('Y-m-d H:i:s'); // full datetime to store
@@ -1749,7 +1756,7 @@ class Action
     //     try {
     //         // Use PHP DateTime with explicit timezone to avoid server timezone mismatch
     //         $tz = new DateTimeZone('Asia/Manila'); // change if needed
-    //         $now = new DateTime('now', $tz);
+    //         $now = new DateTime($this->nao, $tz);
     //         $currentTime = $now->format('H:i:s');       // "HH:MM:SS"
     //         $today = $now->format('Y-m-d');             // "YYYY-MM-DD"
     //         $nowDatetime = $now->format('Y-m-d H:i:s'); // full datetime to store
@@ -1818,7 +1825,7 @@ class Action
         try {
             // Use PHP DateTime with explicit timezone
             $tz = new DateTimeZone('Asia/Manila');
-            $now = new DateTime('now', $tz);
+            $now = new DateTime($this->nao, $tz);
             $currentTime = $now->format('H:i:s');
             $today = $now->format('Y-m-d');
             $nowDatetime = $now->format('Y-m-d H:i:s');
@@ -1939,7 +1946,7 @@ class Action
         try {
             // Use PHP DateTime with explicit timezone
             $tz = new DateTimeZone('Asia/Manila');
-            $now = new DateTime('now', $tz);
+            $now = new DateTime($this->nao, $tz);
             $currentTime = $now->format('H:i:s');
             $today = $now->format('Y-m-d');
             $nowDatetime = $now->format('Y-m-d H:i:s');
@@ -2059,7 +2066,7 @@ class Action
         try {
             // Use PHP DateTime with explicit timezone
             $tz = new DateTimeZone('Asia/Manila');
-            $now = new DateTime('now', $tz);
+            $now = new DateTime($this->nao, $tz);
             $currentTime = $now->format('H:i:s');
             $today = $now->format('Y-m-d');
             $nowDatetime = $now->format('Y-m-d H:i:s');

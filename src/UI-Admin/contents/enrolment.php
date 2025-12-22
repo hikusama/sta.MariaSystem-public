@@ -20,19 +20,15 @@ $schoolYear = $stmt->fetch(PDO::FETCH_ASSOC);
 $users = [];
 $count = 1;
 
-if (!empty($schoolYear['school_year_id'])) {
-    $stmt = $pdo->prepare("
+$stmt = $pdo->prepare("
         SELECT s.*, u.* 
         FROM student s
         LEFT JOIN users u 
             ON s.guardian_id = u.user_id
-        WHERE u.school_year_id = ?
         ORDER BY s.fname ASC
     ");
-    $stmt->execute([$schoolYear['school_year_id']]);
-    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
+$stmt->execute();
+$users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get subjects for JS
 $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);

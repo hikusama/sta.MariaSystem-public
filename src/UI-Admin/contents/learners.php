@@ -45,6 +45,18 @@ if ($result['res']) {
                         <option value="Grade 6">Grade 6</option>
                     </select>
                 </div>
+                <div class="col-md-2">
+                    <select id="syFilter" class="form-select">
+                        <option value="">All School Years</option>
+                        <?php
+                        $syStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name DESC");
+                        while ($sy = $syStmt->fetch(PDO::FETCH_ASSOC)): ?>
+                            <option value="<?= $sy['school_year_id'] ?>">
+                                <?= htmlspecialchars($sy['school_year_name']) ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
 
 
             </div>
@@ -72,10 +84,9 @@ if ($result['res']) {
         INNER JOIN users 
             ON users.user_id = student.guardian_id
         WHERE student.enrolment_status != 'pending' 
-          AND users.school_year_id = ?
         ORDER BY student.fname ASC
     ");
-            $stmt->execute([$activeSyId]);
+            $stmt->execute();
             $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
@@ -101,36 +112,36 @@ if ($result['res']) {
         </div>
 
         <!-- Scrollable Body -->
-        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+        <div class="table-scroll-body">
             <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
                 <tbody id="learnersTableBody">
-                    <?php if ($users):
+                    <?php if (!empty($users)):
                         $count = 1;
-                        foreach ($users as $user) :
-                            $statusMap = [
-                                'active'          => ['success', 'Enrolled'],
-                                'pending'         => ['warning', 'Pending'],
-                                'transferred_in'  => ['info', 'Transferred In'],
-                                'transferred_out' => ['info', 'Transferred Out'],
-                                'transferred'     => ['info', 'Transferred'],
-                                'not_active'      => ['secondary', 'Not Active'],
-                                'dropped'         => ['danger', 'Dropped'],
-                                'rejected'        => ['danger', 'Rejected']
-                            ];
-
-                            $currentStatus = $user['enrolment_status'] ?? 'pending';
+                        $statusMap = [
+                            'active'          => ['success', 'Enrolled'],
+                            'pending'         => ['warning', 'Pending'],
+                            'transferred_in'  => ['info', 'Transferred In'],
+                            'transferred_out' => ['info', 'Transferred Out'],
+                            'transferred'     => ['info', 'Transferred'],
+                            'not_active'      => ['secondary', 'Not Active'],
+                            'dropped'         => ['danger', 'Dropped'],
+                            'rejected'        => ['danger', 'Rejected']
+                        ];
+                        foreach ($users as $user):
+                            // Normalize status to lowercase
+                            $currentStatus = strtolower($user['enrolment_status'] ?? 'pending');
                             $badgeClass = $statusMap[$currentStatus][0] ?? 'secondary';
                             $label = $statusMap[$currentStatus][1] ?? ucfirst($currentStatus);
                     ?>
-                            <tr class="learner-row" data-status="<?= htmlspecialchars(strtolower($currentStatus)) ?>"
+                            <tr class="learner-row"
+                                data-status="<?= htmlspecialchars($currentStatus) ?>"
                                 data-grade="<?= htmlspecialchars(strtolower($user['gradeLevel'] ?? '')) ?>"
-                                data-name="<?= htmlspecialchars(strtolower($user['lname'] . ' ' . $user['fname'] . ' ' . $user['mname'])) ?>"
+                                data-name="<?= htmlspecialchars(strtolower($user['lname'] . ' ' . $user['fname'] . ' ' . ($user['mname'] ?? ''))) ?>"
                                 data-lrn="<?= htmlspecialchars(strtolower($user['lrn'] ?? '')) ?>"
                                 data-parent="<?= htmlspecialchars(strtolower($user['parentLastname'] . ' ' . $user['parentFirstname'])) ?>">
+
                                 <td width="5%"><?= $count++ ?></td>
-                                <td width="10%">
-                                    <code class="text-dark"><?= htmlspecialchars($user["lrn"]) ?></code>
-                                </td>
+                                <td width="10%"><code class="text-dark"><?= htmlspecialchars($user["lrn"]) ?></code></td>
                                 <td width="20%" class="learner-name">
                                     <div class="d-flex align-items-center">
                                         <div class="avatar-placeholder me-2">
@@ -177,28 +188,11 @@ if ($result['res']) {
                                         <form class="status-enrolment-form">
                                             <select name="status" class="status-enrolment-select form-select">
                                                 <option value="">Change Status</option>
-                                                <option value="active" <?= ($currentStatus === "active") ? "selected" : "" ?>>
-                                                    Enrolled
-                                                </option>
-                                                <option value="transferred_in"
-                                                    <?= ($currentStatus === "transferred_in") ? "selected" : "" ?>>
-                                                    Transferred In
-                                                </option>
-                                                <option value="transferred_out"
-                                                    <?= ($currentStatus === "transferred_out") ? "selected" : "" ?>>
-                                                    Transferred Out
-                                                </option>
-                                                <option value="not_active"
-                                                    <?= ($currentStatus === "not_active") ? "selected" : "" ?>>
-                                                    Not Active
-                                                </option>
-                                                <option value="dropped" <?= ($currentStatus === "dropped") ? "selected" : "" ?>>
-                                                    Dropped
-                                                </option>
-                                                <option value="rejected"
-                                                    <?= ($currentStatus === "rejected") ? "selected" : "" ?>>
-                                                    Rejected
-                                                </option>
+                                                <?php foreach ($statusMap as $key => $map): ?>
+                                                    <option value="<?= $key ?>" <?= ($currentStatus === $key) ? "selected" : "" ?>>
+                                                        <?= $map[1] ?>
+                                                    </option>
+                                                <?php endforeach; ?>
                                             </select>
                                             <input type="hidden" name="user_id" value="<?= $user['student_id'] ?>">
                                         </form>
@@ -214,6 +208,7 @@ if ($result['res']) {
                 </tbody>
             </table>
         </div>
+
 
         <!-- Empty State -->
         <div id="noResults" class="text-center py-5 d-none">
@@ -277,136 +272,49 @@ if ($result['res']) {
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('searchInput');
         const statusFilter = document.getElementById('statusFilter');
         const gradeFilter = document.getElementById('gradeFilter');
-        const learnerRows = document.querySelectorAll('.learner-row');
-        const learnersTableBody = document.getElementById('learnersTableBody');
-        const noResultsDiv = document.getElementById('noResults');
+        const syFilter = document.getElementById('syFilter');
+        const tableBody = document.getElementById('learnersTableBody');
 
-        // Search and filter functionality
-        function filterLearners() {
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            const statusValue = statusFilter.value.toLowerCase();
-            const gradeValue = gradeFilter.value.toLowerCase();
+        function fetchLearners() {
+            const formData = new FormData();
+            formData.append('action', 'fetch_student');
+            formData.append('search', searchInput.value.trim());
+            formData.append('status', statusFilter.value);
+            formData.append('grade', gradeFilter.value);
+            formData.append('school_year', syFilter.value);
 
-            let visibleCount = 0;
-
-            learnerRows.forEach(row => {
-                const name = row.getAttribute('data-name');
-                const lrn = row.getAttribute('data-lrn');
-                const parent = row.getAttribute('data-parent');
-                const status = row.getAttribute('data-status');
-                const grade = row.getAttribute('data-grade');
-
-                let matchesSearch = true;
-                let matchesStatus = true;
-                let matchesGrade = true;
-
-                // Apply search filter
-                if (searchTerm) {
-                    matchesSearch = name.includes(searchTerm) ||
-                        lrn.includes(searchTerm) ||
-                        parent.includes(searchTerm);
-                }
-
-                // Apply status filter
-                if (statusValue) {
-                    matchesStatus = status.includes(statusValue);
-                }
-
-                // Apply grade filter
-                if (gradeValue) {
-                    matchesGrade = grade.includes(gradeValue.toLowerCase());
-                }
-
-                // Show/hide row based on filters
-                if (matchesSearch && matchesStatus && matchesGrade) {
-                    row.style.display = '';
-                    visibleCount++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            // Show/hide no results message
-            if (visibleCount === 0) {
-                learnersTableBody.style.display = 'none';
-                noResultsDiv.classList.remove('d-none');
-            } else {
-                learnersTableBody.style.display = '';
-                noResultsDiv.classList.add('d-none');
-            }
-
-            // Update row numbers
-            updateRowNumbers();
+            fetch('contents/fetch.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    tableBody.innerHTML = data.rows || '<tr><td colspan="7" class="text-center text-muted py-4">No records found</td></tr>';
+                })
+                .catch(err => {
+                    console.error(err);
+                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Failed to load data</td></tr>';
+                });
         }
 
-        // Function to update row numbers
-        function updateRowNumbers() {
-            let counter = 1;
-            learnerRows.forEach(row => {
-                if (row.style.display !== 'none') {
-                    const firstCell = row.querySelector('td:first-child');
-                    if (firstCell) {
-                        firstCell.textContent = counter++;
-                    }
-                }
-            });
-        }
-
-        // Event listeners
-        searchInput.addEventListener('input', filterLearners);
-        statusFilter.addEventListener('change', filterLearners);
-        gradeFilter.addEventListener('change', filterLearners);
-
-        // clearSearchBtn.addEventListener('click', function() {
-        //     searchInput.value = '';
-        //     statusFilter.value = '';
-        //     gradeFilter.value = '';
-        //     filterLearners();
-        //     searchInput.focus();
-        // });
-
-        // Add Enter key support for search
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                filterLearners();
-            }
-        });
-
-        // Add some styling
-        searchInput.addEventListener('focus', function() {
-            this.parentElement.classList.add('border-primary', 'border-2');
-        });
-
-        searchInput.addEventListener('blur', function() {
-            this.parentElement.classList.remove('border-primary', 'border-2');
-        });
-
-        statusFilter.addEventListener('focus', function() {
-            this.parentElement.classList.add('border-primary', 'border-2');
-        });
-
-        statusFilter.addEventListener('blur', function() {
-            this.parentElement.classList.remove('border-primary', 'border-2');
-        });
-
-        gradeFilter.addEventListener('focus', function() {
-            this.parentElement.classList.add('border-primary', 'border-2');
-        });
-
-        gradeFilter.addEventListener('blur', function() {
-            this.parentElement.classList.remove('border-primary', 'border-2');
-        });
-
-        // Initialize
-        filterLearners();
+        searchInput.addEventListener('input', fetchLearners);
+        statusFilter.addEventListener('change', fetchLearners);
+        gradeFilter.addEventListener('change', fetchLearners);
+        syFilter.addEventListener('change', fetchLearners);
     });
 </script>
 
+
 <style>
+    .table-scroll-body {
+        max-height: 420px;
+        overflow-y: auto;
+    }
+
     .table-container-wrapper {
         border: 1px solid #dee2e6;
         border-radius: 8px;

@@ -5,8 +5,7 @@ if ($result['res']) {
     header($result['uri']);
     exit;
 }
-echo $admin_role = $_SESSION['admin_role'];
-echo $admin_id = $_SESSION['admin_id'];
+
 // $user_id = $_SESSION['user_id'];
 $query = "SELECT classes.*, users.* FROM classes
     INNER JOIN users ON classes.adviser_id = users.user_id";

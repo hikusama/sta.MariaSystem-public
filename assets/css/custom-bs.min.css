@@ -694,7 +694,9 @@ progress {
     margin-right: auto;
     padding-left: var(--bs-gutter-x, 1.5rem);
     padding-right: var(--bs-gutter-x, 1.5rem);
-    width: 100%
+    width: 100%;
+    overflow-y: auto;
+    scrollbar-width: thin;
 }
 
 @media(min-width:576px) {

@@ -1,11 +1,11 @@
  <?php
-require_once __DIR__ . '/../../../tupperware.php';
-$result = checkURI('admin', 2);
+    require_once __DIR__ . '/../../../tupperware.php';
+    $result = checkURI('admin', 2);
 
-if ($result['res']) {
-    header($result['uri']);
-    exit;
-}
+    if ($result['res']) {
+        header($result['uri']);
+        exit;
+    }
     $stmt = $pdo->prepare("SELECT * FROM classrooms ORDER BY classrooms.created_date DESC");
     $stmt->execute();
     $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -78,26 +78,22 @@ if ($result['res']) {
             $count = 1;
             ?>
 
-         <!-- Fixed Header -->
-         <div class="table-responsive">
-             <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
-                 <thead class="table-light">
-                     <tr>
-                         <th width="5%">#</th>
-                         <th width="20%">Room Name</th>
-                         <th width="15%">Room Type</th>
-                         <th width="15%">Room Status</th>
-                         <th width="20%">School Year</th>
-                         <th width="20%">Created at</th>
-                         <th width="25%">Action</th>
-                     </tr>
-                 </thead>
-             </table>
-         </div>
+
 
          <!-- Scrollable Body -->
          <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
              <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
+                 <thead class="table-light">
+                     <tr>
+                         <th style="white-space: wrap !important;" width="1rem">#</th>
+                         <th style="white-space: wrap !important;" width="20%">Room Name</th>
+                         <th style="white-space: wrap !important;" width="15%">Room Type</th>
+                         <th style="white-space: wrap !important;" width="15%">Room Status</th>
+                         <th style="white-space: wrap !important; width: 7rem;">School Year</th>
+                         <th style="white-space: wrap !important; width: 7rem;">Created</th>
+                         <th style="white-space: wrap !important;" width="25%">Action</th>
+                     </tr>
+                 </thead>
                  <tbody id="classroomsTableBody">
                      <?php if ($classrooms):
                             $count = 1;
@@ -105,7 +101,7 @@ if ($result['res']) {
                              <tr class="classroom-row" data-name="<?= htmlspecialchars(strtolower($user["room_name"])) ?>"
                                  data-type="<?= htmlspecialchars(strtolower($user["room_type"])) ?>"
                                  data-status="<?= htmlspecialchars(strtolower($user["room_status"])) ?>">
-                                 <td width="5%"><?= $count++ ?></td>
+                                 <td width="1rem"><?= $count++ ?></td>
                                  <td width="20%" class="classroom-name">
                                      <div class="d-flex align-items-center">
                                          <div class="avatar-placeholder me-2">
@@ -370,11 +366,11 @@ if ($result['res']) {
          // Event listeners
          searchInput.addEventListener('input', filterClassrooms);
 
-        //  clearSearchBtn.addEventListener('click', function() {
-        //      searchInput.value = '';
-        //      filterClassrooms();
-        //      searchInput.focus();
-        //  });
+         //  clearSearchBtn.addEventListener('click', function() {
+         //      searchInput.value = '';
+         //      filterClassrooms();
+         //      searchInput.focus();
+         //  });
 
          // Add Enter key support for search
          searchInput.addEventListener('keypress', function(e) {
