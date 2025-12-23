@@ -382,21 +382,11 @@
          // Event listeners
          searchInput.addEventListener('input', filterClassrooms);
 
-<<<<<<< HEAD
-         if (clearSearchBtn) {
-             clearSearchBtn.addEventListener('click', function() {
-                 searchInput.value = '';
-                 filterClassrooms();
-                 searchInput.focus();
-             });
-         }
-=======
          //  clearSearchBtn.addEventListener('click', function() {
          //      searchInput.value = '';
          //      filterClassrooms();
          //      searchInput.focus();
          //  });
->>>>>>> main
 
          // Add Enter key support for search
          searchInput.addEventListener('keypress', function(e) {

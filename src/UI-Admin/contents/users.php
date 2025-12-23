@@ -151,9 +151,6 @@ $count = 1;
         </div>
     </div>
 
-<<<<<<< HEAD
-  
-=======
 
     <!-- Statistics Summary -->
     <div class="row mt-4">
@@ -197,7 +194,6 @@ $count = 1;
         </div>
     </div>
 </div>
->>>>>>> main
 
 <!-- Adding account modal -->
 <div class="modal fade" id="AddNewAccount" tabindex="-1" aria-labelledby="AddNewAccountLabel" aria-hidden="true">
