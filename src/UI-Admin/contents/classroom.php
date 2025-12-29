@@ -306,8 +306,8 @@
          const syFilter = document.getElementById('syFilter');
          const classroomsTableBody = document.getElementById('classroomsTableBody');
          const noResultsDiv = document.getElementById('noResults');
-         const editButtons = document.querySelectorAll('.editClassroomsBtn');
-         const deleteButtons = document.querySelectorAll('.deleteClassroomBtn');
+        //  const editButtons = document.querySelectorAll('.editClassroomsBtn');
+        //  const deleteButtons = document.querySelectorAll('.deleteClassroomBtn');
 
          function filterClassrooms() {
              const formData = new FormData();
@@ -345,32 +345,32 @@
                  });
 
          }
-         editButtons.forEach(button => {
-             button.addEventListener('click', function() {
-                 const classroomId = this.getAttribute('data-id');
-                 const classroom = classroomsData.find(c => c.room_id == classroomId);
+        //  editButtons.forEach(button => {
+        //      button.addEventListener('click', function() {
+        //          const classroomId = this.getAttribute('data-id');
+        //          const classroom = classroomsData.find(c => c.room_id == classroomId);
 
-                 if (classroom) {
-                     document.getElementById('classroom_ids').value = classroom.room_id;
-                     document.getElementById('room_status').value = classroom.room_status;
-                     document.getElementById('classroom_name').value = classroom.room_name;
-                     document.getElementById('classroom_type').value = classroom.room_type;
+        //          if (classroom) {
+        //              document.getElementById('classroom_ids').value = classroom.room_id;
+        //              document.getElementById('room_status').value = classroom.room_status;
+        //              document.getElementById('classroom_name').value = classroom.room_name;
+        //              document.getElementById('classroom_type').value = classroom.room_type;
 
-                     const modal = new bootstrap.Modal(document.getElementById('editClassroom'));
-                     modal.show();
-                 }
-             });
-         });
+        //              const modal = new bootstrap.Modal(document.getElementById('editClassroom'));
+        //              modal.show();
+        //          }
+        //      });
+        //  });
 
-         deleteButtons.forEach(button => {
-             button.addEventListener('click', function() {
-                 const classroomId = this.getAttribute('data-id');
-                 document.getElementById('classroom_id').value = classroomId;
+        //  deleteButtons.forEach(button => {
+        //      button.addEventListener('click', function() {
+        //          const classroomId = this.getAttribute('data-id');
+        //          document.getElementById('classroom_id').value = classroomId;
 
-                 const modal = new bootstrap.Modal(document.getElementById('deleteClassroom'));
-                 modal.show();
-             });
-         });
+        //          const modal = new bootstrap.Modal(document.getElementById('deleteClassroom'));
+        //          modal.show();
+        //      });
+        //  });
          // Events
          searchInput.addEventListener('input', filterClassrooms);
          syFilter.addEventListener('change', filterClassrooms);
