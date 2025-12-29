@@ -11,9 +11,7 @@ include 'authentication/session.php';
     <title>sta.Maria web system</title>
     <link rel="icon" href="<?php echo base_url() ?>/assets/image/logo2.png" type="image/x-icon">
     <?php render_styles()?>
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?php echo base_url() ?>/assets/js/sweetalert2.min.js"></script> 
     <script>
         var base_url = '<?php echo base_url() ?>';
     </script>
