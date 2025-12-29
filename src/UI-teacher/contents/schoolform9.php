@@ -478,7 +478,7 @@ $backSheet->setCellValue("A{$row}", $subjects[$i] ?? '');
 <head>
 <meta charset="UTF-8">
 <title>SF9 Fill</title>
-<link href="<?= base_url() ?>/assets/css/bootstrap.min.css" rel="stylesheet">
+<link href="<?= base_url() ?>assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   body { margin:0; padding:0; font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; }
@@ -500,8 +500,11 @@ $backSheet->setCellValue("A{$row}", $subjects[$i] ?? '');
 }
 
   /* Widen inputs in GRADES table only */
+.table-grades td, .table-grades th{
+  position: relative;
+}
 .table-grades input {
-  width: 100px;
+  width: 100%;
 }
 
 /* Learning Area wider */
@@ -806,7 +809,7 @@ $backSheet->setCellValue("A{$row}", $subjects[$i] ?? '');
 </div>
 
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= BASE_FR ?>/assets/js/bootstrap.min.js"></script>.table-grades input
 <script>
   
   (function(){

@@ -61,7 +61,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
     <link rel="icon" href="<?php echo base_url() ?>/assets/image/logo2.png" type="image/x-icon">
 
     <title>SF5 - Report on Promotion</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<?= base_url() ?>assets/bootstrap/css/bootstrap.min.css"" rel="stylesheet">
     <style>
         body {
             background-color: #f5f7fa;

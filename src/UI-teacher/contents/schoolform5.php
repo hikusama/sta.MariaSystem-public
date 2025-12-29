@@ -284,7 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <title>SF5</title>
-<link href="<?= base_url() ?>/assets/css/bootstrap.min.css" rel="stylesheet">
+<link href="<?= base_url() ?>assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
 <style>
 body { font-family:'Poppins',sans-serif; background:#f4f5f7; padding-bottom:120px; }
 .header { background:#FF3860; color:white; padding:7px 20px; display:flex; align-items:center; }

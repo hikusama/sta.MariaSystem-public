@@ -166,25 +166,25 @@ $count = 1;
                         ?>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($users) ?></h3>
+                                <h3 id="ts" class="text-primary mb-1"><?= count($users) ?></h3>
                                 <small style="color: black;">Total Users</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-info bg-opacity-10 rounded">
-                                <h3 class="mb-1 text-primary"><?= count($teacherCount) ?></h3>
+                                <h3 id="tc" class="mb-1 text-primary"><?= count($teacherCount) ?></h3>
                                 <small style="color: black;">Teachers</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($parentCount) ?></h3>
+                                <h3 id="ps" class="text-primary mb-1"><?= count($parentCount) ?></h3>
                                 <small style="color: black;">Parents</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-success bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($activeCount) ?></h3>
+                                <h3 id="as" class="text-primary mb-1"><?= count($activeCount) ?></h3>
                                 <small style="color: black;">Active Users</small>
                             </div>
                         </div>
@@ -295,6 +295,10 @@ $count = 1;
         const userTableBody = document.getElementById('userTableBody');
         const noResultsDiv = document.getElementById('noResults');
 
+        function ur(e, v) {
+            document.getElementById(e).textContent = v;
+        }
+
         function fetchUsers() {
             const formData = new FormData();
             formData.append('action', 'fetch_users'); // POST action required
@@ -306,11 +310,15 @@ $count = 1;
                     method: 'POST',
                     body: formData
                 })
-                .then(res => res.text())
-                .then(html => {
-                    userTableBody.innerHTML = html;
+                .then(res => res.json())
+                .then(data => {
+                    userTableBody.innerHTML = data.rows;
+                    ur('ts', data.totalUsers);
+                    ur('tc', data.teachers);
+                    ur('ps', data.parents);
+                    ur('as', data.activeUsers);
 
-                    if (!html.trim()) {
+                    if (!data.hasData) {
                         userTableBody.style.display = 'none';
                         noResultsDiv.classList.remove('d-none');
                     } else {
