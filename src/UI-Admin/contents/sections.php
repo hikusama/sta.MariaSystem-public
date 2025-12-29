@@ -6,7 +6,7 @@ if ($result['res']) {
     header($result['uri']);
     exit;
 }
-$stmt = $pdo->prepare("SELECT * FROM sections ORDER BY created_date DESC");
+$stmt = $pdo->prepare("SELECT * FROM sections LEFT JOIN school_year ON sections.school_year_id = school_year.school_year_id ORDER BY sections.created_date DESC");
 $stmt->execute();
 $sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $count = 1;
@@ -49,25 +49,25 @@ $count = 1;
                         ?>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 class="text-white mb-1"><?= count($sections) ?></h3>
+                                <h3 id="tc" class="text-white mb-1"><?= count($sections) ?></h3>
                                 <small class="text-white">Total Sections</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-success bg-opacity-10 rounded">
-                                <h3 class="text-white mb-1"><?= count($availableCount) ?></h3>
+                                <h3 id="av" class="text-white mb-1"><?= count($availableCount) ?></h3>
                                 <small class="text-white">Available</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-danger bg-opacity-10 rounded">
-                                <h3 class="text-white mb-1"><?= count($unavailableCount) ?></h3>
+                                <h3 id="uv" class="text-white mb-1"><?= count($unavailableCount) ?></h3>
                                 <small class="text-white">Unavailable</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-info bg-opacity-10 rounded">
-                                <h3 class="text-white mb-1"><?= count($gradeLevels) ?></h3>
+                                <h3 id="gt" class="text-white mb-1"><?= count($gradeLevels) ?></h3>
                                 <small class="text-white">Grade Levels</small>
                             </div>
                         </div>
@@ -77,26 +77,40 @@ $count = 1;
         </div>
     </div>
 
+    <div style="display: flex; gap: 1rem; align-items: center; border: none;">
+        <h5>Filter by:</h5>
+        <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
+            <option value="">All Year</option>
+            <?php
+            $catStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name ASC");
+            while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)): ?>
+                <option value="<?= htmlspecialchars($cat['school_year_id']) ?>">
+                    <?= htmlspecialchars($cat['school_year_name']) ?>
+                </option>
+            <?php endwhile; ?>
+        </select>
+    </div>
+
     <!-- Sections Table -->
     <div class="table-container-wrapper p-0">
-        <!-- Fixed Header -->
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
-                <thead class="table-light">
-                    <tr>
-                        <th width="5%">#</th>
-                        <th width="20%">Section Name</th>
-                        <th width="15%">Grade Level</th>
-                        <th width="15%">Section Status</th>
-                        <th width="20%">Created at</th>
-                        <th width="25%">Action</th>
-                    </tr>
-                </thead>
-            </table>
-        </div>
-
-        <!-- Scrollable Body -->
         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+            <!-- Fixed Header -->
+            <div>
+                <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style='white-space: wrap; width:5rem'>#</th>
+                            <th style='white-space: wrap; max-width:9rem'>Section Name</th>
+                            <th style='white-space: wrap; max-width:9rem'>Grade Level</th>
+                            <th style='white-space: wrap; max-width:9rem'>Section Status</th>
+                            <th style='white-space: wrap; max-width:9rem'>School Year</th>
+                            <th style='white-space: wrap; max-width:9rem'>Created at</th>
+                            <th style='white-space: wrap; '>Action</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+
             <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
                 <tbody id="sectionsTableBody">
                     <?php if (!empty($sections)):
@@ -106,8 +120,8 @@ $count = 1;
                                 data-name="<?= htmlspecialchars(strtolower($section["section_name"])) ?>"
                                 data-grade="<?= htmlspecialchars(strtolower($section["section_grade_level"])) ?>"
                                 data-status="<?= htmlspecialchars(strtolower($section["section_status"])) ?>">
-                                <td width="5%"><?= $count++ ?></td>
-                                <td width="20%" class="section-name">
+                                <td style='white-space: wrap; width:5rem'><?= $count++ ?></td>
+                                <td style='white-space: wrap; max-width:9rem' class="section-name">
                                     <div class="d-flex align-items-center">
                                         <div class="avatar-placeholder me-2">
                                             <i class="fa-solid fa-layer-group text-secondary"></i>
@@ -117,19 +131,22 @@ $count = 1;
                                         </div>
                                     </div>
                                 </td>
-                                <td width="15%">
+                                <td style='white-space: wrap; max-width:9rem'>
                                     <span class="badge bg-info"><?= htmlspecialchars($section["section_grade_level"]) ?></span>
                                 </td>
-                                <td width="15%">
+                                <td style='white-space: wrap; max-width:9rem'>
                                     <span class="badge bg-<?= ($section["section_status"] == 'Available') ? 'success' : 'secondary' ?>">
                                         <i class="fa-solid fa-circle fa-xs me-1"></i>
                                         <?= htmlspecialchars($section["section_status"] ?? 'Unavailable') ?>
                                     </span>
                                 </td>
-                                <td width="20%">
+                                <td style='white-space: wrap; max-width:9rem'>
+                                    <small><?= $section["school_year_name"] ?></small>
+                                </td>
+                                <td style='white-space: wrap; max-width:9rem'>
                                     <small><?= date('M d, Y', strtotime($section["created_date"])) ?></small>
                                 </td>
-                                <td width="25%">
+                                <td style='white-space: wrap;'>
                                     <div class="d-flex gap-1 justify-content-center">
                                         <button type="button" data-id="<?= $section["section_id"] ?>"
                                             class="btn btn-sm btn-info editSectionBtn"
@@ -292,92 +309,80 @@ $count = 1;
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('searchInput');
-        const sectionRows = document.querySelectorAll('.section-row');
         const sectionsTableBody = document.getElementById('sectionsTableBody');
         const noResultsDiv = document.getElementById('noResults');
-        const editButtons = document.querySelectorAll('.editSectionBtn');
-        const deleteButtons = document.querySelectorAll('.deleteSectionBtn');
+        // const editButtons = document.querySelectorAll('.editSectionBtn');
+        // const deleteButtons = document.querySelectorAll('.deleteSectionBtn');
+        const syFilter = document.getElementById('syFilter');
 
         // Sections data for edit form
-        const sectionsData = <?= json_encode($sections); ?>;
+        // const sectionsData = <?= json_encode($sections); ?>;
 
         // Search functionality
         function filterSections() {
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            let visibleCount = 0;
+            const formData = new FormData();
+            formData.append('action', 'fetch_sections');
+            formData.append('search', searchInput.value.trim());
+            formData.append('school_year', syFilter.value);
 
-            sectionRows.forEach(row => {
-                const name = row.getAttribute('data-name');
-                const grade = row.getAttribute('data-grade');
-                const status = row.getAttribute('data-status');
+            fetch('contents/fetch.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    sectionsTableBody.innerHTML = data.rows;
+                    document.getElementById('tc').textContent = data.totalCount;
+                    document.getElementById('av').textContent = data.availableCount;
+                    document.getElementById('uv').textContent = data.unavailableCount;
+                    document.getElementById('gt').textContent = data.gradeTypeCount;
 
-                let matchesSearch = true;
-
-                if (searchTerm) {
-                    matchesSearch = name.includes(searchTerm) ||
-                        grade.includes(searchTerm) ||
-                        status.includes(searchTerm);
-                }
-
-                if (matchesSearch) {
-                    row.style.display = '';
-                    visibleCount++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            if (visibleCount === 0) {
-                sectionsTableBody.style.display = 'none';
-                noResultsDiv.classList.remove('d-none');
-            } else {
-                sectionsTableBody.style.display = '';
-                noResultsDiv.classList.add('d-none');
-            }
-
-            updateRowNumbers();
-        }
-
-        function updateRowNumbers() {
-            let counter = 1;
-            sectionRows.forEach(row => {
-                if (row.style.display !== 'none') {
-                    const firstCell = row.querySelector('td:first-child');
-                    if (firstCell) {
-                        firstCell.textContent = counter++;
+                    if (!data.hasData) {
+                        sectionsTableBody.style.display = 'none';
+                        noResultsDiv.classList.remove('d-none');
+                    } else {
+                        sectionsTableBody.style.display = '';
+                        noResultsDiv.classList.add('d-none');
                     }
-                }
-            });
+                })
+                .catch(err => {
+                    console.error(err);
+                    sectionsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="text-center text-danger py-4">
+                            Failed to load data
+                        </td>
+                    </tr>`;
+                });
         }
-
         // Edit button click handler
-        editButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const sectionId = this.getAttribute('data-id');
-                const section = sectionsData.find(s => s.section_id == sectionId);
+        // editButtons.forEach(button => {
+        //     button.addEventListener('click', function() {
+        //         // const sectionId = this.getAttribute('data-id');
+        //         // const section = sectionsData.find(s => s.section_id == sectionId);
 
-                if (section) {
-                    document.getElementById('section_ids').value = section.section_id;
-                    document.getElementById('section_status').value = section.section_status;
-                    document.getElementById('section_name').value = section.section_name;
-                    document.getElementById('section_grade_level').value = section.section_grade_level;
+        //         // if (section) {
+        //         //     document.getElementById('section_ids').value = section.section_id;
+        //         //     document.getElementById('section_status').value = section.section_status;
+        //         //     document.getElementById('section_name').value = section.section_name;
+        //         //     document.getElementById('section_grade_level').value = section.section_grade_level;
 
-                    const modal = new bootstrap.Modal(document.getElementById('editSections'));
-                    modal.show();
-                }
-            });
-        });
+        //             const modal = new bootstrap.Modal(document.getElementById('editSections'));
+        //             modal.show();
+        //         // }
+        //     });
+        // });
 
         // Delete button click handler
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const sectionId = this.getAttribute('data-id');
-                document.getElementById('section_id').value = sectionId;
+        // deleteButtons.forEach(button => {
+        //     button.addEventListener('click', function() {
+        //         const sectionId = this.getAttribute('data-id');
+        //         document.getElementById('section_id').value = sectionId;
 
-                const modal = new bootstrap.Modal(document.getElementById('deleteSection'));
-                modal.show();
-            });
-        });
+        //         const modal = new bootstrap.Modal(document.getElementById('deleteSection'));
+        //         modal.show();
+        //     });
+        // });
 
         // Event listeners
         searchInput.addEventListener('input', filterSections);
@@ -394,6 +399,7 @@ $count = 1;
                 filterSections();
             }
         });
+        syFilter.addEventListener('change', filterSections);
 
         // Add some styling
         searchInput.addEventListener('focus', function() {
@@ -403,9 +409,6 @@ $count = 1;
         searchInput.addEventListener('blur', function() {
             this.parentElement.classList.remove('border-primary', 'border-2');
         });
-
-        // Initialize
-        filterSections();
     });
 </script>
 
