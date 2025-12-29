@@ -73,7 +73,9 @@ function db_connect()
                 section_name VARCHAR(50) NOT NULL,
                 section_grade_level VARCHAR(7) NOT NULL,
                 section_status ENUM('Available', 'Inavailable'),
-                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                school_year_id INT(11),
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (school_year_id) REFERENCES school_year(school_year_id) ON DELETE CASCADE
             )",
             "CREATE TABLE IF NOT EXISTS subjects (
                 subject_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -82,8 +84,9 @@ function db_connect()
                 subject_code VARCHAR(20) NOT NULL,
                 subject_units INT(11) NOT NULL,
                 subjects_status ENUM('Available', 'Unavailable') DEFAULT 'Available',
-                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
-
+                school_year_id INT(11),
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (school_year_id) REFERENCES school_year(school_year_id) ON DELETE CASCADE
             )",
 
             "CREATE TABLE IF NOT EXISTS classrooms (
@@ -649,11 +652,6 @@ END
             $stmtSF8->execute();
         }
 
-        try {
-
-            $pdo->exec("ALTER TABLE sections ADD UNIQUE (section_name, section_grade_level)");
-        } catch (PDOException $e) {
-        }
 
         try {
 
