@@ -559,7 +559,7 @@ $gradesData = [];
                                 $currentYear = date("Y");
                                 $currentMonth = date("n");
                                 $monthsToShow = 6; // Show last 6 months including current
-                                
+                                $startYear = 2020;
                                 for ($m = $currentMonth - ($monthsToShow - 1); $m <= $currentMonth; $m++):
                                     $monthIndex = $m;
                                     $year = $currentYear;
@@ -586,7 +586,7 @@ $gradesData = [];
                                     ?>
                                     
                                     <div class="month-card mb-5">
-                                        <h6 class="fw-semibold mb-3 text-primary d-flex justify-content-between align-items-center">
+                                        <h6 class="fw-semibold mb-3 d-flex justify-content-between align-items-center">
                                             <span><?= $monthName ?> <?= $year ?></span>
                                             <small class="text-muted fw-normal"><?= $daysRecorded ?> days recorded</small>
                                         </h6>

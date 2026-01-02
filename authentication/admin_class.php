@@ -307,7 +307,8 @@ class Action
                 ]);
             }
             if ($status === 'Active') {
-                # code...
+                $stmt = $this->db->prepare("UPDATE school_year SET school_year_status = 'Inactive'");
+                $stmt->execute();
             }
 
             $query = "INSERT INTO school_year (school_year_status, school_year_name) 

@@ -59,7 +59,7 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
                     </select>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-2">
                     <select id="gradeFilter" name="gradeLevelCategory" class="form-select" style="max-width: 200px;">
                         <option value="">All Grades</option>
                         <option value="Grade 1">Grade 1</option>
@@ -68,6 +68,19 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
                         <option value="Grade 4">Grade 4</option>
                         <option value="Grade 5">Grade 5</option>
                         <option value="Grade 6">Grade 6</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
+                        <option value="">All Year</option>
+                        <?php
+                        $catStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name ASC");
+                        while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)): ?>
+                            <option value="<?= htmlspecialchars($cat['school_year_id']) ?>">
+                                <?= htmlspecialchars($cat['school_year_name']) ?>
+                            </option>
+                        <?php endwhile; ?>
                     </select>
                 </div>
             </div>
@@ -89,25 +102,25 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
                         ?>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($users) ?></h3>
+                                <h3 id="ts" class="text-primary mb-1"><?= count($users) ?></h3>
                                 <small class="text-white">Total Students</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-success bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($enrolledCount) ?></h3>
+                                <h3 id="en" class="text-primary mb-1"><?= count($enrolledCount) ?></h3>
                                 <small class="text-white">Enrolled</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-secondary bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1"><?= count($pendingCount) ?></h3>
+                                <h3 id="pn" class="text-primary mb-1"><?= count($pendingCount) ?></h3>
                                 <small class="text-white">Pending</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-danger bg-opacity-10 rounded">
-                                <h3 class="text-primary mb-1">
+                                <h3 id="rd" class="text-primary mb-1">
                                     <?= count($rejectedCount) + count(array_filter($users, fn($u) => $u['enrolment_status'] == 'dropped')) ?>
                                 </h3>
                                 <small class="text-white">Rejected/Dropped</small>
@@ -122,23 +135,23 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
     <!-- Students Table -->
     <div class="table-container-wrapper p-0">
         <!-- Fixed Header -->
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
-                <thead class="table-light">
-                    <tr>
-                        <th width="5%">#</th>
-                        <th width="20%">Name</th>
-                        <th width="15%">Grade Level</th>
-                        <th width="15%">Enrollment Status</th>
-                        <th width="20%">Enrolled at</th>
-                        <th width="25%">Action</th>
-                    </tr>
-                </thead>
-            </table>
-        </div>
 
         <!-- Scrollable Body -->
         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="5%">#</th>
+                            <th width="20%">Name</th>
+                            <th width="15%">Grade Level</th>
+                            <th width="15%">Enrollment Status</th>
+                            <th width="20%">Enrolled at</th>
+                            <th width="25%">Action</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
             <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
                 <tbody id="enrollmentTableBody">
                     <?php if ($users):
@@ -358,92 +371,66 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
         const studentRows = document.querySelectorAll('.student-row');
         const enrollmentTableBody = document.getElementById('enrollmentTableBody');
         const noResultsDiv = document.getElementById('noResults');
+        const syFilter = document.getElementById('syFilter');
 
-        // Adviser select handler
-        const adviserSelect = document.getElementById('adviserSelect');
-        const sectionNameDiv = document.getElementById('section_name');
-        const sectionNameHidden = document.getElementById('section_name_hidden');
 
-        if (adviserSelect && sectionNameDiv) {
-            adviserSelect.addEventListener('change', function() {
-                const selectedOption = this.selectedOptions[0];
-                const section = selectedOption.dataset.section || '';
-                sectionNameDiv.textContent = section;
-                sectionNameHidden.value = section;
-            });
+        function ur(e, v) {
+            document.getElementById(e).textContent = v;
         }
 
         // Search and filter functionality
         function filterStudents() {
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            const statusValue = statusFilter.value.toLowerCase();
-            const gradeValue = gradeFilter.value.toLowerCase();
 
-            let visibleCount = 0;
 
-            studentRows.forEach(row => {
-                const name = row.getAttribute('data-name');
-                const grade = row.getAttribute('data-grade');
-                const status = row.getAttribute('data-status');
+            const formData = new FormData();
+            formData.append('action', 'fetch_enrollments');
+            formData.append('search', searchInput.value.trim());
+            formData.append('status', statusFilter.value);
+            formData.append('grade', gradeFilter.value);
+            formData.append('school_year', syFilter.value);
 
-                let matchesSearch = true;
-                let matchesStatus = true;
-                let matchesGrade = true;
+            fetch('contents/fetch.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    enrollmentTableBody.innerHTML = data.rows;
+                    ur('ts', data.ts);
+                    ur('en', data.en);
+                    ur('pn', data.pn);
+                    ur('rd', data.rd);
 
-                // Apply search filter
-                if (searchTerm) {
-                    matchesSearch = name.includes(searchTerm);
-                }
+                    if (!data.hasData) {
+                        enrollmentTableBody.style.display = 'none';
+                        noResultsDiv.classList.remove('d-none');
+                    } else {
+                        enrollmentTableBody.style.display = '';
+                        noResultsDiv.classList.add('d-none');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    enrollmentTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="10" class="text-center text-danger py-4">
+                                Failed to load data
+                            </td>
+                        </tr>`;
+                });
 
-                // Apply status filter
-                if (statusValue) {
-                    matchesStatus = status.includes(statusValue);
-                }
 
-                // Apply grade filter
-                if (gradeValue) {
-                    matchesGrade = grade.includes(gradeValue.toLowerCase());
-                }
 
-                // Show/hide row based on filters
-                if (matchesSearch && matchesStatus && matchesGrade) {
-                    row.style.display = '';
-                    visibleCount++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            // Show/hide no results message
-            if (visibleCount === 0) {
-                enrollmentTableBody.style.display = 'none';
-                noResultsDiv.classList.remove('d-none');
-            } else {
-                enrollmentTableBody.style.display = '';
-                noResultsDiv.classList.add('d-none');
-            }
-
-            // Update row numbers
-            updateRowNumbers();
         }
 
         // Function to update row numbers
-        function updateRowNumbers() {
-            let counter = 1;
-            studentRows.forEach(row => {
-                if (row.style.display !== 'none') {
-                    const firstCell = row.querySelector('td:first-child');
-                    if (firstCell) {
-                        firstCell.textContent = counter++;
-                    }
-                }
-            });
-        }
+
 
         // Event listeners
         searchInput.addEventListener('input', filterStudents);
         statusFilter.addEventListener('change', filterStudents);
         gradeFilter.addEventListener('change', filterStudents);
+        syFilter.addEventListener('change', filterStudents);
 
         // clearSearchBtn.addEventListener('click', function() {
         //     searchInput.value = '';
@@ -486,7 +473,6 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
         });
 
         // Initialize
-        filterStudents();
     });
 
     // Enrollment modal functionality

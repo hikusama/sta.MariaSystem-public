@@ -384,7 +384,7 @@ foreach ($certifications as $cert) {
         $drawing = new Drawing();
         $drawing->setName('DepEd Logo');
         $drawing->setDescription('DepEd Logo');
-        $drawing->setPath('C:/xampp/htdocs<?= BASE_FR ?>/assets/image/deped.png');
+        $drawing->setPath($_SERVER['DOCUMENT_ROOT'] . BASE_FR . '/assets/image/deped.png');
         $drawing->setCoordinates('A1');
         $drawing->setWidth(80);
         $drawing->setHeight(80);

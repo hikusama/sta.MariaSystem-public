@@ -57,7 +57,7 @@ if (!empty($sectionId) && !empty($gradeLevel) && !empty($sectionName)) {
     $sectionName = trim($sectionName);
 
     $stmt = $mysqli->prepare("
-        SELECT sf9.lrn, sf9.student_name, sf9.general_average, s.sex
+        SELECT sf9.lrn, sf9.student_name, sf9.general_average, s.sex, sf9.school_year
         FROM sf9_data sf9
         JOIN student s ON s.lrn = sf9.lrn
         WHERE sf9.grade = ? AND LOWER(sf9.section) = LOWER(?)
@@ -73,6 +73,7 @@ if (!empty($sectionId) && !empty($gradeLevel) && !empty($sectionName)) {
         $formData['lrn'][$rowNum] = $student['lrn'];
         $formData['name'][$rowNum] = $student['student_name'];
         $formData['average'][$rowNum] = $student['general_average'];
+        $formData['school_year'] = $student['school_year'];
       
 $formData['action'][$rowNum] = $formData['action'][$rowNum] ?? '';
 

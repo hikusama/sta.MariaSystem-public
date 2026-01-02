@@ -278,7 +278,7 @@ if ($result['res']) {
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label fw-semibold">Grade Level <span class="text-danger">*</span></label>
-                                <select required name="grade_level" class="form-select">
+                                <select id="grlvl" required name="grade_level" class="form-select">
                                     <option value="">Select Grade Level</option>
                                     <option value="Grade 1">Grade 1</option>
                                     <option value="Grade 2">Grade 2</option>
@@ -339,8 +339,8 @@ if ($result['res']) {
                                 </select>
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-semibold">Birth date <span class="text-danger">*</span></label>
-                                <input required type="date" name="birthdate" class="form-control">
+                                <label  class="form-label fw-semibold">Birth date <span class="text-danger">*</span></label>
+                                <input required type="date" id="bdate" name="birthdate" class="form-control">
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label fw-semibold">Birth place</label>
@@ -538,6 +538,7 @@ if ($result['res']) {
             });
         }
 
+
         // Search functionality
         const searchInput = document.getElementById('searchInput');
         const studentCards = document.querySelectorAll('.student-card');
@@ -580,6 +581,22 @@ if ($result['res']) {
                     this.value = this.value.slice(0, 12);
                 }
             });
+        }
+
+        const bdate = document.getElementById('bdate');
+        const grlvl = document.getElementById('grlvl');
+
+        grlvl.addEventListener('change', updateMinDate)
+
+        function updateMinDate() {
+            const gradelvl = parseInt(grlvl.value.replace('Grade ', ''))
+            const minAge = 6 + (gradelvl - 1)
+            const today = new Date()
+            const cuttoff = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate())
+
+            bdate.max = cuttoff.toISOString().split('T')[0]
+            bdate.min = new Date(today.getFullYear() - (minAge + 1), today.getMonth(), today.getDate() + 1).toISOString().split('T')[0]
+            bdate.value = ''
         }
     });
 </script>

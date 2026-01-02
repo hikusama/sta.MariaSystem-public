@@ -5,79 +5,135 @@ if ($result['res']) {
     header($result['uri']);
     exit;
 }
-// Database connection
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "stamariadb";
 
-$conn = new mysqli($servername, $username, $password, $dbname);
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+$teacher_id = $_SESSION['user_id'];
+$conn = new mysqli("localhost", "root", "", "stamariadb");
+if ($conn->connect_error) die("Connection failed");
 
+$perPage = 10;
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$offset = ($page - 1) * $perPage;
+
+/* ================= AJAX ================= */
 if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
-    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-    if ($search === '') {
-        $sql = "SELECT * FROM student ORDER BY lname, fname LIMIT 7";
-        $stmt = $conn->prepare($sql);
-    } else {
-        $searchLike = "%{$search}%";
-        $sql = "SELECT * FROM student 
-                WHERE lrn LIKE ? OR fname LIKE ? OR mname LIKE ? OR lname LIKE ? OR gradeLevel LIKE ? OR sex LIKE ?
-                ORDER BY lname, fname";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param('ssssss', $searchLike, $searchLike, $searchLike, $searchLike, $searchLike, $searchLike);
+    $search = trim($_GET['search'] ?? '');
+    $status = trim($_GET['status'] ?? '');
+    $sy     = trim($_GET['sy'] ?? '');
+
+    $where = [];
+    $params = [];
+    $types = '';
+
+    /* teacher restriction (adviser) */
+    $where[] = "c.adviser_id = ?";
+    $params[] = $teacher_id;
+    $types .= 'i';
+
+    /* school year */
+    if ($sy) {
+        $where[] = "c.sy_id = ?";
+        $params[] = $sy;
+        $types .= 'i';
     }
 
-    $stmt->execute();
-    $result = $stmt->get_result();
+    /* status */
+    if ($status && !in_array($status, ['pending', 'rejected'])) {
+        $where[] = "s.enrolment_status = ?";
+        $params[] = $status;
+        $types .= 's';
+    }
 
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
+    /* search */
+    if ($search) {
+        $where[] = "(s.lrn LIKE ? OR s.fname LIKE ? OR s.mname LIKE ? OR s.lname LIKE ?)";
+        $s = "%$search%";
+        array_push($params, $s, $s, $s, $s,);
+        $types .= 'ssss';
+    }
+
+    $whereSQL = " WHERE " . implode(" AND ", $where);
+
+    /* COUNT */
+    $countSQL = "
+        SELECT COUNT(*) total
+        FROM student s
+        INNER JOIN classes c 
+            ON c.grade_level = s.gradeLevel
+        $whereSQL
+    ";
+
+    $stmt = $conn->prepare($countSQL);
+    if ($params) $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $total = $stmt->get_result()->fetch_assoc()['total'];
+
+    /* DATA */
+    $sql = "
+        SELECT s.*, c.grade_level
+        FROM student s
+        INNER JOIN classes c 
+            ON c.grade_level = s.gradeLevel
+        $whereSQL
+        ORDER BY s.lname, s.fname
+        LIMIT $perPage OFFSET $offset
+    ";
+
+    $stmt = $conn->prepare($sql);
+    if ($params) $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    if ($res->num_rows) {
+        while ($row = $res->fetch_assoc()) {
             echo "<tr class='student-row' 
-                     data-id='" . htmlspecialchars($row['student_id']) . "'
-                     data-lrn='" . htmlspecialchars(strtolower($row['lrn'])) . "'
-                     data-fname='" . htmlspecialchars(strtolower($row['fname'])) . "'
-                     data-lname='" . htmlspecialchars(strtolower($row['lname'])) . "'
-                     data-grade='" . htmlspecialchars(strtolower($row['gradeLevel'])) . "'
-                     data-sex='" . htmlspecialchars(strtolower($row['sex'])) . "'
-                     data-status='" . htmlspecialchars(strtolower($row['enrolment_status'])) . "'>
-                    <td width='15%'>
-                        <div class='d-flex align-items-center justify-content-center'>
-                            <div class='avatar-placeholder me-2'>
-                                <i class='fa-solid fa-id-card text-info'></i>
-                            </div>
-                            <div>
-                                <strong>" . htmlspecialchars($row['lrn']) . "</strong>
-                            </div>
-                        </div>
-                    </td>
-                    <td width='15%'>" . htmlspecialchars($row['fname']) . "</td>
-                    <td width='15%'>" . htmlspecialchars($row['mname']) . "</td>
-                    <td width='15%'>" . htmlspecialchars($row['lname']) . "</td>
-                    <td width='10%'>
-                        <span class='badge bg-primary'>" . htmlspecialchars($row['gradeLevel']) . "</span>
-                    </td>
-                    <td width='10%'>
-                        <span class='badge bg-" . (strtolower($row['sex']) == 'male' ? 'info' : 'warning') . "'>
-                            " . htmlspecialchars($row['sex']) . "
-                        </span>
-                    </td>
-                    <td width='20%'>
-                        <span class='badge bg-" . ($row['enrolment_status'] == 'active' ? 'success' : 'secondary') . "'>
-                            <i class='fa-solid fa-circle fa-xs me-1'></i>
-                            " . htmlspecialchars($row['enrolment_status']) . "
-                        </span>
-                    </td>
-                  </tr>";
+                                         data-id='" . htmlspecialchars($row['student_id']) . "'
+                                         data-lrn='" . htmlspecialchars(strtolower($row['lrn'])) . "'
+                                         data-fname='" . htmlspecialchars(strtolower($row['fname'])) . "'
+                                         data-lname='" . htmlspecialchars(strtolower($row['lname'])) . "'
+                                         data-grade='" . htmlspecialchars(strtolower($row['gradeLevel'])) . "'
+                                         data-sex='" . htmlspecialchars(strtolower($row['sex'])) . "'
+                                         data-status='" . htmlspecialchars(strtolower($row['enrolment_status'])) . "'>
+                                        <td width='15%'>
+                                            <div class='d-flex align-items-center justify-content-center'>
+                                                <div class='avatar-placeholder me-2'>
+                                                    <i class='fa-solid fa-id-card text-info'></i>
+                                                </div>
+                                                <div>
+                                                    <strong>" . htmlspecialchars($row['lrn']) . "</strong>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td width='15%'>" . htmlspecialchars($row['fname']) . "</td>
+                                        <td width='15%'>" . htmlspecialchars($row['mname']) . "</td>
+                                        <td width='15%'>" . htmlspecialchars($row['lname']) . "</td>
+                                        <td width='10%'>
+                                            <span class='badge bg-primary'>" . htmlspecialchars($row['gradeLevel']) . "</span>
+                                        </td>
+                                        <td width='10%'>
+                                            <span class='badge bg-" . (strtolower($row['sex']) == 'male' ? 'info' : 'warning') . "'>
+                                                " . htmlspecialchars($row['sex']) . "
+                                            </span>
+                                        </td>
+                                        <td width='20%'>
+                                            <span class='badge bg-" . ($row['enrolment_status'] == 'active' ? 'success' : 'secondary') . "'>
+                                                <i class='fa-solid fa-circle fa-xs me-1'></i>
+                                                " . htmlspecialchars($row['enrolment_status']) . "
+                                            </span>
+                                        </td>
+                                      </tr>";
         }
     } else {
         echo "<tr><td colspan='7' class='text-center py-3'>No students found.</td></tr>";
     }
 
-    exit; // stop execution for AJAX
+    /* Pagination info */
+    echo "<tr id='pagination-info' class='d-none nss'
+            data-total='$total'
+            data-page='$page'
+            data-perpage='$perPage'></tr>";
+
+    exit;
 }
 ?>
 
@@ -86,12 +142,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
 
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="<?php echo base_url() ?>/assets/image/logo2.png" type="image/x-icon">
-
     <title>SF10 - Learner's Permanent Academic Record</title>
-    <link href="<?= base_url() ?>assets/bootstrap/css/bootstrap.min.css"" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="<?= base_url() ?>assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?= base_url() ?>assets/fontawesome/css/all.min.css">
     <style>
+        #pagination{
+            margin-top: 1rem;
+        }
         body {
             background-color: #f5f7fa;
             font-family: "Segoe UI", sans-serif;
@@ -209,180 +266,123 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
 </head>
 
 <body>
-
     <div class="container-fluid py-3">
-        <!-- Header -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div class="mx-2">
-                <h4><i class="fa-solid fa-file-certificate me-2"></i>SF10 - Learner's Permanent Academic Record</h4>
+        <h4><i class="fa-solid fa-file-certificate me-2"></i>SF10 - Learner's Permanent Academic Record</h4>
+
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <input class="form-control" id="searchInput" placeholder="Search LRN, Name...">
+            </div>
+            <div class="col-md-3">
+                <select id="statusFilter" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="not_active">Not Active</option>
+                    <option value="transferred_in">Transferred In</option>
+                    <option value="transferred_out">Transferred Out</option>
+                    <option value="dropped">Dropped</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select id="syFilter" class="form-select">
+                    <option value="">All School Year</option>
+                    <?php
+                    $syq = $conn->query("SELECT school_year_id, school_year_name FROM school_year");
+                    while ($sy = $syq->fetch_assoc()):
+                    ?>
+                        <option value="<?= $sy['school_year_id'] ?>"><?= $sy['school_year_name'] ?></option>
+                    <?php endwhile; ?>
+                </select>
             </div>
         </div>
 
-        <div class="scroll-feedback">
-            <!-- Search Section -->
-            <div class="row mb-3 justify-content-between align-items-center">
-                <div class="col-md-12">
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="fa-solid fa-search"></i></span>
-                        <input type="text" class="form-control" name="search" id="searchInput"
-                            placeholder="Search by LRN, Name, Grade Level, Sex, or Enrolment Status...">
-                    </div>
-                </div>
-            </div>
-
-
-            <!-- Students Table -->
-            <div class="table-container-wrapper p-0">
-                <!-- Fixed Header -->
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
-                        <thead class="table-light">
-                            <tr>
-                                <th width="15%">LRN</th>
-                                <th width="15%">First Name</th>
-                                <th width="15%">Middle Name</th>
-                                <th width="15%">Last Name</th>
-                                <th width="10%">Grade Level</th>
-                                <th width="10%">Sex</th>
-                                <th width="20%">Enrolment Status</th>
-                            </tr>
-                        </thead>
-                    </table>
-                </div>
-
-                <!-- Scrollable Body -->
-                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
-                        <tbody id="studentTable">
-                            <?php
-                            $query = "SELECT * FROM student ORDER BY lname, fname LIMIT 7";
-                            $result = $conn->query($query);
-                            if ($result && $result->num_rows > 0) {
-                                while ($row = $result->fetch_assoc()) {
-                                    echo "<tr class='student-row' 
-                                         data-id='" . htmlspecialchars($row['student_id']) . "'
-                                         data-lrn='" . htmlspecialchars(strtolower($row['lrn'])) . "'
-                                         data-fname='" . htmlspecialchars(strtolower($row['fname'])) . "'
-                                         data-lname='" . htmlspecialchars(strtolower($row['lname'])) . "'
-                                         data-grade='" . htmlspecialchars(strtolower($row['gradeLevel'])) . "'
-                                         data-sex='" . htmlspecialchars(strtolower($row['sex'])) . "'
-                                         data-status='" . htmlspecialchars(strtolower($row['enrolment_status'])) . "'>
-                                        <td width='15%'>
-                                            <div class='d-flex align-items-center justify-content-center'>
-                                                <div class='avatar-placeholder me-2'>
-                                                    <i class='fa-solid fa-id-card text-info'></i>
-                                                </div>
-                                                <div>
-                                                    <strong>" . htmlspecialchars($row['lrn']) . "</strong>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td width='15%'>" . htmlspecialchars($row['fname']) . "</td>
-                                        <td width='15%'>" . htmlspecialchars($row['mname']) . "</td>
-                                        <td width='15%'>" . htmlspecialchars($row['lname']) . "</td>
-                                        <td width='10%'>
-                                            <span class='badge bg-primary'>" . htmlspecialchars($row['gradeLevel']) . "</span>
-                                        </td>
-                                        <td width='10%'>
-                                            <span class='badge bg-" . (strtolower($row['sex']) == 'male' ? 'info' : 'warning') . "'>
-                                                " . htmlspecialchars($row['sex']) . "
-                                            </span>
-                                        </td>
-                                        <td width='20%'>
-                                            <span class='badge bg-" . ($row['enrolment_status'] == 'active' ? 'success' : 'secondary') . "'>
-                                                <i class='fa-solid fa-circle fa-xs me-1'></i>
-                                                " . htmlspecialchars($row['enrolment_status']) . "
-                                            </span>
-                                        </td>
-                                      </tr>";
-                                }
-                            } else {
-                                echo "<tr><td colspan='7' class='text-center py-3'>No students found.</td></tr>";
-                            }
-                            ?>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Empty State -->
-                <div id="noResults" class="text-center py-5 d-none">
-                    <div class="empty-state">
-                        <i class="fa-solid fa-user-graduate fa-3x text-muted mb-3"></i>
-                        <h5>No students found</h5>
-                        <p class="text-muted">Try adjusting your search</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <table class="table table-bordered table-hover table-sm">
+            <thead>
+                <tr>
+                    <th>LRN</th>
+                    <th>First</th>
+                    <th>Middle</th>
+                    <th>Last</th>
+                    <th>Grade</th>
+                    <th>Sex</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="studentTable"></tbody>
+        </table>
+        <div id="pagination" class="text-center"></div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const searchInput = document.getElementById('searchInput');
+        document.addEventListener('DOMContentLoaded', () => {
             const studentTable = document.getElementById('studentTable');
-            const noResultsDiv = document.getElementById('noResults');
-            let studentRows = document.querySelectorAll('.student-row');
+            const searchInput = document.getElementById('searchInput');
+            const statusFilter = document.getElementById('statusFilter');
+            const syFilter = document.getElementById('syFilter');
+            const pagination = document.getElementById('pagination');
+            let page = 1;
 
-            // Live search
-            searchInput.addEventListener('input', function() {
-                const search = this.value.trim();
-                const xhr = new XMLHttpRequest();
+            async function loadStudents() {
+                const params = new URLSearchParams({
+                    ajax: 1,
+                    page,
+                    search: searchInput.value,
+                    status: statusFilter.value,
+                    sy: syFilter.value
+                });
+                const response = await fetch(`contents/sf10.php?${params}`);
+                const html = await response.text();
+                studentTable.innerHTML = html;
+                updatePagination();
+                attachRowClick();
+            }
 
-                xhr.open('GET', 'contents/sf10.php?ajax=1&search=' + encodeURIComponent(search), true);
-
-                xhr.onload = function() {
-                    if (this.status === 200) {
-                        studentTable.innerHTML = this.responseText;
-                        attachRowClickEvents();
-                        studentRows = document.querySelectorAll('.student-row');
-
-                        // Show/hide no results message
-                        if (studentRows.length === 0 || (studentRows.length === 1 && studentRows[0].querySelector('td').textContent.includes('No students'))) {
-                            studentTable.style.display = 'none';
-                            noResultsDiv.classList.remove('d-none');
-                        } else {
-                            studentTable.style.display = '';
-                            noResultsDiv.classList.add('d-none');
-                        }
-                    }
-                };
-
-                xhr.send();
-            });
-
-            // Search with Enter key
-            searchInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    this.dispatchEvent(new Event('input'));
-                }
-            });
-
-            // Focus styling
-            searchInput.addEventListener('focus', function() {
-                this.parentElement.classList.add('border-primary', 'border-2');
-            });
-
-            searchInput.addEventListener('blur', function() {
-                this.parentElement.classList.remove('border-primary', 'border-2');
-            });
-
-            // Clickable rows redirect
-            function attachRowClickEvents() {
+            function attachRowClick() {
                 document.querySelectorAll('.student-row').forEach(row => {
-                    row.addEventListener('click', function() {
-                        const studentId = this.getAttribute('data-id');
-                        if (studentId) {
-                            window.location.href = '<?php echo BASE_FR; ?>/src/UI-teacher/contents/schoolform10.php?student_id=' + studentId;
-                        }
-                    });
+                    row.onclick = () => {
+                        window.location.href = "<?= BASE_FR ?>/src/UI-teacher/contents/schoolform10.php?student_id=" + row.dataset.id;
+                    };
                 });
             }
 
-            // Initialize
-            attachRowClickEvents();
+            function updatePagination() {
+                const info = document.getElementById('pagination-info');
+                if (!info) {
+                    pagination.innerHTML = '';
+                    return;
+                }
+                const total = parseInt(info.dataset.total);
+                const perPage = parseInt(info.dataset.perpage);
+                const pages = Math.ceil(total / perPage);
+                pagination.innerHTML = '';
+                for (let i = 1; i <= pages; i++) {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-sm btn-outline-primary mx-1' + (i === page ? ' active' : '');
+                    btn.textContent = i;
+                    btn.onclick = () => {
+                        page = i;
+                        loadStudents();
+                    };
+                    pagination.appendChild(btn);
+                }
+            }
+
+            searchInput.oninput = () => {
+                page = 1;
+                loadStudents();
+            };
+            statusFilter.onchange = () => {
+                page = 1;
+                loadStudents();
+            };
+            syFilter.onchange = () => {
+                page = 1;
+                loadStudents();
+            };
+
+            loadStudents();
         });
     </script>
-
 </body>
 
 </html>

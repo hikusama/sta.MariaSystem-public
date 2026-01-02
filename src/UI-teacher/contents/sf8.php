@@ -5,6 +5,7 @@ if ($result['res']) {
     header($result['uri']);
     exit;
 }
+$user_id = $_SESSION['user_id'];
 // Get selected grade level from filter
 $selectedGrade = $_POST['gradeLevelCategory'] ?? '';
 

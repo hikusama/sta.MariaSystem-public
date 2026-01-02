@@ -45,10 +45,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+        $teachers = 0;
+        $parents = 0;
+        $activeUsers = 0;
+        $html = '';
         // Return table rows
         foreach ($users as $index => $user) {
-            echo '<tr class="user-row"
+            if ($user["user_role"] === "TEACHER") {
+                $teachers++;
+            } elseif ($user["user_role"] === "PARENT") {
+                $parents++;
+            }
+            if ($user["status"] === "Active") {
+                $activeUsers++;
+            }
+            $html .= '<tr class="user-row"
             data-name="' . strtolower($user["firstname"] . ' ' . $user["lastname"]) . '"
             data-role="' . strtolower($user["user_role"]) . '"
             data-status="' . strtolower($user["status"]) . '"
@@ -63,9 +74,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     <div>
                         <strong>' . htmlspecialchars($user["lastname"] . ', ' . $user["firstname"]) . '</strong>';
             if (!empty($user["middlename"])) {
-                echo '<br><small class="text-muted">' . htmlspecialchars($user["middlename"]) . '</small>';
+                $html .= '<br><small class="text-muted">' . htmlspecialchars($user["middlename"]) . '</small>';
             }
-            echo '</div>
+            $html .= '</div>
                 </div>
             </td>
             <td>
@@ -97,6 +108,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </td>
           </tr>';
         }
+
+        echo json_encode([
+            'rows' => $html,
+            'hasData' => !empty($users),
+            'teachers' => $teachers,
+            'parents' => $parents,
+            'activeUsers' => $activeUsers,
+            'totalUsers' => count($users)
+        ]);
     } elseif ($action === 'fetch_student') {
         $search = trim($_POST['search'] ?? '');
         $status = trim($_POST['status'] ?? '');
@@ -217,7 +237,175 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         echo json_encode([
             'rows' => $html,
+            'hasData' => !empty($classrooms),
             'stats' => $stats
+        ]);
+    } elseif ($action === 'fetch_enrollments') {
+        $search = trim($_POST['search'] ?? '');
+        $status = trim($_POST['status'] ?? '');
+        $grade  = trim($_POST['grade'] ?? '');
+        $sy     = trim($_POST['school_year'] ?? '');
+
+        $where = [];
+        $params = [];
+
+        // Only filter by school year if selected
+        if ($sy) {
+            $where[] = "u.school_year_id = ?";
+            $params[] = $sy;
+        }
+
+        // Only filter by enrolment status if selected
+        if ($status) {
+            $where[] = "LOWER(s.enrolment_status) = ?";
+            $params[] = strtolower($status);
+        }
+
+        // Only filter by grade if selected
+        if ($grade) {
+            $where[] = "LOWER(s.gradeLevel) = ?";
+            $params[] = strtolower($grade);
+        }
+
+        // Search by name, LRN, or parent
+        if ($search) {
+            $where[] = "(s.fname LIKE ? OR s.lname LIKE ? OR s.lrn LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)";
+            $s = "%$search%";
+            array_push($params, $s, $s, $s, $s, $s);
+        }
+
+        // Build SQL
+        $sql = "SELECT s.*, u.*
+                FROM student s
+                LEFT JOIN users u
+                ON s.guardian_id = u.user_id
+                ";
+
+        if ($where) {
+            $sql .= " WHERE " . implode(" AND ", $where);
+        }
+
+        $sql .= " ORDER BY s.fname ASC";
+
+        // Execute
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Calculate stats
+        // $stats = ['total' => count($users), 'enrolled' => 0, 'transferred' => 0, 'inactive' => 0];
+        $html = '';
+
+        $en = 0;
+        $pn = 0;
+        $rd = 0;
+
+
+
+        foreach ($users as $user) {
+
+            $status = $user["enrolment_status"] ?? '';
+            $badgeClass = '';
+            $statusText = '';
+
+            if ($status == 'active') {
+                $en += 1;
+                $badgeClass = 'success';
+                $statusText = 'Enrolled';
+            } elseif ($status == 'rejected') {
+                $rd += 1;
+                $badgeClass = 'danger';
+                $statusText = 'Rejected';
+            } elseif ($status == 'transferred') {
+                $badgeClass = 'info';
+                $statusText = 'Transferred';
+            } elseif ($status == 'dropped') {
+                $rd += 1;
+                $badgeClass = 'danger';
+                $statusText = 'Dropped';
+            } else {
+                $pn += 1;
+                $badgeClass = 'secondary';
+                $statusText = 'Pending';
+            }
+            $html .= '
+                            <tr class="student-row"
+                                data-name="' . htmlspecialchars(strtolower($user["lname"] . " " . $user["fname"])) . '"
+                                data-grade="' . htmlspecialchars(strtolower($user["gradeLevel"] ?? '')) . '"
+                                data-status="' . htmlspecialchars(strtolower($status)) . '">
+                                <td width="5%">' . $count++ . '</td>
+                                <td width="20%" class="student-name">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-placeholder me-2">
+                                            <i class="fa-solid fa-user-graduate text-secondary"></i>
+                                        </div>
+                                        <div>
+                                            <strong>' . htmlspecialchars($user["lname"] . ", " . $user["fname"]) . '</strong>';
+
+            if (!empty($user["mname"])) {
+
+                $html .= '<br><small class="text-muted">' . htmlspecialchars($user["mname"]) . '</small>';
+            }
+
+            $html .= '</div>
+                                    </div>
+                                </td>
+                                <td width="15%">
+                                    <span class="badge bg-info">' . htmlspecialchars($user["gradeLevel"] ?? 'Not set') . '</span>
+                                </td>
+                                <td width="15%">
+                                    <span class="badge bg-' . $badgeClass . '">
+                                        <i class="fa-solid fa-circle fa-xs me-1"></i>
+                                        ' . $statusText . '
+                                    </span>
+                                </td>
+                                <td width="20%">';
+
+            if (!empty($user["enrolled_date"])) {
+                $html .= '
+                                        <small>' . date('M d, Y', strtotime($user["enrolled_date"])) . '</small>';
+            } else {
+                $html .= '
+                                        <small class="text-muted">Not enrolled yet</small>';
+            }
+            $html .= '
+                                     </td>
+                                        <td width="25%">
+                                            <div class="d-flex gap-1 justify-content-center">
+                                                <a href="index.php?page=contents/form&student_id=' . htmlspecialchars($user["student_id"]) . '"
+                                                    class="btn btn-sm btn-info" title="View Enrollment Form">
+                                                    <i class="fa-solid fa-file-lines me-1"></i> Form
+                                                </a>';
+            if ($status != 'active' && $status != 'rejected') {
+                $html .= '
+                                            <button type="button" class="btn btn-success btn-sm open-enrolment"
+                                                data-id="' . htmlspecialchars($user["student_id"]) . '"
+                                                data-gradelevel="' . htmlspecialchars($user["gradeLevel"]) . '"
+                                                title="Approve Enrollment">
+                                                <i class="fa-solid fa-check me-1"></i> Approve
+                                            </button>';
+            }
+            if ($status != 'rejected' && $status != 'active') {
+                $html .= '
+                                            <button type="button" class="btn btn-danger btn-sm open-rejection"
+                                                data-id="' . htmlspecialchars($user["student_id"]) . '" title="Reject Enrollment">
+                                                <i class="fa-solid fa-xmark me-1"></i> Reject
+                                            </button>';
+            }
+            $html .= '</div>
+                                            </td>
+                                        </tr>';
+            $i++;
+        }
+
+
+        echo json_encode([
+            'rows' => $html,
+            'hasData' => !empty($users),
+            'ts' => count($users),
+            'pn' => $pn,
+            'en' => $en,
+            'rd' => $rd,
         ]);
     } elseif ($action === 'fetch_classrooms') {
 

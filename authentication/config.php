@@ -271,7 +271,7 @@ function db_connect()
                 certified_by VARCHAR(100),
                 reviewed_by VARCHAR(100),
                 learners LONGTEXT,
-                action_taken JSON NULL,
+                `action_taken` longtext DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )",
 
@@ -743,10 +743,8 @@ END
             echo "Error creating trigger er: " . $e->getMessage();
         }
         try {
-
-            $pdo->exec("DROP TRIGGER IF EXISTS after_section_update");
             $pdo->exec("
-        CREATE TRIGGER after_section_update
+        CREATE TRIGGER IF NOT EXISTS after_section_update
         AFTER UPDATE ON sections
         FOR EACH ROW
         BEGIN
@@ -762,12 +760,11 @@ END
         }
 
         try {
-            // Drop trigger if it exists
-            $pdo->exec("DROP TRIGGER IF EXISTS after_student_activation");
+
 
             // Create trigger
             $pdo->exec("
-        CREATE TRIGGER after_student_activation
+        CREATE TRIGGER IF NOT EXISTS after_student_activation
         AFTER UPDATE ON student
         FOR EACH ROW
         BEGIN
