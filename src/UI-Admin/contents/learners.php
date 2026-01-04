@@ -1,273 +1,314 @@
 <?php
 require_once __DIR__ . '/../../../tupperware.php';
 $result = checkURI('admin', 2);
-
 if ($result['res']) {
     header($result['uri']);
     exit;
 }
+
+$search = trim($_POST['search'] ?? '');
+$status = trim($_POST['status'] ?? '');
+$grade  = trim($_POST['grade'] ?? '');
+$sy     = trim($_POST['school_year'] ?? '');
+$page   = isset($_POST['page']) ? max(1, (int)$_POST['page']) : 1;
+$limit  = 20; // rows per page
+$offset = ($page - 1) * $limit;
+
+$statusMap = [
+    'active'          => ['success', 'Enrolled'],
+    'pending'         => ['plo', 'Pending'],
+    'transferred_in'  => ['info', 'Transferred In'],
+    'transferred_out' => ['primary', 'Transferred Out'],
+    'transferred'     => ['secondary', 'Transferred'],
+    'not_active'      => ['dark', 'Not Active'],
+    'dropped'         => ['danger', 'Dropped'],
+    'rejected'        => ['purple', 'Rejected']
+];
+
+if (isset($_POST['ajax'])) {
+
+    $where = [];
+    $params = [];
+
+    if ($sy) {
+        $where[] = "student.student_id IN (SELECT e.student_id FROM enrolment AS e WHERE e.school_year_id = ?)";
+        $params[] = $sy;
+    }
+
+    if ($status) {
+        $where[] = "LOWER(student.enrolment_status) = ?";
+        $params[] = strtolower($status);
+    }
+
+    if ($grade) {
+        $where[] = "LOWER(student.gradeLevel) = ?";
+        $params[] = strtolower($grade);
+    }
+
+    if ($search) {
+        $where[] = "(student.fname LIKE ? OR student.lname LIKE ? OR student.lrn LIKE ? OR users.firstname LIKE ? OR users.lastname LIKE ?)";
+        $s = "%$search%";
+        array_push($params, $s, $s, $s, $s, $s);
+    }
+
+    // Base query
+    $sql = "SELECT student.*, 
+                   users.firstname AS parentFirstname, 
+                   users.lastname AS parentLastname, 
+                   users.middlename AS parentMiddle
+            FROM student
+            JOIN users ON users.user_id = student.guardian_id";
+
+    if ($where) {
+        $sql .= " WHERE " . implode(" AND ", $where);
+    }
+
+    $sql .= " ORDER BY student.lname ASC";
+
+    // Total rows for pagination
+    $countQuery = "SELECT COUNT(*) FROM ($sql) AS total_count";
+    $stmtCount = $pdo->prepare($countQuery);
+    $stmtCount->execute($params);
+    $totalRows = $stmtCount->fetchColumn();
+    $totalPages = ceil($totalRows / $limit);
+
+    // Add LIMIT/OFFSET
+    $sql .= " LIMIT $limit OFFSET $offset";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if ($rows):
+        $count = $offset + 1;
+        foreach ($rows as $user):
+            $currentStatus = strtolower($user['enrolment_status'] ?? 'pending');
+            $badgeClass = $statusMap[$currentStatus][0] ?? 'secondary';
+            $label = $statusMap[$currentStatus][1] ?? ucfirst($currentStatus);
+?>
+            <tr class="learner-row"
+                data-status="<?= htmlspecialchars($currentStatus) ?>"
+                data-grade="<?= htmlspecialchars(strtolower($user['gradeLevel'] ?? '')) ?>"
+                data-name="<?= htmlspecialchars(strtolower($user['lname'] . ' ' . $user['fname'] . ' ' . ($user['mname'] ?? ''))) ?>"
+                data-lrn="<?= htmlspecialchars(strtolower($user['lrn'] ?? '')) ?>"
+                data-parent="<?= htmlspecialchars(strtolower($user['parentLastname'] . ' ' . $user['parentFirstname'])) ?>">
+                <td width="5%"><?= $count++ ?></td>
+                <td width="10%"><code><?= htmlspecialchars($user["lrn"]) ?></code></td>
+                <td width="20%">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-placeholder me-2">
+                            <i class="fa-solid fa-user-graduate text-secondary"></i>
+                        </div>
+                        <div>
+                            <strong><?= htmlspecialchars($user["lname"] . ", " . $user["fname"]) ?></strong>
+                            <?php if (!empty($user["mname"])): ?>
+                                <br><small class="text-muted"><?= htmlspecialchars($user["mname"]) ?></small>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </td>
+                <td width="20%">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-placeholder-small me-2">
+                            <i class="fa-solid fa-user text-secondary"></i>
+                        </div>
+                        <div>
+                            <small>
+                                <strong><?= htmlspecialchars($user["parentLastname"] . ", " . $user["parentFirstname"]) ?></strong>
+                                <?php if (!empty($user["parentMiddle"])): ?>
+                                    <br><?= htmlspecialchars($user["parentMiddle"]) ?>
+                                <?php endif; ?>
+                            </small>
+                        </div>
+                    </div>
+                </td>
+                <td width="10%"><span class="badge bg-info"><?= htmlspecialchars($user["gradeLevel"]) ?></span></td>
+                <td style="text-align: center;" width="10%"><span style="width: 1.34rem;" class="badge bg-<?= $badgeClass ?>"><i class="fa-solid fa-circle fa-xs me-1"></i></span></td>
+                <td width="15%">
+                    <div class="d-flex gap-1 justify-content-center flex-wrap">
+                        <a href="index.php?page=contents/profile&student_id=<?= htmlspecialchars($user["student_id"]) ?>" class="btn btn-sm btn-info" title="View Profile"><i class="fa-solid fa-user me-1"></i> Profile</a>
+                        <form class="status-enrolment-form">
+                            <select name="status" class="status-enrolment-select form-select">
+                                <option value="">Change Status</option>
+                                <?php foreach ($statusMap as $key => $map):
+                                    if ($key === 'pending') continue; ?>
+                                    <option value="<?= $key ?>" <?= ($currentStatus === $key) ? "selected" : "" ?>><?= $map[1] ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <input type="hidden" name="user_id" value="<?= $user['student_id'] ?>">
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        <?php
+        endforeach;
+        ?>
+        <tr>
+            <td colspan="7">
+                <div class="d-flex justify-content-between">
+                    <span>Page <?= $page ?> of <?= $totalPages ?></span>
+                    <div>
+                        <?php if ($page > 1): ?>
+                            <button class="btn btn-sm btn-secondary" onclick="fetchLearners(<?= $page - 1 ?>)">Prev</button>
+                        <?php endif; ?>
+                        <?php if ($page < $totalPages): ?>
+                            <button class="btn btn-sm btn-secondary" onclick="fetchLearners(<?= $page + 1 ?>)">Next</button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    <?php
+    else:
+    ?>
+        <tr>
+            <td colspan="7" class="text-center py-3">No learners found.</td>
+        </tr>
+<?php
+    endif;
+    exit;
+}
 ?>
 
+<!-- HTML Content -->
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div class="mx-2">
-        <h4><i class="fa-solid fa-graduation-cap me-2"></i>Learners Management</h4>
-    </div>
+    <h4><i class="fa-solid fa-graduation-cap me-2"></i>Learners Management</h4>
 </div>
 
-<div class="row g-3">
-    <!-- Search and Filter Section -->
-    <div class="row mb-3 justify-content-between align-items-center">
-        <div class="col-md-12">
-            <div class="input-group row">
-                <div class="col-md-4">
-                    <input type="text" id="searchInput" name="search" class="form-control"
-                        placeholder="Search by name, LRN, or parent name...">
-                </div>
-                <div class="col-md-2">
-                    <select id="statusFilter" name="statusCategory" class="form-select" style="max-width: 200px;">
-                        <option value="">All Status</option>
-                        <option value="active">Enrolled</option>
-                        <option value="transferred_in">Transferred in</option>
-                        <option value="transferred_out">Transferred out</option>
-                        <option value="not_active">Not Active</option>
-                        <option value="rejected">Rejected</option>
-                        <option value="dropped">Dropped</option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <select id="gradeFilter" name="gradeLevelCategory" class="form-select" style="max-width: 200px;">
-                        <option value="">All Grades</option>
-                        <option value="Grade 1">Grade 1</option>
-                        <option value="Grade 2">Grade 2</option>
-                        <option value="Grade 3">Grade 3</option>
-                        <option value="Grade 4">Grade 4</option>
-                        <option value="Grade 5">Grade 5</option>
-                        <option value="Grade 6">Grade 6</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <select id="syFilter" class="form-select">
-                        <option value="">All School Years</option>
-                        <?php
-                        $syStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name DESC");
-                        while ($sy = $syStmt->fetch(PDO::FETCH_ASSOC)): ?>
-                            <option value="<?= $sy['school_year_id'] ?>">
-                                <?= htmlspecialchars($sy['school_year_name']) ?>
-                            </option>
-                        <?php endwhile; ?>
-                    </select>
-                </div>
-
-
-            </div>
-        </div>
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <input type="text" id="searchInput" class="form-control" placeholder="Search by name, LRN, or parent name...">
     </div>
-
-    <!-- Learners Table -->
-    <div class="table-container-wrapper p-0">
-        <?php
-        // --- Get current active school year ---
-        $query = "SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1";
-        $stmt1 = $pdo->prepare($query);
-        $stmt1->execute();
-        $schoolYear = $stmt1->fetch(PDO::FETCH_ASSOC);
-        $activeSyId = $schoolYear['school_year_id'] ?? null;
-
-        $users = [];
-        if ($activeSyId) {
-            $stmt = $pdo->prepare("
-        SELECT student.*, 
-               users.firstname AS parentFirstname, 
-               users.lastname AS parentLastname, 
-               users.middlename AS parentMiddle
-        FROM student
-        INNER JOIN users 
-            ON users.user_id = student.guardian_id
-        WHERE student.enrolment_status != 'pending' 
-        ORDER BY student.fname ASC
-    ");
-            $stmt->execute();
-            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        }
-
-        $count = 1;
-        ?>
-
-
-        <!-- Fixed Header -->
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
-                <thead class="table-light">
-                    <tr>
-                        <th width="5%">#</th>
-                        <th width="10%">LRN</th>
-                        <th width="20%">Name</th>
-                        <th width="20%">Parent/Guardian</th>
-                        <th width="10%">Grade</th>
-                        <th width="10%">Remarks</th>
-                        <th width="15%">Action</th>
-                    </tr>
-                </thead>
-            </table>
-        </div>
-
-        <!-- Scrollable Body -->
-        <div class="table-scroll-body">
-            <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
-                <tbody id="learnersTableBody">
-                    <?php if (!empty($users)):
-                        $count = 1;
-                        $statusMap = [
-                            'active'          => ['success', 'Enrolled'],
-                            'pending'         => ['warning', 'Pending'],
-                            'transferred_in'  => ['info', 'Transferred In'],
-                            'transferred_out' => ['info', 'Transferred Out'],
-                            'transferred'     => ['info', 'Transferred'],
-                            'not_active'      => ['secondary', 'Not Active'],
-                            'dropped'         => ['danger', 'Dropped'],
-                            'rejected'        => ['danger', 'Rejected']
-                        ];
-                        foreach ($users as $user):
-                            // Normalize status to lowercase
-                            $currentStatus = strtolower($user['enrolment_status'] ?? 'pending');
-                            $badgeClass = $statusMap[$currentStatus][0] ?? 'secondary';
-                            $label = $statusMap[$currentStatus][1] ?? ucfirst($currentStatus);
-                    ?>
-                            <tr class="learner-row"
-                                data-status="<?= htmlspecialchars($currentStatus) ?>"
-                                data-grade="<?= htmlspecialchars(strtolower($user['gradeLevel'] ?? '')) ?>"
-                                data-name="<?= htmlspecialchars(strtolower($user['lname'] . ' ' . $user['fname'] . ' ' . ($user['mname'] ?? ''))) ?>"
-                                data-lrn="<?= htmlspecialchars(strtolower($user['lrn'] ?? '')) ?>"
-                                data-parent="<?= htmlspecialchars(strtolower($user['parentLastname'] . ' ' . $user['parentFirstname'])) ?>">
-
-                                <td width="5%"><?= $count++ ?></td>
-                                <td width="10%"><code class="text-dark"><?= htmlspecialchars($user["lrn"]) ?></code></td>
-                                <td width="20%" class="learner-name">
-                                    <div class="d-flex align-items-center">
-                                        <div class="avatar-placeholder me-2">
-                                            <i class="fa-solid fa-user-graduate text-secondary"></i>
-                                        </div>
-                                        <div>
-                                            <strong><?= htmlspecialchars($user["lname"] . ", " . $user["fname"]) ?></strong>
-                                            <?php if (!empty($user["mname"])): ?>
-                                                <br><small class="text-muted"><?= htmlspecialchars($user["mname"]) ?></small>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td width="20%">
-                                    <div class="d-flex align-items-center">
-                                        <div class="avatar-placeholder-small me-2">
-                                            <i class="fa-solid fa-user text-secondary"></i>
-                                        </div>
-                                        <div>
-                                            <small>
-                                                <strong><?= htmlspecialchars($user["parentLastname"] . ", " . $user["parentFirstname"]) ?></strong>
-                                                <?php if (!empty($user["parentMiddle"])): ?>
-                                                    <br><?= htmlspecialchars($user["parentMiddle"]) ?>
-                                                <?php endif; ?>
-                                            </small>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td width="10%">
-                                    <span class="badge bg-info"><?= htmlspecialchars($user["gradeLevel"]) ?></span>
-                                </td>
-                                <td width="10%">
-                                    <span class="badge bg-<?= $badgeClass ?>">
-                                        <i class="fa-solid fa-circle fa-xs me-1"></i>
-                                        <?= $label ?>
-                                    </span>
-                                </td>
-                                <td width="15%">
-                                    <div class="d-flex gap-1 justify-content-center">
-                                        <a href="index.php?page=contents/profile&student_id=<?= htmlspecialchars($user["student_id"]) ?>"
-                                            class="btn btn-sm btn-info" title="View Profile">
-                                            <i class="fa-solid fa-user me-1"></i> Profile
-                                        </a>
-                                        <form class="status-enrolment-form">
-                                            <select name="status" class="status-enrolment-select form-select">
-                                                <option value="">Change Status</option>
-                                                <?php foreach ($statusMap as $key => $map): ?>
-                                                    <option value="<?= $key ?>" <?= ($currentStatus === $key) ? "selected" : "" ?>>
-                                                        <?= $map[1] ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                            <input type="hidden" name="user_id" value="<?= $user['student_id'] ?>">
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="7" class="text-center py-3">No learners found.</td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-
-
-        <!-- Empty State -->
-        <div id="noResults" class="text-center py-5 d-none">
-            <div class="empty-state">
-                <i class="fa-solid fa-users-slash fa-3x text-muted mb-3"></i>
-                <h5>No learners found</h5>
-                <p class="text-muted">Try adjusting your search or filters</p>
-            </div>
-        </div>
+    <div class="col-md-2">
+        <select id="statusFilter" class="form-select">
+            <option value="">All Status</option>
+            <option value="active">Enrolled</option>
+            <option value="transferred_in">Transferred in</option>
+            <option value="transferred_out">Transferred out</option>
+            <option value="not_active">Not Active</option>
+            <option value="rejected">Rejected</option>
+            <option value="dropped">Dropped</option>
+        </select>
     </div>
-
-
-<!-- Modal (if needed) -->
-<div class="modal fade" id="AddNewAccount" tabindex="-1" aria-labelledby="AddNewAccountLabel" aria-hidden="true">
-    <!-- Your modal content remains the same -->
+    <div class="col-md-2">
+        <select id="gradeFilter" class="form-select">
+            <option value="">All Grades</option>
+            <option value="Grade 1">Grade 1</option>
+            <option value="Grade 2">Grade 2</option>
+            <option value="Grade 3">Grade 3</option>
+            <option value="Grade 4">Grade 4</option>
+            <option value="Grade 5">Grade 5</option>
+            <option value="Grade 6">Grade 6</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select id="syFilter" class="form-select">
+            <option value="">All Users</option>
+            <?php
+            $syStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name DESC");
+            while ($sy = $syStmt->fetch(PDO::FETCH_ASSOC)): ?>
+                <option value="<?= $sy['school_year_id'] ?>"><?= htmlspecialchars($sy['school_year_name']) ?></option>
+            <?php endwhile; ?>
+        </select>
+    </div>
+</div>
+<div class="d-flex gap-3 mb-3 flex-wrap" id="statusLegend">
+    <?php foreach ($statusMap as $key => $map):
+        $color = $map[0];
+        $label = $map[1];
+    ?>
+        <div class="d-flex align-items-center gap-1">
+            <span class="badge bg-<?= $color ?> rounded-circle" style="width: 12px; height: 12px; display:inline-block;"></span>
+            <small><?= htmlspecialchars($label) ?></small>
+        </div>
+    <?php endforeach; ?>
+</div>
+<div class="table-container-wrapper p-0">
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
+            <thead class="table-light">
+                <tr>
+                    <th width="5%">#</th>
+                    <th width="10%">LRN</th>
+                    <th width="20%">Name</th>
+                    <th width="20%">Parent/Guardian</th>
+                    <th width="10%">Grade</th>
+                    <th width="10%">Remarks</th>
+                    <th width="15%">Action</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+    <div class="table-scroll-body">
+        <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
+            <tbody id="learnersTableBody"></tbody>
+        </table>
+    </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const searchInput = document.getElementById('searchInput');
-        const statusFilter = document.getElementById('statusFilter');
-        const gradeFilter = document.getElementById('gradeFilter');
-        const syFilter = document.getElementById('syFilter');
-        const tableBody = document.getElementById('learnersTableBody');
+    let currentPage = 1;
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const gradeFilter = document.getElementById('gradeFilter');
+    const syFilter = document.getElementById('syFilter');
+    const tableBody = document.getElementById('learnersTableBody');
 
-        function fetchLearners() {
-            const formData = new FormData();
-            formData.append('action', 'fetch_student');
-            formData.append('search', searchInput.value.trim());
-            formData.append('status', statusFilter.value);
-            formData.append('grade', gradeFilter.value);
-            formData.append('school_year', syFilter.value);
+    function fetchLearners(page = 1) {
+        currentPage = page;
+        tableBody.innerHTML = `
+        <tr><td colspan="7" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <div>Loading learners...</div>
+        </td></tr>
+    `;
 
-            fetch('contents/fetch.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(res => res.json())
-                .then(data => {
-                    tableBody.innerHTML = data.rows || '<tr><td colspan="7" class="text-center text-muted py-4">No records found</td></tr>';
-                })
-                .catch(err => {
-                    console.error(err);
-                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Failed to load data</td></tr>';
-                });
-        }
+        const formData = new FormData();
+        formData.append('ajax', 1);
+        formData.append('search', searchInput.value.trim());
+        formData.append('status', statusFilter.value);
+        formData.append('grade', gradeFilter.value);
+        formData.append('school_year', syFilter.value);
+        formData.append('page', page);
 
-        searchInput.addEventListener('input', fetchLearners);
-        statusFilter.addEventListener('change', fetchLearners);
-        gradeFilter.addEventListener('change', fetchLearners);
-        syFilter.addEventListener('change', fetchLearners);
-    });
+        fetch('contents/learners.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.text())
+            .then(html => {
+                tableBody.innerHTML = html;
+            })
+            .catch(err => {
+                console.error(err);
+                tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Failed to load data</td></tr>';
+            });
+    }
+
+    searchInput.addEventListener('input', () => fetchLearners(1));
+    statusFilter.addEventListener('change', () => fetchLearners(1));
+    gradeFilter.addEventListener('change', () => fetchLearners(1));
+    syFilter.addEventListener('change', () => fetchLearners(1));
+
+    document.addEventListener('DOMContentLoaded', () => fetchLearners(currentPage));
 </script>
+
 
 
 <style>
     .table-scroll-body {
         max-height: 420px;
         overflow-y: auto;
+    }
+
+    .bg-plo {
+        background-color: #ffa200 !important;
+        color: #fff;
+    }
+
+    .bg-purple {
+        background-color: #6f42c1 !important;
+        color: #fff;
     }
 
     .table-container-wrapper {
@@ -322,6 +363,7 @@ if ($result['res']) {
         padding: 0.35em 0.65em;
         font-size: 0.75em;
         font-weight: 600;
+        margin: 0 !important;
     }
 
     .btn-sm {

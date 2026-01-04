@@ -1,388 +1,443 @@
- <?php
-    require_once __DIR__ . '/../../../tupperware.php';
-    $result = checkURI('admin', 2);
+<?php
+require_once __DIR__ . '/../../../tupperware.php';
 
-    if ($result['res']) {
-        header($result['uri']);
-        exit;
-    }
-    $stmt = $pdo->prepare("SELECT * FROM classrooms ORDER BY classrooms.created_date DESC");
-    $stmt->execute();
-    $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $count = 1;
-    ?>
- <div class="d-flex justify-content-between align-items-center mb-4">
-     <div class="mx-2">
-         <h4><i class="fa-solid fa-school me-2"></i>Classrooms Management</h4>
-     </div>
- </div>
+$result = checkURI('admin', 2);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 
- <div class="row g-3 scroll-classes">
-     <!-- Search and Action Section -->
-     <div class="row mb-3 justify-content-between align-items-center">
-         <div class="col-md-8">
-             <div class="input-group">
-                 <input type="text" class="form-control" name="search" placeholder="Search classrooms..."
-                     id="searchInput">
-             </div>
-         </div>
-         <div class="col-md-4 text-end">
-             <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#createClassrooms"
-                 id="createClassroomBtn">
-                 <i class="fa-solid fa-plus me-2"></i> Create Classroom
-             </button>
-         </div>
-     </div>
+// Pagination & Filters
+$limit  = 1;
+$page   = isset($_POST['page']) ? max(1, (int)$_POST['page']) : 1;
+$offset = ($page - 1) * $limit;
 
-     <!-- Statistics Summary -->
-     <div class="row mb-4">
-         <div class="col-md-12">
-             <div class="card border-0 shadow-sm">
-                 <div class="card-body">
-                     <h5 class="card-title mb-3"><i class="fa-solid fa-chart-bar me-2"></i>Classrooms Overview</h5>
-                     <div class="row text-center">
-                         <?php
-                            $availableCount = array_filter($classrooms, fn($c) => $c['room_status'] === 'Available');
-                            $unavailableCount = array_filter($classrooms, fn($c) => $c['room_status'] === 'Unavailable');
-                            ?>
-                         <div class="col-md-4 col-6 mb-3">
-                             <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                 <h3 id="tc" class="text-white mb-1"><?= count($classrooms) ?></h3>
-                                 <small class="text-white">Total Classrooms</small>
-                             </div>
-                         </div>
-                         <div class="col-md-4 col-6 mb-3">
-                             <div class="p-3 bg-success bg-opacity-10 rounded">
-                                 <h3 id="av" class="text-white mb-1"><?= count($availableCount) ?></h3>
-                                 <small class="text-white">Available</small>
-                             </div>
-                         </div>
-                         <div class="col-md-4 col-6 mb-3">
-                             <div class="p-3 bg-danger bg-opacity-10 rounded">
-                                 <h3 id="uv" class="text-white mb-1"><?= count($unavailableCount) ?></h3>
-                                 <small class="text-white">Unavailable</small>
-                             </div>
-                         </div>
-                     </div>
-                 </div>
-             </div>
-         </div>
-     </div>
+$search = trim($_POST['search'] ?? '');
+$sy     = trim($_POST['school_year'] ?? '');
 
+// --- Build WHERE clause
+$where  = [];
+$params = [];
 
-     <div style="display: flex; gap: 1rem; align-items: center; border: none;">
-         <h5>Filter by:</h5>
-         <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
-             <option value="">All Year</option>
-             <?php
-                $catStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name ASC");
-                while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)): ?>
-                 <option value="<?= htmlspecialchars($cat['school_year_id']) ?>">
-                     <?= htmlspecialchars($cat['school_year_name']) ?>
-                 </option>
-             <?php endwhile; ?>
-         </select>
-     </div>
+if ($sy !== '') {
+    $where[] = "c.room_id IN (SELECT cl.class_id FROM classes cl WHERE cl.sy_id = ?)";
+    $params[] = $sy;
+}
 
-     <!-- Classrooms Table -->
-     <div class="table-container-wrapper p-0">
-         <?php
-            try {
-                $stmt = $pdo->prepare("SELECT * FROM classrooms LEFT JOIN school_year ON classrooms.school_year_id = school_year.school_year_id ORDER BY classrooms.created_date DESC");
-                $stmt->execute();
-                $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            } catch (PDOException $e) {
-                error_log('Classrooms query failed: ' . $e->getMessage());
-                // Fallback to a simpler query if the joined column is missing
-                // $stmt = $pdo->prepare("SELECT * FROM classrooms ORDER BY created_date DESC");
-                // $stmt->execute();
-                // $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                // // Ensure school_year_name key exists to avoid undefined index when rendering
-                // foreach ($classrooms as &$c) {
-                //     if (!isset($c['school_year_name'])) {
-                //         $c['school_year_name'] = '';
-                //     }
-                // }
-                // unset($c);
-            }
-            $count = 1;
-            ?>
+if ($search !== '') {
+    $where[] = "c.room_name LIKE ?";
+    $params[] = "%$search%";
+}
 
-         <!-- Scrollable Body -->
-         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-             <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
-                 <thead class="table-light">
-                     <tr>
-                         <th style="white-space: wrap !important;" width="1rem">#</th>
-                         <th style="white-space: wrap !important;" width="20%">Room Name</th>
-                         <th style="white-space: wrap !important;" width="15%">Room Type</th>
-                         <th style="white-space: wrap !important;" width="15%">Room Status</th>
-                         <th style="white-space: wrap !important; width: 7rem;">School Year</th>
-                         <th style="white-space: wrap !important; width: 7rem;">Created</th>
-                         <th style="white-space: wrap !important;" width="25%">Action</th>
-                     </tr>
-                 </thead>
-                 <tbody id="classroomsTableBody">
-                     <?php if ($classrooms):
-                            $count = 1;
-                            foreach ($classrooms as $user) : ?>
-                             <tr class="classroom-row" data-name="<?= htmlspecialchars(strtolower($user["room_name"])) ?>"
-                                 data-type="<?= htmlspecialchars(strtolower($user["room_type"])) ?>"
-                                 data-status="<?= htmlspecialchars(strtolower($user["room_status"])) ?>">
-                                 <td width="1rem"><?= $count++ ?></td>
-                                 <td width="20%" class="classroom-name">
-                                     <div class="d-flex align-items-center">
-                                         <div class="avatar-placeholder me-2">
-                                             <i class="fa-solid fa-door-closed text-secondary"></i>
-                                         </div>
-                                         <div>
-                                             <strong><?= htmlspecialchars($user["room_name"]) ?></strong>
-                                         </div>
-                                     </div>
-                                 </td>
-                                 <td width="15%">
-                                     <span class="badge bg-info"><?= htmlspecialchars($user["room_type"]) ?></span>
-                                 </td>
-                                 <td width="15%">
-                                     <span
-                                         class="badge bg-<?= ($user["room_status"] == 'Available') ? 'success' : 'secondary' ?>">
-                                         <i class="fa-solid fa-circle fa-xs me-1"></i>
-                                         <?= htmlspecialchars($user["room_status"] ?? 'Unavailable') ?>
-                                     </span>
-                                 </td>
-                                 <td width="20%">
-                                     <small><?= htmlspecialchars($user["school_year_name"]) ?></small>
-                                 </td>
-                                 <td width="20%">
-                                     <small><?= date('M, d, y', strtotime($user["created_date"])) ?></small>
-                                 </td>
-                                 <td width="25%">
-                                     <div class="d-flex gap-1 justify-content-center">
-                                         <button type="button" data-id="<?= $user['room_id'] ?>"
-                                             class="btn btn-sm btn-info editClassroomsBtn" title="Edit Classroom">
-                                             <i class="fa-solid fa-pen me-1"></i> Edit
-                                         </button>
-                                         <button type="button" data-id="<?= $user['room_id'] ?>"
-                                             class="btn btn-sm btn-danger deleteClassroomBtn" title="Delete Classroom">
-                                             <i class="fa-solid fa-trash me-1"></i> Delete
-                                         </button>
-                                     </div>
-                                 </td>
-                             </tr>
-                         <?php endforeach; ?>
-                     <?php else: ?>
-                         <tr>
-                             <td colspan="6" class="text-center py-3">No classrooms found.</td>
-                         </tr>
-                     <?php endif; ?>
-                 </tbody>
-             </table>
-         </div>
+// --- Main query
+$sql = "SELECT c.* FROM classrooms c";
+if ($where) $sql .= " WHERE " . implode(" AND ", $where);
+$sql .= " ORDER BY c.created_date DESC";
 
-         <!-- Empty State -->
-         <div id="noResults" class="text-center py-5 d-none">
-             <div class="empty-state">
-                 <i class="fa-solid fa-school fa-3x text-muted mb-3"></i>
-                 <h5>No classrooms found</h5>
-                 <p class="text-muted">Try adjusting your search</p>
-             </div>
-         </div>
-     </div>
- </div>
+// Total rows
+$countSql = "SELECT COUNT(*) FROM ($sql) x";
+$stmtCount = $pdo->prepare($countSql);
+$stmtCount->execute($params);
+$totalRows  = (int)$stmtCount->fetchColumn();
+$totalPages = max(1, ceil($totalRows / $limit));
 
- <!-- Create Classroom Modal -->
- <div class="modal fade" id="createClassrooms" tabindex="-1" aria-labelledby="createClassroomsLabel" aria-hidden="true">
-     <div class="modal-dialog modal-md">
-         <div class="modal-content">
-             <div class="modal-header bg-danger text-white">
-                 <h5 class="modal-title text-white" id="createClassroomsLabel">
-                     <i class="fa-solid fa-plus me-2"></i>Create New Classroom
-                 </h5>
-                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                     aria-label="Close"></button>
-             </div>
-             <div class="modal-body">
-                 <form class="row g-3" id="classroom-form" method="post">
-                     <div class="my-2">
-                         <label class="form-label">Classroom Name <span class="text-danger">*</span></label>
-                         <input type="text" name="classroom_name" class="form-control" placeholder="ex. DAS 202"
-                             required>
-                     </div>
-                     <div class="my-2">
-                         <label class="form-label">Classroom Type <span class="text-danger">*</span></label>
-                         <input type="text" name="classroom_type" class="form-control" placeholder="ex. Lecture Room"
-                             required>
-                     </div>
-                     <div class="col-12 text-center mt-3">
-                         <button type="submit" class="btn btn-danger px-5">
-                             <i class="fa-solid fa-plus me-2"></i>Create Classroom
-                         </button>
-                     </div>
-                 </form>
-             </div>
-         </div>
-     </div>
- </div>
+// Paginated query
+$sql .= " LIMIT $limit OFFSET $offset";
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
- <!-- Edit Classroom Modal -->
- <div class="modal fade" id="editClassroom" tabindex="-1" aria-labelledby="editClassroomLabel" aria-hidden="true">
-     <div class="modal-dialog modal-md">
-         <div class="modal-content">
-             <div class="modal-header bg-danger text-white">
-                 <h5 class="modal-title text-white" id="editClassroomLabel">
-                     <i class="fa-solid fa-pen me-2"></i>Update Classroom
-                 </h5>
-                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                     aria-label="Close"></button>
-             </div>
-             <div class="modal-body">
-                 <form class="row g-3" id="editClassroom-form" method="post">
-                     <input type="hidden" name="classroom_id" id="classroom_ids">
-                     <div class="my-2">
-                         <label class="form-label">Room Status <span class="text-danger">*</span></label>
-                         <select name="room_status" id="room_status" class="form-select" required>
-                             <option value="">Select room status</option>
-                             <option value="Available">Available</option>
-                             <option value="Unavailable">Unavailable</option>
-                         </select>
-                     </div>
-                     <div class="my-2">
-                         <label class="form-label">Classroom Name <span class="text-danger">*</span></label>
-                         <input type="text" id="classroom_name" name="classroom_name" class="form-control"
-                             placeholder="ex. DAS 202" required>
-                     </div>
-                     <div class="my-2">
-                         <label class="form-label">Classroom Type <span class="text-danger">*</span></label>
-                         <input type="text" id="classroom_type" name="classroom_type" class="form-control"
-                             placeholder="ex. Lecture Room" required>
-                     </div>
-                     <div class="col-12 text-center mt-3">
-                         <button type="submit" class="btn btn-danger px-5">
-                             <i class="fa-solid fa-save me-2"></i>Update Classroom
-                         </button>
-                     </div>
-                 </form>
-             </div>
-         </div>
-     </div>
- </div>
+// --- Stats query
+$statsWhere  = [];
+$statsParams = [];
 
- <!-- Delete Classroom Modal -->
- <div class="modal fade" id="deleteClassroom" tabindex="-1" aria-labelledby="deleteClassroomLabel" aria-hidden="true">
-     <div class="modal-dialog modal-md">
-         <div class="modal-content">
-             <div class="modal-header bg-danger text-white">
-                 <h5 class="modal-title text-white" id="deleteClassroomLabel">
-                     <i class="fa-solid fa-trash me-2"></i>Delete Classroom
-                 </h5>
-                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                     aria-label="Close"></button>
-             </div>
-             <div class="modal-body">
-                 <form class="row g-3" id="deleteClassroom-form" method="post">
-                     <input type="hidden" name="classroom_id" id="classroom_id">
-                     <div class="col-12 text-center mb-3">
-                         <i class="fa-solid fa-triangle-exclamation fa-3x text-warning mb-3"></i>
-                         <h5>Confirm Deletion</h5>
-                         <p class="text-muted">Are you sure you want to delete this classroom? This action cannot be
-                             undone.</p>
-                     </div>
-                     <div class="col-12 text-center mt-3">
-                         <button type="button" class="btn btn-secondary me-3 px-4" data-bs-dismiss="modal">
-                             <i class="fa-solid fa-times me-2"></i>Cancel
-                         </button>
-                         <button type="submit" class="btn btn-danger px-4">
-                             <i class="fa-solid fa-trash me-2"></i>Delete
-                         </button>
-                     </div>
-                 </form>
-             </div>
-         </div>
-     </div>
- </div>
- <script>
-     document.addEventListener('DOMContentLoaded', function() {
-         const searchInput = document.getElementById('searchInput');
-         const syFilter = document.getElementById('syFilter');
-         const classroomsTableBody = document.getElementById('classroomsTableBody');
-         const noResultsDiv = document.getElementById('noResults');
-        //  const editButtons = document.querySelectorAll('.editClassroomsBtn');
-        //  const deleteButtons = document.querySelectorAll('.deleteClassroomBtn');
+if ($sy !== '') {
+    $statsWhere[] = "room_id IN (SELECT cl.class_id FROM classes cl WHERE cl.sy_id = ?)";
+    $statsParams[] = $sy;
+}
 
-         function filterClassrooms() {
-             const formData = new FormData();
-             formData.append('action', 'fetch_classrooms');
-             formData.append('search', searchInput.value.trim());
-             formData.append('school_year', syFilter.value);
+$statsSql = "SELECT 
+    COUNT(*) AS total,
+    SUM(room_status = 'Available') AS available,
+    SUM(room_status = 'Unavailable') AS unavailable
+FROM classrooms";
 
-             fetch('contents/fetch.php', {
-                     method: 'POST',
-                     body: formData
-                 })
-                 .then(res => res.json())
-                 .then(data => {
-                     classroomsTableBody.innerHTML = data.rows;
-                     document.getElementById('tc').textContent = data.totalCount;
-                     document.getElementById('av').textContent = data.availableCount;
-                     document.getElementById('uv').textContent = data.unavailableCount;
+if ($statsWhere) $statsSql .= " WHERE " . implode(" AND ", $statsWhere);
 
-                     if (!data.hasData) {
-                         classroomsTableBody.style.display = 'none';
-                         noResultsDiv.classList.remove('d-none');
-                     } else {
-                         classroomsTableBody.style.display = '';
-                         noResultsDiv.classList.add('d-none');
-                     }
-                 })
-                 .catch(err => {
-                     console.error(err);
-                     classroomsTableBody.innerHTML = `
+$statsStmt = $pdo->prepare($statsSql);
+$statsStmt->execute($statsParams);
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+
+// --- AJAX response ---
+if (isset($_POST['ajax'])) {
+    ob_start();
+
+    if ($rows) {
+        $count = $offset + 1;
+        foreach ($rows as $r) { ?>
+            <tr>
+                <td><?= $count++ ?></td>
+                <td><strong><?= htmlspecialchars($r['room_name']) ?></strong></td>
+                <td><span class="badge bg-info"><?= htmlspecialchars($r['room_type']) ?></span></td>
+                <td class="text-center">
+                    <span class="badge bg-<?= $r['room_status'] === 'Available' ? 'success' : 'secondary' ?>">
+                        <i class="fa-solid fa-circle fa-xs me-1"></i>
+                    </span>
+                </td>
+                <td><?= date('M d, Y', strtotime($r['created_date'])) ?></td>
+                <td>
+                    <button class="btn btn-sm btn-info editClassroomsBtn" data-id="<?= $r['room_id'] ?>">Edit</button>
+                    <button class="btn btn-sm btn-danger deleteClassroomBtn" data-id="<?= $r['room_id'] ?>">Delete</button>
+                </td>
+            </tr>
+        <?php } ?>
+
         <tr>
-            <td colspan="10" class="text-center text-danger py-4">
-                Failed to load data
+            <td colspan="6">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>Page <?= $page ?> of <?= $totalPages ?></span>
+                    <div>
+                        <?php if ($page > 1): ?>
+                            <button class="btn btn-sm btn-secondary" onclick="fetchClassrooms(<?= $page - 1 ?>)">Prev</button>
+                        <?php endif; ?>
+                        <?php if ($page < $totalPages): ?>
+                            <button class="btn btn-sm btn-secondary" onclick="fetchClassrooms(<?= $page + 1 ?>)">Next</button>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </td>
-        </tr>`;
-                 });
+        </tr>
 
-         }
-        //  editButtons.forEach(button => {
-        //      button.addEventListener('click', function() {
-        //          const classroomId = this.getAttribute('data-id');
-        //          const classroom = classroomsData.find(c => c.room_id == classroomId);
+    <?php } else { ?>
+        <tr>
+            <td colspan="6" class="text-center py-3">No classrooms found.</td>
+        </tr>
+<?php }
 
-        //          if (classroom) {
-        //              document.getElementById('classroom_ids').value = classroom.room_id;
-        //              document.getElementById('room_status').value = classroom.room_status;
-        //              document.getElementById('classroom_name').value = classroom.room_name;
-        //              document.getElementById('classroom_type').value = classroom.room_type;
+    $html = ob_get_clean();
 
-        //              const modal = new bootstrap.Modal(document.getElementById('editClassroom'));
-        //              modal.show();
-        //          }
-        //      });
-        //  });
+    echo json_encode([
+        'html'        => $html,
+        'totalPages'  => $totalPages,
+        'currentPage' => $page,
+        'hasData'     => !empty($rows),
+        'stats'       => [
+            'total'       => (int)$stats['total'],
+            'available'   => (int)$stats['available'],
+            'unavailable' => (int)$stats['unavailable']
+        ]
+    ]);
+    exit;
+}
+?>
 
-        //  deleteButtons.forEach(button => {
-        //      button.addEventListener('click', function() {
-        //          const classroomId = this.getAttribute('data-id');
-        //          document.getElementById('classroom_id').value = classroomId;
 
-        //          const modal = new bootstrap.Modal(document.getElementById('deleteClassroom'));
-        //          modal.show();
-        //      });
-        //  });
-         // Events
-         searchInput.addEventListener('input', filterClassrooms);
-         syFilter.addEventListener('change', filterClassrooms);
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="mx-2">
+        <h4><i class="fa-solid fa-school me-2"></i>Classrooms Management</h4>
+    </div>
+</div>
+<style>
+    #classroomsTableBody td span {
+        text-wrap: wrap;
+        text-align: start;
 
-         searchInput.addEventListener('keypress', e => {
-             if (e.key === 'Enter') filterClassrooms();
-         });
+    }
 
-     });
- </script>
+    .me-1 {
+        margin-right: 0 !important;
+    }
 
- <!-- <script>
+    .fsfs li {
+        list-style: none;
+    }
+
+    .fsfs {
+        display: flex;
+        gap: 1rem;
+    }
+</style>
+
+<div class="row g-3 scroll-classes">
+    <!-- Search and Action Section -->
+    <div class="row mb-3 justify-content-between align-items-center">
+        <div class="col-md-8">
+            <div class="input-group">
+                <input type="text" class="form-control" name="search" placeholder="Search classrooms..."
+                    id="searchInput">
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#createClassrooms"
+                id="createClassroomBtn">
+                <i class="fa-solid fa-plus me-2"></i> Create Classroom
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Summary -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="mb-3">Classrooms Overview</h5>
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-primary text-white rounded">
+                                <h3><?= (int)$stats['total'] ?></h3>
+                                <small>Total</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-success text-white rounded">
+                                <h3><?= (int)$stats['available'] ?></h3>
+                                <small>Available</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-secondary text-white rounded">
+                                <h3><?= (int)$stats['unavailable'] ?></h3>
+                                <small>Unavailable</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div style="display: flex; gap: 1rem; align-items: center; border: none;">
+        <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
+            <option value="">--- active at ---</option>
+            <?php
+            $catStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name ASC");
+            while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)): ?>
+                <option value="<?= htmlspecialchars($cat['school_year_id']) ?>">
+                    <?= htmlspecialchars($cat['school_year_name']) ?>
+                </option>
+            <?php endwhile; ?>
+        </select>
+    </div>
+    <div class="fsfs">
+        <li>
+            <span class="badge bg-success">
+                <i class="fa-solid fa-circle fa-xs me-1"></i>
+            </span> - Available
+        </li>
+        <li>
+            <span class="badge bg-secondary">
+                <i class="fa-solid fa-circle fa-xs me-1"></i>
+            </span> - Unavailable
+        </li>
+    </div>
+
+    <!-- Classrooms Table -->
+    <div class="table-container-wrapper p-0">
+        <!-- Scrollable Body -->
+        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th style="white-space: wrap !important;" width="1rem">#</th>
+                        <th style="white-space: wrap !important;" width="20%">Room Name</th>
+                        <th style="white-space: wrap !important;" width="15%">Room Type</th>
+                        <th style="white-space: wrap !important;" width="10%">Room Status</th>
+                        <th style="white-space: wrap !important; width: 7rem;">Created</th>
+                        <th style="white-space: wrap !important;" width="25%">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="classroomsTableBody">
+
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Empty State -->
+        <div id="noResults" class="text-center py-5 d-none">
+            <div class="empty-state">
+                <i class="fa-solid fa-school fa-3x text-muted mb-3"></i>
+                <h5>No classrooms found</h5>
+                <p class="text-muted">Try adjusting your search</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Classroom Modal -->
+<div class="modal fade" id="createClassrooms" tabindex="-1" aria-labelledby="createClassroomsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title text-white" id="createClassroomsLabel">
+                    <i class="fa-solid fa-plus me-2"></i>Create New Classroom
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form class="row g-3" id="classroom-form" method="post">
+                    <div class="my-2">
+                        <label class="form-label">Classroom Name <span class="text-danger">*</span></label>
+                        <input type="text" name="classroom_name" class="form-control" placeholder="ex. DAS 202"
+                            required>
+                    </div>
+                    <div class="my-2">
+                        <label class="form-label">Classroom Type <span class="text-danger">*</span></label>
+                        <input type="text" name="classroom_type" class="form-control" placeholder="ex. Lecture Room"
+                            required>
+                    </div>
+                    <div class="col-12 text-center mt-3">
+                        <button type="submit" class="btn btn-danger px-5">
+                            <i class="fa-solid fa-plus me-2"></i>Create Classroom
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Classroom Modal -->
+<div class="modal fade" id="editClassroom" tabindex="-1" aria-labelledby="editClassroomLabel" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title text-white" id="editClassroomLabel">
+                    <i class="fa-solid fa-pen me-2"></i>Update Classroom
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form class="row g-3" id="editClassroom-form" method="post">
+                    <input type="hidden" name="classroom_id" id="classroom_ids">
+                    <div class="my-2">
+                        <label class="form-label">Room Status <span class="text-danger">*</span></label>
+                        <select name="room_status" id="room_status" class="form-select" required>
+                            <option value="">Select room status</option>
+                            <option value="Available">Available</option>
+                            <option value="Unavailable">Unavailable</option>
+                        </select>
+                    </div>
+                    <div class="my-2">
+                        <label class="form-label">Classroom Name <span class="text-danger">*</span></label>
+                        <input type="text" id="classroom_name" name="classroom_name" class="form-control"
+                            placeholder="ex. DAS 202" required>
+                    </div>
+                    <div class="my-2">
+                        <label class="form-label">Classroom Type <span class="text-danger">*</span></label>
+                        <input type="text" id="classroom_type" name="classroom_type" class="form-control"
+                            placeholder="ex. Lecture Room" required>
+                    </div>
+                    <div class="col-12 text-center mt-3">
+                        <button type="submit" class="btn btn-danger px-5">
+                            <i class="fa-solid fa-save me-2"></i>Update Classroom
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Classroom Modal -->
+<div class="modal fade" id="deleteClassroom" tabindex="-1" aria-labelledby="deleteClassroomLabel" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title text-white" id="deleteClassroomLabel">
+                    <i class="fa-solid fa-trash me-2"></i>Delete Classroom
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form class="row g-3" id="deleteClassroom-form" method="post">
+                    <input type="hidden" name="classroom_id" id="classroom_id">
+                    <div class="col-12 text-center mb-3">
+                        <i class="fa-solid fa-triangle-exclamation fa-3x text-warning mb-3"></i>
+                        <h5>Confirm Deletion</h5>
+                        <p class="text-muted">Are you sure you want to delete this classroom? This action cannot be
+                            undone.</p>
+                    </div>
+                    <div class="col-12 text-center mt-3">
+                        <button type="button" class="btn btn-secondary me-3 px-4" data-bs-dismiss="modal">
+                            <i class="fa-solid fa-times me-2"></i>Cancel
+                        </button>
+                        <button type="submit" class="btn btn-danger px-4">
+                            <i class="fa-solid fa-trash me-2"></i>Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentPage = 1;
+
+    const searchInput = document.getElementById('searchInput');
+    const syFilter = document.getElementById('syFilter');
+    const classroomsTableBody = document.getElementById('classroomsTableBody');
+    const noResultsDiv = document.getElementById('noResults');
+
+    const totalStat = document.querySelector('.bg-primary h3');
+    const availableStat = document.querySelector('.bg-success h3');
+    const unavailableStat = document.querySelector('.bg-secondary h3');
+
+    function fetchClassrooms(page = 1) {
+        classroomsTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <div>Loading classrooms...</div>
+    </td></tr>`;
+
+        const formData = new FormData();
+        formData.append('ajax', 1);
+        formData.append('search', searchInput.value.trim());
+        formData.append('school_year', syFilter.value);
+        formData.append('page', page);
+
+        fetch('contents/classroom.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                // Update table
+                classroomsTableBody.innerHTML = data.html || '';
+                noResultsDiv.classList.toggle('d-none', data.hasData);
+
+                // Update stats
+                if (data.stats) {
+                    totalStat.textContent = data.stats.total;
+                    availableStat.textContent = data.stats.available;
+                    unavailableStat.textContent = data.stats.unavailable;
+                }
+
+                currentPage = data.currentPage;
+            })
+            .catch(err => {
+                console.error(err);
+                classroomsTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">Failed to load data</td></tr>`;
+            });
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        searchInput.addEventListener('input', () => fetchClassrooms(1));
+        syFilter.addEventListener('change', () => fetchClassrooms(1));
+        searchInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') fetchClassrooms(1);
+        });
+
+        fetchClassrooms(currentPage);
+    });
+</script>
+
+
+<!-- <script>
      document.addEventListener('DOMContentLoaded', function() {
          const searchInput = document.getElementById('searchInput');
          const classroomRows = document.querySelectorAll('.classroom-row');
@@ -393,7 +448,6 @@
          const clearSearchBtn = document.getElementById('clearSearch');
 
          // Classroom data for edit form (you would typically fetch this via AJAX)
-         const classroomsData = <?= json_encode($classrooms); ?>;
 
          // Search functionality
          function filterClassrooms() {
@@ -476,76 +530,76 @@
      });
  </script> -->
 
- <style>
-     .scroll-classes {
-         height: 80vh;
-         overflow-y: scroll;
-         overflow-x: hidden;
-     }
+<style>
+    .scroll-classes {
+        height: 80vh;
+        overflow-y: scroll;
+        overflow-x: hidden;
+    }
 
-     .table-container-wrapper {
-         border: 1px solid #dee2e6;
-         border-radius: 8px;
-         overflow: hidden;
-     }
+    .table-container-wrapper {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
 
-     .table thead th {
-         background-color: #f8f9fa;
-         font-weight: 600;
-         position: sticky;
-         top: 0;
-         z-index: 10;
-     }
+    .table thead th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
 
-     .table tbody tr:hover {
-         background-color: rgba(0, 123, 255, 0.05);
-     }
+    .table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
 
-     .avatar-placeholder {
-         width: 36px;
-         height: 36px;
-         border-radius: 50%;
-         background-color: #f8f9fa;
-         display: flex;
-         align-items: center;
-         justify-content: center;
-         font-size: 20px;
-     }
+    .avatar-placeholder {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
 
-     .empty-state {
-         padding: 3rem 1rem;
-     }
+    .empty-state {
+        padding: 3rem 1rem;
+    }
 
-     .empty-state i {
-         opacity: 0.5;
-     }
+    .empty-state i {
+        opacity: 0.5;
+    }
 
-     .badge {
-         padding: 0.35em 0.65em;
-         font-size: 0.75em;
-         font-weight: 600;
-     }
+    .badge {
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 600;
+    }
 
-     .btn-sm {
-         padding: 0.25rem 0.5rem;
-         font-size: 0.75rem;
-     }
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
 
-     .input-group-text {
-         border-right: none;
-     }
+    .input-group-text {
+        border-right: none;
+    }
 
-     #searchInput:focus {
-         box-shadow: none;
-         border-color: #86b7fe;
-     }
+    #searchInput:focus {
+        box-shadow: none;
+        border-color: #86b7fe;
+    }
 
-     #clearSearch:hover {
-         background-color: #e9ecef;
-     }
+    #clearSearch:hover {
+        background-color: #e9ecef;
+    }
 
-     .btn:hover {
-         transform: translateY(-1px);
-         transition: all 0.2s ease;
-     }
- </style>
+    .btn:hover {
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+    }
+</style>

@@ -1,16 +1,211 @@
 <?php
 require_once __DIR__ . '/../../../tupperware.php';
-$result = checkURI('admin', 2);
 
+$result = checkURI('admin', 2);
 if ($result['res']) {
     header($result['uri']);
     exit;
 }
-$stmt = $pdo->prepare("SELECT * FROM subjects ORDER BY created_date DESC");
-$stmt->execute();
-$subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$count = 1;
+
+$search = trim($_POST['search'] ?? '');
+$sy     = trim($_POST['school_year'] ?? '');
+
+$limit  = 10;
+$page   = max(1, (int)($_POST['page'] ?? 1));
+$offset = ($page - 1) * $limit;
+
+$where  = [];
+$params = [];
+
+if ($search !== '') {
+    $where[]  = "s.subject_name LIKE ?";
+    $params[] = "%{$search}%";
+}
+
+if ($sy !== '') {
+    $where[]  = "e.school_year_id = ?";
+    $params[] = $sy;
+}
+
+$whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+// Count total subjects
+$countSql = "
+    SELECT COUNT(DISTINCT s.subject_id)
+    FROM subjects s
+    LEFT JOIN enrolment_subjects es ON es.subjects_id = s.subject_id
+    LEFT JOIN enrolment e ON e.enrolment_id = es.enrolment_id
+        AND e.enrolment_Status = 'Approved'
+    $whereSql
+";
+
+$countStmt = $pdo->prepare($countSql);
+$countStmt->execute($params);
+$totalRows  = (int)$countStmt->fetchColumn();
+$totalPages = max(1, ceil($totalRows / $limit));
+
+// Fetch subject data
+$dataSql = "
+    SELECT 
+        s.*,
+        COUNT(e.enrolment_id) AS usage_count
+    FROM subjects s
+    LEFT JOIN enrolment_subjects es ON es.subjects_id = s.subject_id
+    LEFT JOIN enrolment e ON e.enrolment_id = es.enrolment_id
+        AND e.enrolment_Status = 'Approved'
+    $whereSql
+    GROUP BY s.subject_id
+    ORDER BY s.created_date DESC
+    LIMIT $limit OFFSET $offset
+";
+
+$dataStmt = $pdo->prepare($dataSql);
+$dataStmt->execute($params);
+$subjects = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$statsSql = "
+    SELECT
+        COUNT(DISTINCT s.subject_id) AS total_subjects,
+        COUNT(DISTINCT CASE WHEN s.subjects_status = 'Available' THEN s.subject_id END) AS available_subjects,
+        COUNT(DISTINCT CASE WHEN s.subjects_status = 'Unavailable' THEN s.subject_id END) AS unavailable_subjects,
+        SUM(s.subject_units) AS total_units
+    FROM subjects s
+";
+
+$statsWhere = [];
+$statsParams = [];
+
+if ($search !== '') {
+    $statsWhere[] = "s.subject_name LIKE ?";
+    $statsParams[] = "%{$search}%";
+}
+
+if (!empty($sy)) {
+    $statsSql .= "
+        INNER JOIN enrolment_subjects es ON es.subjects_id = s.subject_id
+        INNER JOIN enrolment e ON e.enrolment_id = es.enrolment_id 
+            AND e.enrolment_Status = 'Approved'
+    ";
+    $statsWhere[] = "e.school_year_id = ?";
+    $statsParams[] = $sy;
+}
+
+if ($statsWhere) {
+    $statsSql .= " WHERE " . implode(' AND ', $statsWhere);
+}
+
+$statsStmt = $pdo->prepare($statsSql);
+$statsStmt->execute($statsParams);
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+
+
+// Grade counts
+$gradeSql = "
+    SELECT s.grade_level, COUNT(DISTINCT s.subject_id) AS total
+    FROM subjects s
+    LEFT JOIN enrolment_subjects es ON es.subjects_id = s.subject_id
+    LEFT JOIN enrolment e ON e.enrolment_id = es.enrolment_id
+        AND e.enrolment_Status = 'Approved'
+    $whereSql
+    GROUP BY s.grade_level
+";
+
+$gradeStmt = $pdo->prepare($gradeSql);
+$gradeStmt->execute($params);
+$gradeCounts = $gradeStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// Generate HTML
+$html = '';
+if (isset($_POST['ajax'])) {
+    if ($subjects) {
+        $count = 1;
+        foreach ($subjects as $subject) {
+            $statusBadge = ($subject['subjects_status'] === 'Available') ? 'success' : 'secondary';
+            $html .= '<tr class="subject-row"
+                data-name="' . htmlspecialchars(strtolower($subject["subject_name"])) . '"
+                data-code="' . htmlspecialchars(strtolower($subject["subject_code"])) . '"
+                data-grade="' . htmlspecialchars(strtolower($subject["grade_level"])) . '"
+                data-status="' . htmlspecialchars(strtolower($subject["subjects_status"])) . '">
+                <td width="5%">' . $count++ . '</td>
+                <td width="20%" class="subject-name">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-placeholder me-2">
+                            <i class="fa-solid fa-book"></i>
+                        </div>
+                        <div>
+                            <strong>' . htmlspecialchars($subject["subject_name"]) . '</strong>
+                        </div>
+                    </div>
+                </td>
+                <td width="10%">
+                    <span class="badge bg-dark">' . htmlspecialchars($subject["subject_code"] ?? "N/A") . '</span>
+                </td>
+                <td width="10%">
+                    <span class="badge bg-info">' . htmlspecialchars($subject["subject_units"]) . ' units</span>
+                </td>
+                <td width="15%">
+                    <span class="badge bg-secondary">' . htmlspecialchars($subject["grade_level"]) . '</span>
+                </td>
+                <td style="text-align: center;width:5rem;">
+                    <span class="badge bg-' . $statusBadge . '"><i class="fa-solid fa-circle fa-xs me-1"></i></span>
+                </td>
+                <td width="15%">
+                    <small>' . date("M d, Y", strtotime($subject["created_date"])) . '</small>
+                </td>
+                <td width="20%">
+                    <div class="d-flex gap-1 justify-content-center">
+                        <button type="button" data-id="' . $subject["subject_id"] . '"
+                            class="btn btn-sm btn-info editSubjectBtn" title="Edit Subject">
+                            <i class="fa-solid fa-pen me-1"></i> Edit
+                        </button>
+                        <button type="button" data-id="' . $subject["subject_id"] . '"
+                            class="btn btn-sm btn-danger deleteSubjectBtn" title="Delete Subject">
+                            <i class="fa-solid fa-trash me-1"></i> Delete
+                        </button>
+                    </div>
+                </td>
+            </tr>';
+        }
+        $bt = "";
+        if ($page > 1) {
+            $bt = '<button class="btn btn-sm btn-secondary"
+                                onclick="fetchSubjects(' . $page - 1 . ')">
+                                Prev
+                            </button>';
+        }
+        if ($page < $totalPages) {
+            $bt .= '<button class="btn btn-sm btn-secondary"
+                                onclick="fetchSubjects(' . $page + 1 . ')">
+                                Next
+                            </button>';
+        }
+        $html .= '<tr>
+            <td colspan="6">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>Page ' . $page . ' of ' . $totalPages . '</span>
+                    <div>
+                        ' . $bt . '
+                    </div>
+                </div>
+            </td>
+        </tr>';
+    } else {
+        $html = '<tr>
+            <td colspan="8" class="text-center py-3">No subjects found.</td>
+        </tr>';
+    }
+
+    header('Content-Type: application/json');
+    echo json_encode([
+        'rows' => $html,
+        'hasData' => !empty($subjects),
+        'stats' => $stats,
+        'gradeCounts' => $gradeCounts
+    ]);
+    exit;
+}
 ?>
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="mx-2">
         <h4><i class="fa-solid fa-book-open me-2"></i>Subjects Management</h4>
@@ -41,39 +236,28 @@ $count = 1;
                 <div class="card-body">
                     <h5 class="card-title mb-3"><i class="fa-solid fa-chart-bar me-2"></i>Subjects Overview</h5>
                     <div class="row text-center">
-                        <?php
-                        $availableCount = array_filter($subjects, fn($s) => $s['subjects_status'] === 'Available');
-                        $unavailableCount = array_filter($subjects, fn($s) => $s['subjects_status'] === 'Unavailable');
 
-                        // Count by grade level
-                        $grade1Count = array_filter($subjects, fn($s) => $s['grade_level'] === 'Grade 1');
-                        $grade2Count = array_filter($subjects, fn($s) => $s['grade_level'] === 'Grade 2');
-                        $grade3Count = array_filter($subjects, fn($s) => $s['grade_level'] === 'Grade 3');
-                        $grade4Count = array_filter($subjects, fn($s) => $s['grade_level'] === 'Grade 4');
-                        $grade5Count = array_filter($subjects, fn($s) => $s['grade_level'] === 'Grade 5');
-                        $grade6Count = array_filter($subjects, fn($s) => $s['grade_level'] === 'Grade 6');
-                        ?>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 id="tc" class="text-white mb-1"><?= count($subjects) ?></h3>
+                                <h3 id="tc" class="text-white mb-1"><?= $stats['total_subjects'] ?></h3>
                                 <small class="text-white">Total Subjects</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-success bg-opacity-10 rounded">
-                                <h3 id="av" class="text-white mb-1"><?= count($availableCount) ?></h3>
+                                <h3 id="av" class="text-white mb-1"><?= $stats['available_subjects'] ?></h3>
                                 <small class="text-white">Available</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-secondary bg-opacity-10 rounded">
-                                <h3 id="uv" class="text-white mb-1"><?= count($unavailableCount) ?></h3>
+                                <h3 id="uv" class="text-white mb-1"><?= $stats['unavailable_subjects'] ?></h3>
                                 <small class="text-white">Unavailable</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-info bg-opacity-10 rounded">
-                                <h3 id="tu" class="text-white mb-1"><?= array_sum(array_column($subjects, 'subject_units')) ?></h3>
+                                <h3 id="tu" class="text-white mb-1"><?= $stats['total_units'] ?></h3>
                                 <small class="text-white">Total Units</small>
                             </div>
                         </div>
@@ -82,51 +266,28 @@ $count = 1;
                     <!-- Grade Level Breakdown -->
                     <div class="row mt-4">
                         <h6 class="text-muted mb-3">Grade Level Distribution</h6>
-                        <div class="col-2 text-center">
-                            <div class="p-2 bg-light rounded">
-                                <h5 id="gg1" class="mb-1"><?= count($grade1Count) ?></h5>
-                                <small class="text-muted">Grade 1</small>
+
+                        <?php
+                        $grades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
+                        foreach ($grades as $i => $grade):
+                        ?>
+                            <div class="col-2 text-center">
+                                <div class="p-2 bg-light rounded">
+                                    <h5 id="gg<?= $i + 1 ?>" class="mb-1">
+                                        <?= $gradeCounts[$grade] ?? 0 ?>
+                                    </h5>
+                                    <small class="text-muted"><?= $grade ?></small>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-2 text-center">
-                            <div class="p-2 bg-light rounded">
-                                <h5 id="gg2" class="mb-1"><?= count($grade2Count) ?></h5>
-                                <small class="text-muted">Grade 2</small>
-                            </div>
-                        </div>
-                        <div class="col-2 text-center">
-                            <div class="p-2 bg-light rounded">
-                                <h5 id="gg3" class="mb-1"><?= count($grade3Count) ?></h5>
-                                <small class="text-muted">Grade 3</small>
-                            </div>
-                        </div>
-                        <div class="col-2 text-center">
-                            <div class="p-2 bg-light rounded">
-                                <h5 id="gg4" class="mb-1"><?= count($grade4Count) ?></h5>
-                                <small class="text-muted">Grade 4</small>
-                            </div>
-                        </div>
-                        <div class="col-2 text-center">
-                            <div class="p-2 bg-light rounded">
-                                <h5 id="gg5" class="mb-1"><?= count($grade5Count) ?></h5>
-                                <small class="text-muted">Grade 5</small>
-                            </div>
-                        </div>
-                        <div class="col-2 text-center">
-                            <div class="p-2 bg-light rounded">
-                                <h5 id="gg6" class="mb-1"><?= count($grade6Count) ?></h5>
-                                <small class="text-muted">Grade 6</small>
-                            </div>
-                        </div>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     <div style="display: flex; gap: 1rem; align-items: center; border: none;">
-        <h5>Filter by:</h5>
         <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
-            <option value="">All Year</option>
+            <option value="">--- active at ---</option>
             <?php
             $catStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name ASC");
             while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)): ?>
@@ -135,6 +296,18 @@ $count = 1;
                 </option>
             <?php endwhile; ?>
         </select>
+    </div>
+    <div class="fsfs">
+        <li>
+            <span class="badge bg-success">
+                <i class="fa-solid fa-circle fa-xs me-1"></i>
+            </span> - Available
+        </li>
+        <li>
+            <span class="badge bg-secondary">
+                <i class="fa-solid fa-circle fa-xs me-1"></i>
+            </span> - Unavailable
+        </li>
     </div>
     <!-- Subjects Table -->
     <div class="table-container-wrapper p-0">
@@ -158,7 +331,7 @@ $count = 1;
                             <th width="10%">Code</th>
                             <th width="10%">Units</th>
                             <th width="15%">Grade Level</th>
-                            <th width="15%">Status</th>
+                            <th style="width: 5rem;">Status</th>
                             <th width="15%">Created at</th>
                             <th width="20%">Action</th>
                         </tr>
@@ -167,62 +340,7 @@ $count = 1;
             </div>
             <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
                 <tbody id="subjectsTableBody">
-                    <?php if ($subjects):
-                        $count = 1;
-                        foreach ($subjects as $subject) : ?>
-                            <tr class="subject-row"
-                                data-name="<?= htmlspecialchars(strtolower($subject["subject_name"])) ?>"
-                                data-code="<?= htmlspecialchars(strtolower($subject["subject_code"])) ?>"
-                                data-grade="<?= htmlspecialchars(strtolower($subject["grade_level"])) ?>"
-                                data-status="<?= htmlspecialchars(strtolower($subject["subjects_status"])) ?>">
-                                <td width="5%"><?= $count++ ?></td>
-                                <td width="20%" class="subject-name">
-                                    <div class="d-flex align-items-center">
-                                        <div class="avatar-placeholder me-2">
-                                            <i class="fa-solid fa-book"></i>
-                                        </div>
-                                        <div>
-                                            <strong><?= htmlspecialchars($subject["subject_name"]) ?></strong>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td width="10%">
-                                    <span class="badge bg-dark"><?= htmlspecialchars($subject["subject_code"] ?? 'N/A') ?></span>
-                                </td>
-                                <td width="10%">
-                                    <span class="badge bg-info"><?= htmlspecialchars($subject["subject_units"]) ?> units</span>
-                                </td>
-                                <td width="15%">
-                                    <span class="badge bg-secondary"><?= htmlspecialchars($subject["grade_level"]) ?></span>
-                                </td>
-                                <td width="15%">
-                                    <span class="badge bg-<?= ($subject["subjects_status"] == 'Available') ? 'success' : 'secondary' ?>">
-                                        <i class="fa-solid fa-circle fa-xs me-1"></i>
-                                        <?= htmlspecialchars($subject["subjects_status"] ?? 'Unavailable') ?>
-                                    </span>
-                                </td>
-                                <td width="15%">
-                                    <small><?= date('M d, Y', strtotime($subject["created_date"])) ?></small>
-                                </td>
-                                <td width="20%">
-                                    <div class="d-flex gap-1 justify-content-center">
-                                        <button type="button" data-id="<?= $subject['subject_id'] ?>"
-                                            class="btn btn-sm btn-info editSubjectBtn" title="Edit Subject">
-                                            <i class="fa-solid fa-pen me-1"></i> Edit
-                                        </button>
-                                        <button type="button" data-id="<?= $subject['subject_id'] ?>"
-                                            class="btn btn-sm btn-danger deleteSubjectBtn" title="Delete Subject">
-                                            <i class="fa-solid fa-trash me-1"></i> Delete
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="8" class="text-center py-3">No subjects found.</td>
-                        </tr>
-                    <?php endif; ?>
+
                 </tbody>
             </table>
         </div>
@@ -385,143 +503,109 @@ $count = 1;
         </div>
     </div>
 </div>
-
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('searchInput');
-        const subjectRows = document.querySelectorAll('.subject-row');
-        const subjectsTableBody = document.getElementById('subjectsTableBody');
-        const noResultsDiv = document.getElementById('noResults');
-        // const editButtons = document.querySelectorAll('.editSubjectBtn');
-        // const deleteButtons = document.querySelectorAll('.deleteSubjectBtn');
-        const syFilter = document.getElementById('syFilter');
+    let currentPage = 1;
 
-        // Subject data for edit form
-        const subjectsData = <?= json_encode($subjects); ?>;
+    const searchInput = document.getElementById('searchInput');
+    const syFilter = document.getElementById('syFilter');
+    const subjectsTableBody = document.getElementById('subjectsTableBody');
+    const noResultsDiv = document.getElementById('noResults');
 
-        // Search functionality
-        function gr(e, v) {
-            document.getElementById(e).textContent = v;
-        }
+    function gr(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value ?? 0;
+    }
 
-        function filterSubjects() {
-            const formData = new FormData();
-            formData.append('action', 'fetch_subjects');
-            formData.append('search', searchInput.value.trim());
-            formData.append('school_year', syFilter.value);
+    function fetchSubjects(page = 1) {
+        currentPage = page;
 
-            fetch('contents/fetch.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(res => res.json())
-                .then(data => {
-                    subjectsTableBody.innerHTML = data.rows;
-                    // document.getElementById('av').textContent = data.availableCount;
-                    // document.getElementById('uv').textContent = data.unavailableCount;
-                    gr('tc',data.totalCount)
-                    gr('gg1',data.grades['Grade 1'])
-                    gr('gg2',data.grades['Grade 2'])
-                    gr('gg3',data.grades['Grade 3'])
-                    gr('gg4',data.grades['Grade 4'])
-                    gr('gg5',data.grades['Grade 5'])
-                    gr('gg6',data.grades['Grade 6'])
-                    gr('av',data.availableCount)
-                    gr('uv',data.unavailableCount)
-                    gr('tu',data.tuCount)
-                    const ggr = data.grades;
+        subjectsTableBody.innerHTML = `
+        <tr>
+            <td colspan="8" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <div>Loading subjects...</div>
+            </td>
+        </tr>
+    `;
 
+        const formData = new FormData();
+        formData.append('ajax', 1);
+        formData.append('search', searchInput.value.trim());
+        formData.append('school_year', syFilter.value);
+        formData.append('page', page);
 
-                    if (!data.hasData) {
-                        subjectsTableBody.style.display = 'none';
-                        noResultsDiv.classList.remove('d-none');
-                    } else {
-                        subjectsTableBody.style.display = '';
-                        noResultsDiv.classList.add('d-none');
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    subjectsTableBody.innerHTML = `
-                    <tr>
-                        <td colspan="10" class="text-center text-danger py-4">
-                            Failed to load data
-                        </td>
-                    </tr>`;
+        fetch('contents/subjects.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+
+                subjectsTableBody.innerHTML = data.rows;
+
+                if (!data.hasData) {
+                    subjectsTableBody.style.display = 'none';
+                    noResultsDiv.classList.remove('d-none');
+                } else {
+                    subjectsTableBody.style.display = '';
+                    noResultsDiv.classList.add('d-none');
+                }
+
+                gr('tc', data.stats?.total_subjects);
+                gr('av', data.stats?.available_subjects);
+                gr('uv', data.stats?.unavailable_subjects);
+                gr('tu', data.stats?.total_units);
+
+                const grades = data.gradeCounts || {};
+                ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'].forEach((g, i) => {
+                    gr('gg' + (i + 1), grades[g] ?? 0);
                 });
-        }
 
+            })
+            .catch(err => {
+                console.error('Fetch subjects failed:', err);
+                subjectsTableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-4 text-danger">
+                    Failed to load data
+                </td>
+            </tr>
+        `;
+            });
+    }
 
-        // // Edit button click handler
-        // editButtons.forEach(button => {
-        //     button.addEventListener('click', function() {
-        //         const subjectId = this.getAttribute('data-id');
-        //         const subject = subjectsData.find(s => s.subject_id == subjectId);
+    document.addEventListener('DOMContentLoaded', function() {
 
-        //         if (subject) {
-        //             document.getElementById('subject_id_edit').value = subject.subject_id;
-        //             document.getElementById('subject_name').value = subject.subject_name;
-        //             document.getElementById('subject_code').value = subject.subject_code;
-        //             document.getElementById('grade_level').value = subject.grade_level;
-        //             document.getElementById('subject_units').value = subject.subject_units;
-        //             document.getElementById('subjects_status').value = subject.subjects_status;
-
-        //             const modal = new bootstrap.Modal(document.getElementById('editSubjects'));
-        //             modal.show();
-        //         }
-        //     });
-        // });
-
-        // // Delete button click handler
-        // deleteButtons.forEach(button => {
-        //     button.addEventListener('click', function() {
-        //         const subjectId = this.getAttribute('data-id');
-        //         const subject = subjectsData.find(s => s.subject_id == subjectId);
-
-        //         if (subject) {
-        //             document.getElementById('subject_id_delete').value = subject.subject_id;
-
-        //             const modal = new bootstrap.Modal(document.getElementById('deleteSubject'));
-        //             modal.show();
-        //         }
-        //     });
-        // });
-
-        // Event listeners
-        searchInput.addEventListener('input', filterSubjects);
-
-        // clearSearchBtn.addEventListener('click', function() {
-        //     searchInput.value = '';
-        //     filterSubjects();
-        //     searchInput.focus();
-        // });
-
-        // Add Enter key support for search
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                filterSubjects();
-            }
+        searchInput.addEventListener('input', () => fetchSubjects(1));
+        syFilter.addEventListener('change', () => fetchSubjects(1));
+        searchInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') fetchSubjects(1);
         });
 
-        // Add some styling
-        searchInput.addEventListener('focus', function() {
-            this.parentElement.classList.add('border-primary', 'border-2');
-        });
-        syFilter.addEventListener('change', filterSubjects);
+        fetchSubjects(currentPage);
 
-        searchInput.addEventListener('blur', function() {
-            this.parentElement.classList.remove('border-primary', 'border-2');
-        });
-
-        // Initialize
     });
 </script>
+
 
 <style>
     .scroll-subjects {
         height: 80vh;
         overflow-y: scroll;
         overflow-x: hidden;
+    }
+
+    .me-1 {
+        margin-right: 0 !important;
+    }
+
+    .fsfs li {
+        list-style: none;
+    }
+
+    .fsfs {
+        display: flex;
+        gap: 1rem;
     }
 
     .table-container-wrapper {
