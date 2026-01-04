@@ -36,6 +36,7 @@ $activeSY = $stmt->fetch(PDO::FETCH_ASSOC);
         background: #888;
         border-radius: 10px;
     }
+
     
     section::-webkit-scrollbar-thumb:hover {
         background: #555;

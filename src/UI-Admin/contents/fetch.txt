@@ -18,19 +18,36 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $query = "SELECT u.*, s.school_year_name 
           FROM users u 
-          LEFT JOIN school_year s ON u.school_year_id = s.school_year_id
-          WHERE 1";
+          LEFT JOIN enrolment e ON e.adviser_id = u.user_id
+          LEFT JOIN student st ON st.guardian_id = u.user_id
+          LEFT JOIN school_year s ON e.school_year_id = s.school_year_id
+            WHERE 1";
         $params = [];
+
+        if ($sy) {
+            $query .= " AND st.student_id IN (
+                            SELECT ee.student_id FROM enrolment as ee WHERE ee.school_year_id = ?
+                        ) OR
+                        u.user_id IN (
+                            SELECT ee.adviser_id FROM enrolment as ee WHERE ee.school_year_id = ?
+                        )";
+            $params[] = $sy;
+            $params[] = $sy;
+        } else {
+            $query .= " AND st.student_id IN (
+                            SELECT ee.student_id FROM enrolment as ee
+                        ) OR
+                        u.user_id IN (
+                            SELECT ee.adviser_id FROM enrolment as ee
+                        )";
+        }
 
         if ($role) {
             $query .= " AND u.user_role = ?";
             $params[] = $role;
         }
+        $query .= " GROUP BY u.user_id";
 
-        if ($sy) {
-            $query .= " AND u.school_year_id = ?";
-            $params[] = $sy;
-        }
         $search = $_POST['search'] ?? '';
         if ($search) {
             $query .= " AND (u.firstname LIKE ? OR u.lastname LIKE ? OR u.user_role LIKE ?)";
@@ -128,7 +145,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         // Only filter by school year if selected
         if ($sy) {
-            $where[] = "users.school_year_id = ?";
+            $where[] = "student.student_id IN(
+                            SELECT e.student_id FROM enrolment AS e WHERE e.school_year_id = ?
+                        )";
             $params[] = $sy;
         }
 
@@ -182,55 +201,90 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             'rejected'        => ['danger', 'Rejected']
         ];
 
-
-        foreach ($rows as $r) {
-            $enrolment = strtolower($r['enrolment_status'] ?? 'pending');
+        $count = 1;
+        foreach ($rows as $user) {
+            $enrolment = strtolower($user['enrolment_status'] ?? 'pending');
             if ($enrolment === 'active') $stats['enrolled']++;
             if (str_contains($enrolment, 'transferred')) $stats['transferred']++;
             if (in_array($enrolment, ['not_active', 'rejected'])) $stats['inactive']++;
 
             $badgeClass = $statusMap[$enrolment][0] ?? 'secondary';
             $label = $statusMap[$enrolment][1] ?? ucfirst($enrolment);
+            $currentStatus = strtolower($user['enrolment_status'] ?? 'pending');
 
-            $html .= "
-        <tr>
-        <td>{$i}</td>
-        <td>" . htmlspecialchars($r['lrn']) . "</td>
-        <td>" . htmlspecialchars($r['lname'] . ', ' . $r['fname']) . "</td>
-        <td>
-            <strong>" . htmlspecialchars($r['parentLastname'] . ', ' . $r['parentFirstname']) . "</strong>";
-            if (!empty($r['parentMiddle'])) {
-                $html .= "<br><small>" . htmlspecialchars($r['parentMiddle']) . "</small>";
+            $g1 = '';
+            $g2 = '';
+            $g3 = '';
+            if (!empty($user["mname"])) {
+                $g1 = '<br><small class="text-muted">' . htmlspecialchars($user["mname"]) . '</small>';
             }
-            $html .= "
-        </td>
-        <td>" . htmlspecialchars($r['gradeLevel']) . "</td>
-        <td>
-            <span class='badge bg-{$badgeClass}'>
-                <i class='fa-solid fa-circle fa-xs me-1'></i>
-                {$label}
-            </span>
-        </td>
-        <td>
-            <div class='d-flex gap-1 justify-content-center'>
-                <a class='btn btn-sm btn-info' href='index.php?page=contents/profile&student_id={$r['student_id']}'>
-                    Profile
-                </a>
-                <form class='status-enrolment-form'>
-                    <select name='status' class='status-enrolment-select form-select'>
-                        <option value=''>Change Status</option>
-                        <option value='active'" . ($enrolment === 'active' ? ' selected' : '') . ">Enrolled</option>
-                        <option value='transferred_in'" . ($enrolment === 'transferred_in' ? ' selected' : '') . ">Transferred In</option>
-                        <option value='transferred_out'" . ($enrolment === 'transferred_out' ? ' selected' : '') . ">Transferred Out</option>
-                        <option value='not_active'" . ($enrolment === 'not_active' ? ' selected' : '') . ">Not Active</option>
-                        <option value='dropped'" . ($enrolment === 'dropped' ? ' selected' : '') . ">Dropped</option>
-                        <option value='rejected'" . ($enrolment === 'rejected' ? ' selected' : '') . ">Rejected</option>
-                    </select>
-                    <input type='hidden' name='user_id' value='{$r['student_id']}'>
-                </form>
-            </div>
-        </td>
-        </tr>";
+            if (!empty($user["parentMiddle"])) {
+                $g2 = '<br>' . htmlspecialchars($user["parentMiddle"]);
+            }
+            foreach ($statusMap as $key => $map) {
+                if ($key === 'pending') {
+                    continue;
+                }
+                $g3 .=    '<option value="' . $key . '" ' . ($currentStatus === $key) ? "selected" : "" . '>' . $map[1] . '</option>';
+            }
+            $html .= '<tr class="learner-row"
+                                data-status="' . htmlspecialchars($currentStatus) . '"
+                                data-grade="' . htmlspecialchars(strtolower($user['gradeLevel'] ?? '')) . '"
+                                data-name="' . htmlspecialchars(strtolower($user['lname'] . ' ' . $user['fname'] . ' ' . ($user['mname'] ?? ''))) . '"
+                                data-lrn="' . htmlspecialchars(strtolower($user['lrn'] ?? '')) . '"
+                                data-parent="' . htmlspecialchars(strtolower($user['parentLastname'] . ' ' . $user['parentFirstname'])) . '">
+
+                                <td width="5%">' . $count++ . '</td>
+                                <td width="10%"><code class="text-dark">' . htmlspecialchars($user["lrn"]) . '</code></td>
+                                <td width="20%" class="learner-name">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-placeholder me-2">
+                                            <i class="fa-solid fa-user-graduate text-secondary"></i>
+                                        </div>
+                                        <div>
+                                            <strong>' . htmlspecialchars($user["lname"] . ", " . $user["fname"]) . '</strong>
+                                            ' . $g1 . '
+                                        </div>
+                                    </div>
+                                </td>
+                                <td width="20%">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-placeholder-small me-2">
+                                            <i class="fa-solid fa-user text-secondary"></i>
+                                        </div>
+                                        <div>
+                                            <small>
+                                                <strong>' . htmlspecialchars($user["parentLastname"] . ", " . $user["parentFirstname"]) . '</strong>
+                                                ' . $g2 . '
+                                            </small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td width="10%">
+                                    <span class="badge bg-info">' . htmlspecialchars($user["gradeLevel"]) . '</span>
+                                </td>
+                                <td width="10%">
+                                    <span class="badge bg-' . $badgeClass . '">
+                                        <i class="fa-solid fa-circle fa-xs me-1"></i>
+                                        ' . $label . '
+                                    </span>
+                                </td>
+                                <td width="15%">
+                                    <div class="d-flex gap-1 justify-content-center flex-wrap">
+                                        <a href="index.php?page=contents/profile&student_id=' . htmlspecialchars($user["student_id"]) . '"
+                                            class="btn btn-sm btn-info" title="View Profile">
+                                            <i class="fa-solid fa-user me-1"></i> Profile
+                                        </a>
+                                        <form class="status-enrolment-form">
+                                            <select name="status" class="status-enrolment-select form-select">
+                                                <option value="">Change Status</option>
+                                                ' . $g3 . '
+                                            </select>
+                                            <input type="hidden" name="user_id" value="' . $user['student_id'] . '">
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>';
             $i++;
         }
 
@@ -251,7 +305,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         // Only filter by school year if selected
         if ($sy) {
-            $where[] = "u.school_year_id = ?";
+            $where[] = "s.student_id IN(
+                SELECT e.student_id FROM enrolment AS e WHERE e.school_year_id = ?
+            )";
             $params[] = $sy;
         }
 
@@ -300,7 +356,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $pn = 0;
         $rd = 0;
 
-
+        $count = 1;
 
         foreach ($users as $user) {
 
@@ -371,7 +427,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $html .= '
                                      </td>
                                         <td width="25%">
-                                            <div class="d-flex gap-1 justify-content-center">
+                                            <div class="d-flex flex-wrap gap-1 justify-content-center flex-wrap">
                                                 <a href="index.php?page=contents/form&student_id=' . htmlspecialchars($user["student_id"]) . '"
                                                     class="btn btn-sm btn-info" title="View Enrollment Form">
                                                     <i class="fa-solid fa-file-lines me-1"></i> Form
@@ -395,7 +451,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $html .= '</div>
                                             </td>
                                         </tr>';
-            $i++;
         }
 
 
@@ -415,21 +470,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $where = [];
         $params = [];
         if ($sy) {
-            $where[] = " classrooms.school_year_id = ?";
+            $where[] = " room_id IN(SELECT cl.class_id FROM classes AS cl WHERE cl.sy_id = ?)";
             $params[] = $sy;
         }
         if ($search) {
-            $where[] = " classrooms.room_name LIKE ?";
+            $where[] = " c.room_name LIKE ?";
             $s = "%$search%";
             $params[] = $s;
         }
-        $sql = "SELECT * FROM classrooms LEFT JOIN school_year ON classrooms.school_year_id = school_year.school_year_id ";
+        $sql = "SELECT * FROM classrooms AS c";
 
 
         if ($where) {
             $sql .= " WHERE " . implode(" AND ", $where);
         }
-        $sql .= " ORDER BY classrooms.created_date DESC;";
+        $sql .= " ORDER BY c.created_date DESC;";
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -460,20 +515,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                  <td width="15%">
                                      <span class="badge bg-info">' . htmlspecialchars($user["room_type"]) . '</span>
                                  </td>
-                                 <td width="15%">
+                                 <td width="10%" style="text-align: center;">
                                         <span class="badge bg-' . (($user["room_status"] === 'Available') ? 'success' : 'secondary') . '">
                                          <i class="fa-solid fa-circle fa-xs me-1"></i>
-                                         ' . htmlspecialchars($user["room_status"] ?? 'Unavailable') . '
                                      </span>
-                                 </td>
-                                 <td width="20%">
-                                     <small>' . htmlspecialchars($user["school_year_name"]) . '</small>
                                  </td>
                                  <td width="20%">
                                      <small>' . date('M, d, y', strtotime($user["created_date"])) . '</small>
                                  </td>
                                  <td width="25%">
-                                     <div class="d-flex gap-1 justify-content-center">
+                                     <div class="d-flex gap-1 justify-content-center flex-wrap">
                                          <button type="button" data-id="' . htmlspecialchars($user['room_id']) . '"
                                              class="btn btn-sm btn-info editClassroomsBtn" title="Edit Classroom">
                                              <i class="fa-solid fa-pen me-1"></i> Edit

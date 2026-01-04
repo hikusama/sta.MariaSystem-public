@@ -6,10 +6,10 @@ if ($result['res']) {
     header($result['uri']);
     exit;
 }
-    $stmt = $pdo->prepare("SELECT * FROM school_year ORDER BY created_date DESC");
-    $stmt->execute();
-    $school_year = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $count = 1;
+$stmt = $pdo->prepare("SELECT * FROM school_year ORDER BY created_date DESC");
+$stmt->execute();
+$school_year = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$count = 1;
 ?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="mx-2">
@@ -72,10 +72,10 @@ if ($result['res']) {
     <!-- School Years Table -->
     <div class="table-container-wrapper p-0">
         <?php
-            $stmt = $pdo->prepare("SELECT * FROM school_year ORDER BY created_date DESC");
-            $stmt->execute();
-            $school_year = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $count = 1;
+        $stmt = $pdo->prepare("SELECT * FROM school_year ORDER BY created_date DESC");
+        $stmt->execute();
+        $school_year = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $count = 1;
         ?>
 
         <!-- Fixed Header -->
@@ -97,56 +97,56 @@ if ($result['res']) {
         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
             <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
                 <tbody id="schoolYearTableBody">
-                    <?php if($school_year): 
+                    <?php if ($school_year):
                         $count = 1;
-                        foreach($school_year as $sy) : ?>
-                    <tr class="schoolyear-row" data-name="<?= htmlspecialchars(strtolower($sy["school_year_name"])) ?>"
-                        data-status="<?= htmlspecialchars(strtolower($sy["school_year_status"])) ?>">
-                        <td width="5%"><?= $count++ ?></td>
-                        <td width="30%" class="schoolyear-name">
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-placeholder me-2">
-                                    <i class="fa-solid fa-calendar text-primary"></i>
-                                </div>
-                                <div>
-                                    <strong><?= htmlspecialchars($sy["school_year_name"]) ?></strong>
-                                </div>
-                            </div>
-                        </td>
-                        <td width="15%">
-                            <span class="badge bg-<?= ($sy["school_year_status"] == 'Active') ? 'success' : 'secondary' ?>">
-                                <i class="fa-solid fa-circle fa-xs me-1"></i>
-                                <?= htmlspecialchars($sy["school_year_status"] ?? 'Inactive') ?>
-                            </span>
-                        </td>
-                        <td width="20%">
-                            <small><?= date('M d, Y', strtotime($sy["created_date"])) ?></small>
-                        </td>
-                        <td width="30%">
-                            <div class="d-flex gap-1 justify-content-center">
-                                <?php if($sy["school_year_status"] == 'Inactive'): ?>
-                                    <button type="button" data-id="<?= $sy['school_year_id'] ?>"
-                                        class="btn btn-sm btn-success activate-btn" title="Activate School Year">
-                                        <i class="fa-solid fa-check me-1"></i> Activate
-                                    </button>
-                                <?php else: ?>
-                                    <button type="button" data-id="<?= $sy['school_year_id'] ?>"
-                                        class="btn btn-sm btn-warning deactivate-btn" title="Deactivate School Year">
-                                        <i class="fa-solid fa-ban me-1"></i> Deactivate
-                                    </button>
-                                <?php endif; ?>
-                                <button type="button" data-id="<?= $sy['school_year_id'] ?>"
-                                    class="btn btn-sm btn-danger delete-btn" title="Delete School Year">
-                                    <i class="fa-solid fa-trash me-1"></i> Delete
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
+                        foreach ($school_year as $sy) : ?>
+                            <tr class="schoolyear-row" data-name="<?= htmlspecialchars(strtolower($sy["school_year_name"])) ?>"
+                                data-status="<?= htmlspecialchars(strtolower($sy["school_year_status"])) ?>">
+                                <td width="5%"><?= $count++ ?></td>
+                                <td width="30%" class="schoolyear-name">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-placeholder me-2">
+                                            <i class="fa-solid fa-calendar text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <strong><?= htmlspecialchars($sy["school_year_name"]) ?></strong>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td width="15%">
+                                    <span class="badge bg-<?= ($sy["school_year_status"] == 'Active') ? 'success' : 'secondary' ?>">
+                                        <i class="fa-solid fa-circle fa-xs me-1"></i>
+                                        <?= htmlspecialchars($sy["school_year_status"] ?? 'Inactive') ?>
+                                    </span>
+                                </td>
+                                <td width="20%">
+                                    <small><?= date('M d, Y', strtotime($sy["created_date"])) ?></small>
+                                </td>
+                                <td width="30%">
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <?php if ($sy["school_year_status"] == 'Inactive'): ?>
+                                            <button type="button" data-id="<?= $sy['school_year_id'] ?>"
+                                                class="btn btn-sm btn-success activate-btn" title="Activate School Year">
+                                                <i class="fa-solid fa-check me-1"></i> Activate
+                                            </button>
+                                        <?php else: ?>
+                                            <button type="button" data-id="<?= $sy['school_year_id'] ?>"
+                                                class="btn btn-sm btn-warning deactivate-btn" title="Deactivate School Year">
+                                                <i class="fa-solid fa-ban me-1"></i> Deactivate
+                                            </button>
+                                        <?php endif; ?>
+                                        <button type="button" data-id="<?= $sy['school_year_id'] ?>"
+                                            class="btn btn-sm btn-danger delete-btn" title="Delete School Year">
+                                            <i class="fa-solid fa-trash me-1"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
                     <?php else: ?>
-                    <tr>
-                        <td colspan="5" class="text-center py-3">No school years found.</td>
-                    </tr>
+                        <tr>
+                            <td colspan="5" class="text-center py-3">No school years found.</td>
+                        </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -178,8 +178,8 @@ if ($result['res']) {
                 <form class="row g-3" id="sy-form" method="post">
                     <div class="my-2">
                         <label class="form-label">School Year Name <span class="text-danger">*</span></label>
-                        <input type="text" name="schoolYear_name" class="form-control" placeholder="ex. 2025 - 2026"
-                            required>
+                        <input type="text" id="syname" name="schoolYear_name" class="form-control" placeholder="ex. 2025 - 2026"
+                            required readonly>
                     </div>
                     <div class="my-2">
                         <label class="form-label">Initial Status <span class="text-danger">*</span></label>
@@ -301,225 +301,230 @@ if ($result['res']) {
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
-    const schoolYearRows = document.querySelectorAll('.schoolyear-row');
-    const schoolYearTableBody = document.getElementById('schoolYearTableBody');
-    const noResultsDiv = document.getElementById('noResults');
-    const activateButtons = document.querySelectorAll('.activate-btn');
-    const deactivateButtons = document.querySelectorAll('.deactivate-btn');
-    const deleteButtons = document.querySelectorAll('.delete-btn');
+    document.addEventListener('DOMContentLoaded', function() {
+        const currentYear = new Date().getFullYear();
+        const nextYear = currentYear + 1;
 
-    // School Year data
-    const schoolYearData = <?= json_encode($school_year); ?>;
+        document.getElementById("syname").value = `${currentYear}-${nextYear}`;
+        const searchInput = document.getElementById('searchInput');
+        const schoolYearRows = document.querySelectorAll('.schoolyear-row');
+        const schoolYearTableBody = document.getElementById('schoolYearTableBody');
+        const noResultsDiv = document.getElementById('noResults');
+        const activateButtons = document.querySelectorAll('.activate-btn');
+        const deactivateButtons = document.querySelectorAll('.deactivate-btn');
+        const deleteButtons = document.querySelectorAll('.delete-btn');
 
-    // Search functionality
-    function filterSchoolYears() {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        let visibleCount = 0;
 
-        schoolYearRows.forEach(row => {
-            const name = row.getAttribute('data-name');
-            const status = row.getAttribute('data-status');
+        // School Year data
+        const schoolYearData = <?= json_encode($school_year); ?>;
 
-            let matchesSearch = true;
+        // Search functionality
+        function filterSchoolYears() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            let visibleCount = 0;
 
-            if (searchTerm) {
-                matchesSearch = name.includes(searchTerm) || status.includes(searchTerm);
-            }
+            schoolYearRows.forEach(row => {
+                const name = row.getAttribute('data-name');
+                const status = row.getAttribute('data-status');
 
-            if (matchesSearch) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
+                let matchesSearch = true;
 
-        if (visibleCount === 0) {
-            schoolYearTableBody.style.display = 'none';
-            noResultsDiv.classList.remove('d-none');
-        } else {
-            schoolYearTableBody.style.display = '';
-            noResultsDiv.classList.add('d-none');
-        }
-
-        updateRowNumbers();
-    }
-
-    function updateRowNumbers() {
-        let counter = 1;
-        schoolYearRows.forEach(row => {
-            if (row.style.display !== 'none') {
-                const firstCell = row.querySelector('td:first-child');
-                if (firstCell) {
-                    firstCell.textContent = counter++;
+                if (searchTerm) {
+                    matchesSearch = name.includes(searchTerm) || status.includes(searchTerm);
                 }
+
+                if (matchesSearch) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (visibleCount === 0) {
+                schoolYearTableBody.style.display = 'none';
+                noResultsDiv.classList.remove('d-none');
+            } else {
+                schoolYearTableBody.style.display = '';
+                noResultsDiv.classList.add('d-none');
             }
-        });
-    }
 
-    // Activate button click handler
-    activateButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const schoolYearId = this.getAttribute('data-id');
-            const schoolYear = schoolYearData.find(sy => sy.school_year_id == schoolYearId);
-
-            if (schoolYear) {
-                document.getElementById('activate_school_year_id').value = schoolYear.school_year_id;
-                const modal = new bootstrap.Modal(document.getElementById('activateSY'));
-                modal.show();
-            }
-        });
-    });
-
-    // Deactivate button click handler
-    deactivateButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const schoolYearId = this.getAttribute('data-id');
-            const schoolYear = schoolYearData.find(sy => sy.school_year_id == schoolYearId);
-
-            if (schoolYear) {
-                document.getElementById('deactivate_school_year_id').value = schoolYear.school_year_id;
-                const modal = new bootstrap.Modal(document.getElementById('DeactivateSY'));
-                modal.show();
-            }
-        });
-    });
-
-    // Delete button click handler
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const schoolYearId = this.getAttribute('data-id');
-            const schoolYear = schoolYearData.find(sy => sy.school_year_id == schoolYearId);
-
-            if (schoolYear) {
-                document.getElementById('delete_school_year_id').value = schoolYear.school_year_id;
-                const modal = new bootstrap.Modal(document.getElementById('deleteSchoolYear'));
-                modal.show();
-            }
-        });
-    });
-
-    // Event listeners
-    searchInput.addEventListener('input', filterSchoolYears);
-    
-    // clearSearchBtn.addEventListener('click', function() {
-    //     searchInput.value = '';
-    //     filterSchoolYears();
-    //     searchInput.focus();
-    // });
-
-    // Add Enter key support for search
-    searchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            filterSchoolYears();
+            updateRowNumbers();
         }
-    });
 
-    // Add some styling
-    searchInput.addEventListener('focus', function() {
-        this.parentElement.classList.add('border-primary', 'border-2');
-    });
+        function updateRowNumbers() {
+            let counter = 1;
+            schoolYearRows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const firstCell = row.querySelector('td:first-child');
+                    if (firstCell) {
+                        firstCell.textContent = counter++;
+                    }
+                }
+            });
+        }
 
-    searchInput.addEventListener('blur', function() {
-        this.parentElement.classList.remove('border-primary', 'border-2');
-    });
+        // Activate button click handler
+        activateButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const schoolYearId = this.getAttribute('data-id');
+                const schoolYear = schoolYearData.find(sy => sy.school_year_id == schoolYearId);
 
-    // Initialize
-    filterSchoolYears();
-});
+                if (schoolYear) {
+                    document.getElementById('activate_school_year_id').value = schoolYear.school_year_id;
+                    const modal = new bootstrap.Modal(document.getElementById('activateSY'));
+                    modal.show();
+                }
+            });
+        });
+
+        // Deactivate button click handler
+        deactivateButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const schoolYearId = this.getAttribute('data-id');
+                const schoolYear = schoolYearData.find(sy => sy.school_year_id == schoolYearId);
+
+                if (schoolYear) {
+                    document.getElementById('deactivate_school_year_id').value = schoolYear.school_year_id;
+                    const modal = new bootstrap.Modal(document.getElementById('DeactivateSY'));
+                    modal.show();
+                }
+            });
+        });
+
+        // Delete button click handler
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const schoolYearId = this.getAttribute('data-id');
+                const schoolYear = schoolYearData.find(sy => sy.school_year_id == schoolYearId);
+
+                if (schoolYear) {
+                    document.getElementById('delete_school_year_id').value = schoolYear.school_year_id;
+                    const modal = new bootstrap.Modal(document.getElementById('deleteSchoolYear'));
+                    modal.show();
+                }
+            });
+        });
+
+        // Event listeners
+        searchInput.addEventListener('input', filterSchoolYears);
+
+        // clearSearchBtn.addEventListener('click', function() {
+        //     searchInput.value = '';
+        //     filterSchoolYears();
+        //     searchInput.focus();
+        // });
+
+        // Add Enter key support for search
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                filterSchoolYears();
+            }
+        });
+
+        // Add some styling
+        searchInput.addEventListener('focus', function() {
+            this.parentElement.classList.add('border-primary', 'border-2');
+        });
+
+        searchInput.addEventListener('blur', function() {
+            this.parentElement.classList.remove('border-primary', 'border-2');
+        });
+
+        // Initialize
+        filterSchoolYears();
+    });
 </script>
 
 <style>
-.scroll-years {
-    height: 80vh;
-    overflow-y: scroll;
-    overflow-x: hidden;
-}
+    .scroll-years {
+        height: 80vh;
+        overflow-y: scroll;
+        overflow-x: hidden;
+    }
 
-.table-container-wrapper {
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    overflow: hidden;
-}
+    .table-container-wrapper {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
 
-.table thead th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
+    .table thead th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
 
-.table tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05);
-}
+    .table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
 
-.avatar-placeholder {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background-color: #f8f9fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-}
+    .avatar-placeholder {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
 
-.empty-state {
-    padding: 3rem 1rem;
-}
+    .empty-state {
+        padding: 3rem 1rem;
+    }
 
-.empty-state i {
-    opacity: 0.5;
-}
+    .empty-state i {
+        opacity: 0.5;
+    }
 
-.badge {
-    padding: 0.35em 0.65em;
-    font-size: 0.75em;
-    font-weight: 600;
-}
+    .badge {
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 600;
+    }
 
-.btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-}
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
 
-.input-group-text {
-    border-right: none;
-}
+    .input-group-text {
+        border-right: none;
+    }
 
-#searchInput:focus {
-    box-shadow: none;
-    border-color: #86b7fe;
-}
+    #searchInput:focus {
+        box-shadow: none;
+        border-color: #86b7fe;
+    }
 
-#clearSearchBtn:hover {
-    background-color: #e9ecef;
-}
+    #clearSearchBtn:hover {
+        background-color: #e9ecef;
+    }
 
-.btn:hover {
-    transform: translateY(-1px);
-    transition: all 0.2s ease;
-}
+    .btn:hover {
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+    }
 
-/* Custom scrollbar for main container */
-.scroll-years::-webkit-scrollbar {
-    width: 8px;
-}
+    /* Custom scrollbar for main container */
+    .scroll-years::-webkit-scrollbar {
+        width: 8px;
+    }
 
-.scroll-years::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
+    .scroll-years::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
 
-.scroll-years::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-}
+    .scroll-years::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
 
-.scroll-years::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
+    .scroll-years::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
 </style>
