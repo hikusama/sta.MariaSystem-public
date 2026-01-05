@@ -763,6 +763,8 @@ $(document).ready(function () {
     }
     
     if (!section_name || !adviser_id || !schoolyear_id || !grade_level || !student_id) {
+        console.log("\nsec:"+section_name+ "\nadv:"+adviser_id+ "\nsy:"+schoolyear_id+ "\ngra:"+grade_level+ "\nstud:"+student_id);
+        
         Swal.fire({
             title: "Error",
             text: "Please fill in all required fields",

@@ -1,110 +1,471 @@
 <?php
 require_once __DIR__ . '/../../../tupperware.php';
+
 $result = checkURI('teacher', 2);
 if ($result['res']) {
     header($result['uri']);
     exit;
 }
-$query = "SELECT classes.*, users.* FROM classes
-    INNER JOIN users ON classes.adviser_id = users.user_id
-    WHERE classes.adviser_id = :adviser_id";
-$stmt = $pdo->prepare($query);
-$stmt->execute([
-    'adviser_id' => $user_id
-]);
-$class = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$query = "SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1";
-$stmt = $pdo->prepare($query);
+$teacher_id = $_SESSION['user_id'] ?? null;
+if (!$teacher_id) {
+    http_response_code(403);
+    exit;
+}
+
+$search = trim($_POST['search'] ?? '');
+$status = trim($_POST['status'] ?? '');
+$grade  = trim($_POST['grade'] ?? '');
+$sy     = trim($_POST['school_year'] ?? '');
+
+$limit  = 10;
+$page   = max(1, (int)($_POST['page'] ?? 1));
+$offset = ($page - 1) * $limit;
+
+/*
+|--------------------------------------------------------------------------
+| Does teacher have classes in ACTIVE SY?
+|--------------------------------------------------------------------------
+*/
+$activeSyStmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM classes c
+    INNER JOIN school_year sy
+        ON sy.school_year_id = c.sy_id
+       AND sy.school_year_status = 'Active'
+    WHERE c.adviser_id = :teacher_id
+");
+$activeSyStmt->execute([':teacher_id' => $teacher_id]);
+$hasActiveSY = (int)$activeSyStmt->fetchColumn() > 0;
+
+/*
+|--------------------------------------------------------------------------
+| Is SELECTED SY active?
+|--------------------------------------------------------------------------
+*/
+$selectedSyIsActive = false;
+
+if ($sy !== '') {
+    $syStmt = $pdo->prepare("
+        SELECT school_year_status
+        FROM school_year
+        WHERE school_year_id = :sy
+        LIMIT 1
+    ");
+    $syStmt->execute([':sy' => $sy]);
+    $selectedSyIsActive = $syStmt->fetchColumn() === 'Active';
+}
+
+/*
+|--------------------------------------------------------------------------
+| Allow pending?
+|--------------------------------------------------------------------------
+*/
+$allowPending = $hasActiveSY && ($sy === '' || $selectedSyIsActive);
+
+/*
+|--------------------------------------------------------------------------
+| Teacher grade levels
+|--------------------------------------------------------------------------
+*/
+$classStmt = $pdo->prepare("
+    SELECT DISTINCT grade_level
+    FROM classes
+    WHERE adviser_id = :teacher_id
+");
+$classStmt->execute([':teacher_id' => $teacher_id]);
+$teacherGrades = array_column(
+    $classStmt->fetchAll(PDO::FETCH_ASSOC),
+    'grade_level'
+);
+
+$bindParams = [
+    ':teacher_id' => $teacher_id
+];
+
+/*
+|--------------------------------------------------------------------------
+| Grade placeholders
+|--------------------------------------------------------------------------
+*/
+$gradePlaceholders = [];
+foreach ($teacherGrades as $i => $g) {
+    $ph = ":grade_$i";
+    $gradePlaceholders[] = $ph;
+    $bindParams[$ph] = $g;
+}
+
+/*
+|--------------------------------------------------------------------------
+| BASE WHERE (pending only when ALLOWED)
+|--------------------------------------------------------------------------
+*/
+$baseWhere = "( e.adviser_id = :teacher_id ";
+
+if ($allowPending && !empty($gradePlaceholders)) {
+    $baseWhere .= "
+        OR (
+            s.enrolment_status = 'pending'
+            AND (e.adviser_id IS NULL OR e.adviser_id = '')
+            AND s.gradeLevel IN (" . implode(',', $gradePlaceholders) . ")
+        )
+    ";
+}
+
+$baseWhere .= ")";
+
+/*
+|--------------------------------------------------------------------------
+| Optional filters
+|--------------------------------------------------------------------------
+*/
+if ($status !== '') {
+    $baseWhere .= " AND s.enrolment_status = :status";
+    $bindParams[':status'] = $status;
+}
+
+if ($grade !== '') {
+    $baseWhere .= " AND s.gradeLevel = :grade_filter";
+    $bindParams[':grade_filter'] = $grade;
+}
+
+if ($search !== '') {
+    $baseWhere .= "
+        AND (
+            s.fname LIKE :search
+            OR s.lname LIKE :search
+            OR s.lrn   LIKE :search
+        )";
+    $bindParams[':search'] = "%$search%";
+}
+
+/*
+|--------------------------------------------------------------------------
+| STATS QUERY (SY filter in JOIN)
+|--------------------------------------------------------------------------
+*/
+$statSql = "
+SELECT
+    COUNT(DISTINCT s.student_id) AS total_students,
+    SUM(s.enrolment_status = 'active') AS enrolled,
+    SUM(s.enrolment_status = 'pending') AS pending,
+    SUM(s.enrolment_status IN ('rejected','dropped')) AS rejected
+FROM student s
+LEFT JOIN enrolment e
+    ON e.student_id = s.student_id
+   AND (:sy = '' OR e.school_year_id = :sy)
+WHERE $baseWhere
+";
+
+$stmtStat = $pdo->prepare($statSql);
+$stmtStat->execute($bindParams + [':sy' => $sy]);
+$stat = $stmtStat->fetch(PDO::FETCH_ASSOC);
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+$ste = $pdo->prepare("SELECT u.*,c.*,sy.* FROM users as u
+LEFT JOIN classes c
+    ON u.user_id = c.adviser_id
+    INNER JOIN school_year sy
+        ON sy.school_year_id = c.sy_id
+       AND sy.school_year_status = 'Active'
+WHERE u.user_id = ? limit 1");
+$ste->execute([$teacher_id]);
+$me = $ste->fetch(PDO::FETCH_ASSOC);
+$ste = $pdo->prepare("SELECT *
+FROM subjects
+WHERE grade_level = ?");
+$ste->execute([$me['grade_level']]);
+$subj = $ste->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| STUDENTS QUERY
+|--------------------------------------------------------------------------
+*/
+$sql = "
+SELECT DISTINCT
+    s.*,
+    u.firstname AS guardian_fname,
+    u.lastname  AS guardian_lname
+FROM student s
+LEFT JOIN enrolment e
+    ON e.student_id = s.student_id
+   AND (:sy = '' OR e.school_year_id = :sy)
+LEFT JOIN users u
+    ON u.user_id = s.guardian_id
+WHERE $baseWhere
+ORDER BY s.lname ASC, s.fname ASC
+";
+
+/*
+|--------------------------------------------------------------------------
+| COUNT
+|--------------------------------------------------------------------------
+*/
+$countSql = "SELECT COUNT(*) FROM ($sql) t";
+$stmtCount = $pdo->prepare($countSql);
+$stmtCount->execute($bindParams + [':sy' => $sy]);
+
+$totalRows  = (int)$stmtCount->fetchColumn();
+$totalPages = max(1, ceil($totalRows / $limit));
+
+/*
+|--------------------------------------------------------------------------
+| PAGINATION
+|--------------------------------------------------------------------------
+*/
+$sql .= " LIMIT :limit OFFSET :offset";
+$stmt = $pdo->prepare($sql);
+
+foreach ($bindParams as $k => $v) {
+    $stmt->bindValue($k, $v);
+}
+
+$stmt->bindValue(':sy', $sy);
+$stmt->bindValue(':limit',  $limit,  PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+
 $stmt->execute();
-$schoolYear = $stmt->fetch(PDO::FETCH_ASSOC);
+$students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch students for the adviser
-$stmt = $pdo->prepare("SELECT DISTINCT grade_level FROM classes WHERE adviser_id = :adviser_id");
-$stmt->execute([
-    ':adviser_id' => $user_id
-]);
-$getgrade_level = $stmt->fetch(PDO::FETCH_ASSOC);
-$grade_level = $getgrade_level["grade_level"] ?? '';
 
-$stmt = $pdo->prepare("SELECT * FROM student WHERE gradeLevel = :gradeLevel ORDER BY fname ASC");
-$stmt->execute([
-    ':gradeLevel' => $grade_level
-]);
-$users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$count = 1;
 
-// Get subjects for JS
-$subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
+$statusMap = [
+    'active'          => ['success', 'Enrolled'],
+    'pending'         => ['plo', 'Pending'],
+    'transferred_in'  => ['info', 'Transferred In'],
+    'transferred_out' => ['primary', 'Transferred Out'],
+    'transferred'     => ['secondary', 'Transferred'],
+    'not_active'      => ['dark', 'Not Active'],
+    'dropped'         => ['danger', 'Dropped'],
+    'rejected'        => ['purple', 'Rejected']
+];
+if (isset($_POST['ajax'])) {
+    ob_start();
+
+    if ($students) {
+        $count = $offset + 1;
+
+        foreach ($students as $user) {
+            $status = strtolower($user["enrolment_status"] ?? '');
+            $badgeClass = $statusText = '';
+            $ssd = '';
+            $ssdCol = '';
+
+            if ($status == 'active') {
+                $badgeClass = 'success';
+                $statusText = 'Enrolled';
+            } elseif ($status == 'rejected') {
+                $badgeClass = 'danger';
+                $statusText = 'Rejected';
+            } elseif ($status == 'transferred') {
+                $badgeClass = 'info';
+                $statusText = 'Transferred';
+            } elseif ($status == 'dropped') {
+                $badgeClass = 'danger';
+                $statusText = 'Dropped';
+            } else {
+                $badgeClass = 'secondary';
+                $statusText = 'Pending';
+            }
+
+            // $user["isMovingUP"] = $user["isMovingUP"] ?? null;
+            if ($user["isMovingUP"] === false) {
+                $ssdCol = 'solid 1px red';
+                $ssd = '<div class="art"><i class="fas fa-angle-down text-danger"></i></div>';
+            } elseif ($user["isMovingUP"] === true) {
+                $ssdCol = 'solid 1px green';
+                $ssd = '<div class="art"><i class="fas fa-angle-up text-success"></i></div>';
+            } else {
+                $ssdCol = 'none';
+                $ssd = '';
+            }
+
 ?>
+            <tr class="student-row"
+                data-name="<?= htmlspecialchars(strtolower($user["lname"] . ' ' . $user["fname"])) ?>"
+                data-grade="<?= htmlspecialchars(strtolower($user["gradeLevel"] ?? '')) ?>"
+                data-status="<?= htmlspecialchars($status) ?>">
+                <td width="5%"><?= $count++ ?></td>
+                <td width="20%" class="student-name">
+                    <div class="d-flex align-items-center">
+                        <?= $ssd ?>
+                        <div class="avatar-placeholder me-2" style="border: <?= $ssdCol ?>;">
+                            <i class="fa-solid fa-user-graduate text-secondary"></i>
+                        </div>
+                        <div>
+                            <strong><?= htmlspecialchars($user["lname"] . ', ' . $user["fname"]) ?></strong>
+                            <?php if (!empty($user["mname"])): ?>
+                                <br><small class="text-muted"><?= htmlspecialchars($user["mname"]) ?></small>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </td>
+                <td width="15%"><span class="badge bg-info"><?= htmlspecialchars($user["gradeLevel"] ?? 'Not set') ?></span></td>
+                <td width="15%"><span class="badge bg-<?= $badgeClass ?>"><i class="fa-solid fa-circle fa-xs me-1"></i><?= $statusText ?></span></td>
+                <td width="20%"><?= !empty($user["enrolled_date"]) ? '<small>' . date('M d, Y', strtotime($user["enrolled_date"])) . '</small>' : '<small class="text-muted">Not enrolled yet</small>' ?></td>
+                <td width="25%">
+                    <div class="d-flex flex-wrap gap-1 justify-content-center">
+                        <a href="index.php?page=contents/form&student_id=<?= $user["student_id"] ?>" class="btn btn-sm btn-info" title="View Enrollment Form"><i class="fa-solid fa-file-lines me-1"></i> Form</a>
+                        <?php if ($status != 'active' && $status != 'rejected'): ?>
+                            <button onclick="approvebtn(<?= $user['student_id'] ?>)" type="button" class="btn btn-success btn-sm open-enrolment" data-id="<?= $user["student_id"] ?>" data-gradelevel="<?= htmlspecialchars($user["gradeLevel"]) ?>" title="Approve Enrollment"><i class="fa-solid fa-check me-1"></i> Approve</button>
+                        <?php endif; ?>
+                        <?php if ($status != 'rejected' && $status != 'active'): ?>
+                            <button onclick="rjkbtn()" type="button" class="btn btn-danger btn-sm open-rejection" data-id="<?= $user["student_id"] ?>" title="Reject Enrollment"><i class="fa-solid fa-xmark me-1"></i> Reject</button>
+                        <?php endif; ?>
+                    </div>
+                </td>
+            </tr>
+        <?php
+        }
+
+        ?>
+        <tr>
+            <td colspan="6">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>Page <?= $page ?> of <?= $totalPages ?></span>
+                    <div>
+                        <?php if ($page > 1): ?>
+                            <button class="btn btn-sm btn-secondary" onclick="fetchStudents(<?= $page - 1 ?>)">Prev</button>
+                        <?php endif; ?>
+                        <?php if ($page < $totalPages): ?>
+                            <button class="btn btn-sm btn-secondary" onclick="fetchStudents(<?= $page + 1 ?>)">Next</button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </td>
+        </tr>
+<?php
+    }
+
+    $studentsWithHtml = ob_get_clean();
+
+    echo json_encode([
+        'hasData' => !empty($students),
+        'stats'   => $stat,
+        'html'    => $studentsWithHtml
+    ]);
+    exit;
+}
+
+?>
+
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="mx-2">
         <h4><i class="fa-solid fa-folder me-2"></i>Enrollment Management</h4>
     </div>
 </div>
 <style>
-    .scroll-class {
-        max-height: 80vh;
-        overflow-y: auto;
+    .art {
+        margin-right: .5rem;
     }
 </style>
-<div class="row g-3 scroll-class">
-    <!-- Search Section -->
+<div class="row g-3 scroll-classes">
     <div class="row mb-3 justify-content-between align-items-center">
-        <div class="col-md-8">
-            <div class="input-group">
-                <input type="text" id="searchInput" class="form-control"
-                    placeholder="Search by name, grade level, or enrollment status...">
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="input-group">
-                <select id="categoryFilter" name="statusCategory" class="form-select">
-                    <option value="">All Enrollment Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="enrolled">Enrolled</option>
-                    <option value="transferred">Transferred</option>
-                    <option value="dropped">Dropped</option>
-                    <option value="rejected">Rejected</option>
-                </select>
+        <div class="col-md-12">
+            <div class="row input-group">
+                <div class="col-md-4">
+                    <input type="text" id="searchInput" name="search" class="form-control"
+                        placeholder="Search by name, grade level, or enrollment status...">
+                </div>
+                <div class="col-md-2">
+                    <select id="statusFilter" name="statusCategory" class="form-select" style="max-width: 200px;">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="active">Enrolled</option>
+                        <option value="transferred">Transferred</option>
+                        <option value="dropped">Dropped</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <select id="gradeFilter" name="gradeLevelCategory" class="form-select" style="max-width: 200px;">
+                        <option value="">All Grades</option>
+                        <option value="Grade 1">Grade 1</option>
+                        <option value="Grade 2">Grade 2</option>
+                        <option value="Grade 3">Grade 3</option>
+                        <option value="Grade 4">Grade 4</option>
+                        <option value="Grade 5">Grade 5</option>
+                        <option value="Grade 6">Grade 6</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
+                        <?php
+                        // Get all SYs, order active first
+                        $catStmt = $pdo->query("
+        SELECT school_year_id, school_year_name, school_year_status
+        FROM school_year
+        ORDER BY 
+            CASE WHEN school_year_status = 'Active' THEN 0 ELSE 1 END,
+            school_year_name ASC
+    ");
+
+                        $activeSyId = null;
+                        $yr['school_year_id'] = null;
+                        $yr['school_year_name'] = null;
+                        $schoolYears = [];
+                        while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)) {
+                            if ($cat['school_year_status'] === 'Active' && $activeSyId === null) {
+                                $activeSyId = $cat['school_year_id'];
+                                $yr['school_year_id'] = $cat['school_year_id'];
+                                $yr['school_year_name'] = $cat['school_year_name'];
+                            }
+                            $schoolYears[] = $cat;
+                        }
+                        ?>
+                        <option value="">--- active at ---</option>
+
+                        <?php foreach ($schoolYears as $sy): ?>
+                            <option value="<?= htmlspecialchars($sy['school_year_id']) ?>"
+                                <?= ($sy['school_year_id'] == $activeSyId) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($sy['school_year_name']) ?>
+                                <?= $sy['school_year_status'] === 'Active' ? ' (Active)' : '' ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Summary Statistics -->
+    <!-- Statistics Summary -->
     <div class="row mb-4">
         <div class="col-md-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <h5 class="card-title mb-3"><i class="fa-solid fa-chart-bar me-2"></i>Enrollment Overview</h5>
+                    <h5 class="card-title mb-3"><i class="fa-solid fa-chart-bar me-2"></i>Enrollment Statistics</h5>
                     <div class="row text-center">
-                        <?php
-                        $pendingCount = array_filter($users, fn($u) => ($u['enrolment_status'] ?? '') == '');
-                        $enrolledCount = array_filter($users, fn($u) => ($u['enrolment_status'] ?? '') == 'active');
-                        $rejectedCount = array_filter($users, fn($u) => ($u['enrolment_status'] ?? '') == 'rejected');
-                        ?>
+
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-primary bg-opacity-10 rounded">
-                                <h3 class="text-white mb-1"><?= count($users) ?></h3>
+                                <h3 id="ts" class="text-primary mb-1"><?= $stat['total_students'] ?></h3>
                                 <small class="text-white">Total Students</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-success bg-opacity-10 rounded">
-                                <h3 class="text-white mb-1"><?= count($enrolledCount) ?></h3>
+                                <h3 id="en" class="text-primary mb-1"><?= $stat['enrolled'] ?></h3>
                                 <small class="text-white">Enrolled</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-secondary bg-opacity-10 rounded">
-                                <h3 class="text-white mb-1"><?= count($pendingCount) ?></h3>
+                                <h3 id="pn" class="text-primary mb-1"><?= $stat['pending'] ?></h3>
                                 <small class="text-white">Pending</small>
                             </div>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
                             <div class="p-3 bg-danger bg-opacity-10 rounded">
-                                <h3 class="text-white mb-1"><?= count($rejectedCount) ?></h3>
-                                <small class="text-white">Rejected</small>
+                                <h3 id="rd" class="text-primary mb-1">
+                                    <?= $stat['rejected'] ?>
+                                </h3>
+                                <small class="text-white">Rejected/Dropped</small>
                             </div>
                         </div>
                     </div>
@@ -112,103 +473,35 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </div>
     </div>
-
+    <div class="d-flex gap-3 mb-3 flex-wrap" id="statusLegend">
+        <?php foreach ($statusMap as $key => $map):
+            $color = $map[0];
+            $label = $map[1];
+        ?>
+            <div class="d-flex align-items-center gap-1">
+                <span class="badge bg-<?= $color ?> rounded-circle" style="width: 12px; height: 12px; display:inline-block;"></span>
+                <small><?= htmlspecialchars($label) ?></small>
+            </div>
+        <?php endforeach; ?>
+    </div>
     <!-- Students Table -->
     <div class="table-container-wrapper p-0">
         <!-- Fixed Header -->
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover" style="font-size: 0.875rem;">
-                <thead class="table-light">
-                    <tr>
-                        <th width="5%">#</th>
-                        <th width="20%">Name</th>
-                        <th width="15%">Grade Level</th>
-                        <th width="15%">Enrollment Status</th>
-                        <th width="20%">Enrolled at</th>
-                        <th width="25%">Action</th>
-                    </tr>
-                </thead>
-            </table>
-        </div>
 
         <!-- Scrollable Body -->
         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
             <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem;">
-                <tbody id="studentTableBody">
-                    <?php foreach ($users as $user) : ?>
-                        <tr class="student-row"
-                            data-name="<?= htmlspecialchars(strtolower($user["lname"] . " " . $user["fname"])) ?>"
-                            data-grade="<?= htmlspecialchars(strtolower($user["gradeLevel"])) ?>"
-                            data-status="<?= htmlspecialchars(strtolower($user["enrolment_status"] ?? '')) ?>">
-                            <td width="5%"><?= $count++ ?></td>
-                            <td width="20%" class="student-name">
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar-placeholder me-2">
-                                        <i class="fa-solid fa-user-circle text-secondary"></i>
-                                    </div>
-                                    <div>
-                                        <strong><?= htmlspecialchars($user["lname"] . ", " . $user["fname"]) ?></strong>
-                                        <?php if (!empty($user["mname"])): ?>
-                                            <br><small class="text-muted"><?= htmlspecialchars($user["mname"]) ?></small>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </td>
-                            <td width="15%">
-                                <span class="badge bg-info"><?= htmlspecialchars($user["gradeLevel"]) ?></span>
-                            </td>
-                            <td width="15%">
-                                <?php
-                                $status = $user["enrolment_status"] ?? '';
-                                $statusText = '';
-                                $badgeClass = '';
-
-                                if ($status == 'active') {
-                                    $statusText = 'Enrolled';
-                                    $badgeClass = 'success';
-                                } elseif ($status == 'rejected') {
-                                    $statusText = 'Rejected';
-                                    $badgeClass = 'danger';
-                                } else {
-                                    $statusText = 'Pending';
-                                    $badgeClass = 'secondary';
-                                }
-                                ?>
-                                <span class="badge bg-<?= $badgeClass ?>">
-                                    <i class="fa-solid fa-circle fa-xs me-1"></i>
-                                    <?= $statusText ?>
-                                </span>
-                            </td>
-                            <td width="20%">
-                                <?php if (!empty($user["enrolled_date"])): ?>
-                                    <small><?= date('M d, Y', strtotime($user["enrolled_date"])) ?></small>
-                                <?php else: ?>
-                                    <small class="text-muted">Not enrolled yet</small>
-                                <?php endif; ?>
-                            </td>
-                            <td width="25%">
-                                <div class="d-flex gap-1 justify-content-center">
-                                    <a href="index.php?page=contents/form&student_id=<?= htmlspecialchars($user["student_id"]) ?>"
-                                        class="btn btn-sm btn-info" title="View Enrollment Form">
-                                        <i class="fa-solid fa-file-lines me-1"></i> Form
-                                    </a>
-                                    <?php if (($user["enrolment_status"] ?? '') != 'active'): ?>
-                                        <button type="button" class="btn btn-sm btn-success open-enrolment"
-                                            data-id="<?= htmlspecialchars($user["student_id"]) ?>" id="approvalBtn"
-                                            data-gradelevel="<?= htmlspecialchars($user["gradeLevel"]) ?>"
-                                            data-name="<?= htmlspecialchars($user["lname"] . ", " . $user["fname"]) ?>">
-                                            <i class="fa-solid fa-check me-1"></i> Approve
-                                        </button>
-                                    <?php endif; ?>
-                                    <button type="button" class="btn btn-sm btn-danger open-rejection"
-                                        data-id="<?= htmlspecialchars($user["student_id"]) ?>"
-                                        title="Reject Enrollment" id="rejectionBtn">
-                                        <i class="fa-solid fa-xmark me-1"></i> Reject
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach ?>
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 2.5rem;">#</th>
+                        <th>Name</th>
+                        <th>Grade Level</th>
+                        <th>Enrollment Status</th>
+                        <th>Enrolled at</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="enrollmentTableBody">
                 </tbody>
             </table>
         </div>
@@ -218,7 +511,7 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
             <div class="empty-state">
                 <i class="fa-solid fa-users-slash fa-3x text-muted mb-3"></i>
                 <h5>No students found</h5>
-                <p class="text-muted">Try adjusting your search</p>
+                <p class="text-muted">Try adjusting your search or filters</p>
             </div>
         </div>
     </div>
@@ -228,55 +521,74 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
 <div class="modal fade" id="AddNewAccount" tabindex="-1" aria-labelledby="AddNewAccountLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title text-white" id="AddNewAccountLabel">Approve Student Enrollment</h5>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title text-white" id="AddNewAccountLabel">
+                    <i class="fa-solid fa-user-check me-2"></i>Approve Student Enrolment
+                </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                     aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form class="row g-3" id="enrolment-form" method="post">
-                    <input type="hidden" name="student_id" id="student_id" value="">
+                    <input type="hidden" name="student_id" id="student_id" value="<?= $s['subject_name'] ?>">
 
-                    <div class="my-2">
+                    <div class="col-md-6">
                         <label class="form-label">Class Adviser <span class="text-danger">*</span></label>
-                        <input type="hidden" name="adviser_id" id="adviserSelect" value="<?= $class["adviser_id"] ?? '' ?>">
-                        <div class="form-control bg-light">
-                            <?= isset($class["lastname"]) ? htmlspecialchars($class["lastname"]) . ", " . htmlspecialchars($class["firstname"]) : 'Not assigned' ?>
-                        </div>
+                        <select name="adviser_id" id="adviserSelect" class="form-select" required>
+                            <!-- <option value="">Select Adviser</option> -->
+                            <option value="<?= $me["adviser_id"] ?>"
+                                data-section="<?= htmlspecialchars($me["section_name"]) ?>">
+                                <?= htmlspecialchars($me["lastname"]) . ", " . htmlspecialchars($me["firstname"]) ?>
+                            </option>
+                        </select>
                     </div>
 
-                    <div class="my-2">
+                    <div class="col-md-6">
                         <label class="form-label">Section <span class="text-danger">*</span></label>
-                        <input type="hidden" name="section_name" id="section_name" value="<?= $class["section_name"] ?? '' ?>">
-                        <div class="form-control bg-light"><?= htmlspecialchars($class["section_name"] ?? 'Not assigned') ?></div>
+                        <div class="form-control bg-light" id="section_name"><?= $me['section_name'] ?></div>
+                        <input type="hidden" name="section_name" value="<?= $me['section_name'] ?>" id="section_name_hidden">
                     </div>
 
-                    <div class="my-2">
+                    <div class="col-md-6">
                         <label class="form-label">School Year <span class="text-danger">*</span></label>
-                        <div class="form-control bg-light"><?= htmlspecialchars($schoolYear["school_year_name"] ?? 'Not set') ?></div>
-                        <input type="hidden" name="schoolyear_id" value="<?= $schoolYear["school_year_id"] ?? '' ?>">
+                        <div class="form-control bg-light">
+                            <?= htmlspecialchars($me['school_year_name'] ?? 'Not set') ?></div>
+                        <input type="hidden" name="schoolyear_id" value="<?= $me["school_year_id"] ?? '' ?>">
                     </div>
 
-                    <div class="my-2">
+                    <div class="col-md-6">
                         <label class="form-label">Grade Level <span class="text-danger">*</span></label>
-                        <div class="form-control bg-light" id="gradeLevelDisplay"></div>
-                        <input type="hidden" id="gradeLevelValue" name="grade_level" class="form-control">
+                        <div class="form-control bg-light" id="gradeLevelDisplay"><?= $me['grade_level'] ?></div>
+                        <input type="hidden" id="gradeLevelValue" value="<?= $me['grade_level'] ?> " name="grade_level">
                     </div>
 
-                    <div class="my-2">
-                        <div class="card border-0 shadow-sm">
+                    <div class="col-12">
+                        <div class="card mt-3 border">
+                            <div class="card-header bg-light">
+                                <h6 class="card-title mb-0"><i class="fa-solid fa-book me-2"></i>Subjects for this Grade
+                                    Level</h6>
+                            </div>
                             <div class="card-body">
-                                <h6 class="card-title mb-3"><i class="fa-solid fa-book me-2"></i>Subjects for this Grade Level</h6>
                                 <div id="subjectListContainer" class="row">
-                                    <p class="text-muted text-center">Select a student to view their subjects</p>
+                                    <?php
+                                    foreach ($subj as $s) {
+                                    ?>
+                                        <div>
+                                            <strong><?= $s['subject_code'] ?></strong> - <?= $s['subject_name'] ?>
+                                            <input type="hidden" name="subjects[]" value="<?= $s['subject_id'] ?>">
+                                        </div>
+                                    <?php
+                                    }
+                                    ?>
+                                    <!-- <p class="text-muted text-center">Select a student to view their subjects</p> -->
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-12 text-center mt-3">
-                        <button type="submit" class="btn btn-danger px-5">
-                            <i class="fa-solid fa-check me-2"></i>Approve Enrollment
+                    <div class="col-12 text-center mt-4">
+                        <button type="submit" class="btn btn-primary px-5">
+                            <i class="fa-solid fa-check me-2"></i>Approve Enrolment
                         </button>
                     </div>
                 </form>
@@ -286,15 +598,15 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
 </div>
 
 <!-- rejection modal -->
-<div class="modal fade" id="rejectEnrolment" tabindex="-1" aria-labelledby="rejectEnrolmentLabel"
-    aria-hidden="true">
+<div class="modal fade" id="rejectEnrolment" tabindex="-1" aria-labelledby="rejectEnrolmentLabel">
     <div class="modal-dialog modal-md">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title text-white" id="rejectEnrolmentLabel">
-                    <i class="fa-solid fa-xmark me-2"></i>Reject Enrollment
+                    <i class="fa-solid fa-user-xmark me-2"></i>Reject Enrollment
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form class="row g-3" id="rejectEnrolment-form" method="post">
@@ -319,199 +631,104 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Store all subjects data from PHP
-        const allSubjects = <?= json_encode($subjects); ?>;
+    let currentPage = 1;
 
-        // Store student data from PHP
-        const allStudents = <?= json_encode($users); ?>;
+    function rjkbtn() {
+        const modal = new bootstrap.Modal(document.getElementById('rejectEnrolment'));
+        modal.show();
+    }
 
-        // Open enrolment modal
-        const openEnrolmentButtons = document.querySelectorAll('.open-enrolment');
-        const studentIdInput = document.getElementById('student_id');
-        const gradeLevelDisplay = document.getElementById('gradeLevelDisplay');
-        const gradeLevelValue = document.getElementById('gradeLevelValue');
-        const subjectListContainer = document.getElementById('subjectListContainer');
+    function approvebtn(id) {
+        document.getElementById('student_id').value = id;
+        const modal = new bootstrap.Modal(document.getElementById('AddNewAccount'));
+        modal.show();
+    }
 
-        openEnrolmentButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const studentId = button.getAttribute('data-id');
-                const gradeLevel = button.getAttribute('data-gradelevel');
+    function updateStats(stats) {
+        document.getElementById('ts').textContent = stats.total_students ?? 0;
+        document.getElementById('en').textContent = stats.enrolled ?? 0;
+        document.getElementById('pn').textContent = stats.pending ?? 0;
+        document.getElementById('rd').textContent = stats.rejected ?? 0;
+    }
 
-                // Set values in the form
-                studentIdInput.value = studentId;
-                gradeLevelDisplay.textContent = gradeLevel;
-                gradeLevelValue.value = gradeLevel;
+    function fetchStudents(page = 1) {
+        currentPage = page;
+        const tableBody = document.getElementById('enrollmentTableBody');
+        const noResults = document.getElementById('noResults');
 
-                // Display subjects for this grade level
-                displaySubjectsForGradeLevel(gradeLevel);
+        tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <div>Loading students...</div>
+    </td></tr>`;
+        noResults.classList.add('d-none');
 
-                // Show the modal
-                const modal = new bootstrap.Modal(document.getElementById('AddNewAccount'));
-                modal.show();
-            });
-        });
+        const formData = new FormData();
+        formData.append('ajax', 1);
+        formData.append('search', document.getElementById('searchInput').value.trim());
+        formData.append('status', document.getElementById('statusFilter').value);
+        formData.append('grade', document.getElementById('gradeFilter').value);
+        formData.append('school_year', document.getElementById('syFilter').value);
+        formData.append('page', page);
 
-        function displaySubjectsForGradeLevel(gradeLevel) {
-            // Clear previous content
-            subjectListContainer.innerHTML = '';
-
-            // Filter subjects by grade level
-            const filteredSubjects = allSubjects.filter(s => s.grade_level === gradeLevel);
-
-            if (filteredSubjects.length === 0) {
-                subjectListContainer.innerHTML = `
-                <div class="col-12">
-                    <div class="alert alert-warning">No subjects available for ${gradeLevel}.</div>
-                </div>
-            `;
-                return;
-            }
-
-            // Create a list of subjects
-            const listGroup = document.createElement('div');
-            listGroup.classList.add('list-group');
-
-            filteredSubjects.forEach(subject => {
-                const listItem = document.createElement('div');
-                listItem.classList.add('list-group-item', 'd-flex', 'justify-content-between',
-                    'align-items-center');
-
-                const subjectInfo = document.createElement('div');
-                subjectInfo.innerHTML = `
-                <strong>${subject.subject_code}</strong> - ${subject.subject_name}
-                <input type="hidden" name="subjects[]" value="${subject.subject_id}">
-            `;
-
-                listItem.appendChild(subjectInfo);
-                listGroup.appendChild(listItem);
-            });
-
-            subjectListContainer.appendChild(listGroup);
-        }
-    });
-
-    // Search and filter functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('searchInput');
-        const categoryFilter = document.getElementById('categoryFilter');
-        const studentRows = document.querySelectorAll('.student-row');
-        const studentTableBody = document.getElementById('studentTableBody');
-        const noResultsDiv = document.getElementById('noResults');
-
-        function filterStudents() {
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            const filterValue = categoryFilter.value.toLowerCase();
-
-            let visibleCount = 0;
-
-            studentRows.forEach(row => {
-                const name = row.getAttribute('data-name');
-                const grade = row.getAttribute('data-grade');
-                const status = row.getAttribute('data-status');
-
-                let matchesSearch = true;
-                let matchesStatus = true;
-
-                // Apply search filter
-                if (searchTerm) {
-                    matchesSearch = name.includes(searchTerm) ||
-                        grade.includes(searchTerm) ||
-                        status.includes(searchTerm);
-                }
-
-                // Apply status filter
-                if (filterValue) {
-                    if (filterValue === 'enrolled') {
-                        matchesStatus = status === 'active';
-                    } else if (filterValue === 'pending') {
-                        matchesStatus = status === '' || status === 'pending';
-                    } else if (filterValue === 'rejected') {
-                        matchesStatus = status === 'rejected';
-                    } else if (filterValue === 'transferred') {
-                        matchesStatus = status === 'transferred';
-                    } else if (filterValue === 'dropped') {
-                        matchesStatus = status === 'dropped';
-                    } else {
-                        matchesStatus = true; // Show all if no match
-                    }
-                }
-
-                // Show/hide row based on filters
-                if (matchesSearch && matchesStatus) {
-                    row.style.display = '';
-                    visibleCount++;
+        fetch('contents/enrolment.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.hasData) {
+                    tableBody.innerHTML = '';
+                    noResults.classList.remove('d-none');
                 } else {
-                    row.style.display = 'none';
+                    tableBody.innerHTML = data.html;
+                    noResults.classList.add('d-none');
                 }
+                updateStats(data.stats);
+            })
+            .catch(err => {
+                console.error(err);
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">Failed to load data</td></tr>`;
             });
+    }
 
-            // Show/hide no results message
-            if (visibleCount === 0) {
-                studentTableBody.style.display = 'none';
-                noResultsDiv.classList.remove('d-none');
-            } else {
-                studentTableBody.style.display = '';
-                noResultsDiv.classList.add('d-none');
-            }
 
-            // Update row numbers
-            updateRowNumbers();
-        }
-
-        function updateRowNumbers() {
-            let counter = 1;
-            studentRows.forEach(row => {
-                if (row.style.display !== 'none') {
-                    const firstCell = row.querySelector('td:first-child');
-                    if (firstCell) {
-                        firstCell.textContent = counter++;
-                    }
-                }
-            });
-        }
-
-        // Event listeners
-        searchInput.addEventListener('input', filterStudents);
-        categoryFilter.addEventListener('change', filterStudents);
-
-        // clearSearchBtn.addEventListener('click', function() {
-        //     searchInput.value = '';
-        //     categoryFilter.value = '';
-        //     filterStudents();
-        //     searchInput.focus();
-        // });
-
-        // Add Enter key support for search
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                filterStudents();
-            }
+    // --- Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        ['searchInput', 'statusFilter', 'gradeFilter', 'syFilter'].forEach(id => {
+            const el = document.getElementById(id);
+            el.addEventListener('change', () => fetchStudents(1));
+            el.addEventListener('input', () => fetchStudents(1));
+        });
+        document.getElementById('searchInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') fetchStudents(1);
         });
 
-        // Add some styling
-        searchInput.addEventListener('focus', function() {
-            this.parentElement.classList.add('border-primary', 'border-2');
-        });
 
-        searchInput.addEventListener('blur', function() {
-            this.parentElement.classList.remove('border-primary', 'border-2');
-        });
-
-        categoryFilter.addEventListener('focus', function() {
-            this.parentElement.classList.add('border-primary', 'border-2');
-        });
-
-        categoryFilter.addEventListener('blur', function() {
-            this.parentElement.classList.remove('border-primary', 'border-2');
-        });
-
-        // Initialize
-        filterStudents();
+        fetchStudents(currentPage);
     });
 </script>
 
 <style>
+    .bg-plo {
+        background-color: #ffa200 !important;
+        color: #fff;
+    }
+
+    .bg-purple {
+        background-color: #6f42c1 !important;
+        color: #fff;
+    }
+
+    .me-1 {
+        margin-right: 0 !important;
+    }
+
+    .scroll-classes {
+        height: 80vh;
+        overflow-y: scroll;
+        overflow-x: hidden;
+    }
+
     .table-container-wrapper {
         border: 1px solid #dee2e6;
         border-radius: 8px;
@@ -569,22 +786,35 @@ $subjects = $pdo->query("SELECT * FROM Subjects")->fetchAll(PDO::FETCH_ASSOC);
         border-color: #86b7fe;
     }
 
+    #clearSearch:hover {
+        background-color: #e9ecef;
+    }
+
     .form-control.bg-light {
         background-color: #f8f9fa !important;
         border: 1px solid #dee2e6;
-        font-weight: 500;
+        color: #495057;
     }
 
     .card {
         border: 1px solid rgba(0, 0, 0, 0.125);
     }
 
+    .list-group-item {
+        border-left: 0;
+        border-right: 0;
+    }
+
+    .list-group-item:first-child {
+        border-top: 0;
+    }
+
+    .list-group-item:last-child {
+        border-bottom: 0;
+    }
+
     .btn:hover {
         transform: translateY(-1px);
         transition: all 0.2s ease;
-    }
-
-    #clearSearch:hover {
-        background-color: #e9ecef;
     }
 </style>

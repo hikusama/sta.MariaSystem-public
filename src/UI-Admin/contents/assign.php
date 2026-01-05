@@ -9,12 +9,12 @@ if ($result['res']) {
 }
 
 // Filters
-$search = trim($_POST['search'] ?? '');
+$search   = trim($_POST['search'] ?? '');
 $syFilter = trim($_POST['school_year'] ?? '');
 
 // Pagination
-$limit = 1;
-$page = isset($_POST['page']) ? max(1, (int)$_POST['page']) : 1;
+$limit  = 25;
+$page   = isset($_POST['page']) ? max(1, (int)$_POST['page']) : 1;
 $offset = ($page - 1) * $limit;
 
 // Get current active school year
@@ -28,32 +28,60 @@ $currentSyStmt->execute();
 $currentSy = $currentSyStmt->fetch(PDO::FETCH_ASSOC);
 $activeSyId = $currentSy['school_year_id'] ?? null;
 
-// Base SQL: classrooms with or without assigned classes
-$sql = "
-SELECT c.room_id, c.room_name, c.room_type, c.room_status,
-       cl.class_id, cl.sy_id, u.user_id AS adviser_id,
-       u.firstname AS adviser_firstname, u.lastname AS adviser_lastname,
-       sy.school_year_name
-FROM classrooms c
-LEFT JOIN classes cl ON cl.classroom_id = c.room_id
-    AND cl.sy_id = :activeSyId
-LEFT JOIN users u ON u.user_id = cl.adviser_id
-LEFT JOIN school_year sy ON sy.school_year_id = cl.sy_id
-WHERE 1
-";
-
-$params = [':activeSyId' => $activeSyId];
+// Determine the query condition
+if (!$syFilter) {
+    // 1. SY is empty → show all classrooms + active classes
+    $sql = "
+    SELECT c.room_id, c.room_name, c.room_type, c.room_status,
+           cl.class_id, cl.sy_id, u.user_id AS adviser_id,
+           u.firstname AS adviser_firstname, u.lastname AS adviser_lastname,
+           sy.school_year_name
+    FROM classrooms c
+    LEFT JOIN classes cl 
+        ON cl.classroom_id = c.room_id 
+    LEFT JOIN users u ON u.user_id = cl.adviser_id
+    LEFT JOIN school_year sy ON sy.school_year_id = cl.sy_id
+    WHERE 1
+    ";
+    $params = [];
+} else {
+    if ($syFilter == $activeSyId) {
+        // 2. SY is active → same as above
+        $sql = "
+        SELECT c.room_id, c.room_name, c.room_type, c.room_status,
+               cl.class_id, cl.sy_id, u.user_id AS adviser_id,
+               u.firstname AS adviser_firstname, u.lastname AS adviser_lastname,
+               sy.school_year_name
+        FROM classrooms c
+        LEFT JOIN classes cl 
+            ON cl.classroom_id = c.room_id 
+            AND cl.sy_id = :activeSyId
+        LEFT JOIN users u ON u.user_id = cl.adviser_id
+        LEFT JOIN school_year sy ON sy.school_year_id = cl.sy_id
+        WHERE 1
+        ";
+        $params = [':activeSyId' => $activeSyId];
+    } else {
+        // 3. SY is non-active → only classrooms with classes in that SY
+        $sql = "
+        SELECT c.room_id, c.room_name, c.room_type, c.room_status,
+               cl.class_id, cl.sy_id, u.user_id AS adviser_id,
+               u.firstname AS adviser_firstname, u.lastname AS adviser_lastname,
+               sy.school_year_name
+        FROM classes cl
+        INNER JOIN classrooms c ON c.room_id = cl.classroom_id
+        LEFT JOIN users u ON u.user_id = cl.adviser_id
+        LEFT JOIN school_year sy ON sy.school_year_id = cl.sy_id
+        WHERE cl.sy_id = :syFilter
+        ";
+        $params = [':syFilter' => $syFilter];
+    }
+}
 
 // Search filter
 if ($search) {
     $sql .= " AND (c.room_name LIKE :search OR c.room_type LIKE :search OR CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,'')) LIKE :search)";
     $params[':search'] = "%$search%";
-}
-
-// School year filter
-if ($syFilter) {
-    $sql .= " AND cl.sy_id = :syFilter";
-    $params[':syFilter'] = $syFilter;
 }
 
 // Order: NULL advisers first
@@ -66,9 +94,12 @@ $countStmt->execute($params);
 $totalRows = (int)$countStmt->fetchColumn();
 $totalPages = max(1, ceil($totalRows / $limit));
 
+// Add limit/offset
 $sql .= " LIMIT :limit OFFSET :offset";
-$params[':limit'] = $limit;
+$params[':limit']  = $limit;
 $params[':offset'] = $offset;
+
+// Classroom stats (always based on active SY)
 $statsStmt = $pdo->prepare("
     SELECT 
         COUNT(*) AS total_classrooms,
@@ -79,6 +110,7 @@ $statsStmt = $pdo->prepare("
 ");
 $statsStmt->execute([':activeSyId' => $activeSyId]);
 $classroomStats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+
 // Execute main query
 $stmt = $pdo->prepare($sql);
 foreach ($params as $key => $val) {
@@ -87,6 +119,46 @@ foreach ($params as $key => $val) {
 }
 $stmt->execute();
 $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// ------------------------
+// Other fetches you already have
+// ------------------------
+
+// Fetch available teachers
+$teachersStmt = $pdo->prepare("
+    SELECT * 
+    FROM users 
+    WHERE user_role = 'TEACHER' 
+    AND user_id NOT IN (SELECT adviser_id FROM classes WHERE sy_id = ?) 
+    ORDER BY lastname ASC
+");
+$teachersStmt->execute([$activeSyId]);
+$teachers = $teachersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Current school year info
+$schoolYears = $currentSy ?? [];
+
+// Sections fetch for grade selection (AJAX)
+if (isset($_POST['getsections'])) {
+    $grade = trim($_POST['grade'] ?? '');
+    if (empty($grade)) {
+        echo json_encode(['sections' => []]);
+        exit;
+    }
+    $stmt = $pdo->prepare("
+        SELECT * FROM sections 
+        WHERE section_grade_level = ? 
+        AND section_status = 'Available' 
+        AND section_name NOT IN(SELECT section_name FROM classes WHERE sy_id = ?)
+        ORDER BY section_grade_level ASC, section_name ASC
+    ");
+    $stmt->execute([$grade, $activeSyId]);
+    $sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode(['sections' => $sections]);
+    exit;
+}
+
 
 // Fetch available teachers
 $teachersStmt = $pdo->prepare("
@@ -108,14 +180,14 @@ if (isset($_POST['getsections'])) {
         echo json_encode(['sections' => []]);
         exit;
     }
-
     $stmt = $pdo->prepare("
         SELECT * FROM sections 
         WHERE section_grade_level = ? 
         AND section_status = 'Available' 
+        AND section_name NOT IN(SELECT section_name FROM classes WHERE sy_id = ?)
         ORDER BY section_grade_level ASC, section_name ASC
     ");
-    $stmt->execute([$grade]);
+    $stmt->execute([$grade, $activeSyId]);
     $sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode(['sections' => $sections]);
@@ -134,12 +206,12 @@ if (isset($_POST['ajax'])):
                 $iconClass = $hasTeacher ? 'occupied' : ($isAvailable ? 'available' : 'unavailable');
             ?>
                 <div class="col-xl-3 col-lg-4 col-md-6 mb-4 classroom-item"
-                    style="height:19rem;"
+                    style="height:19rem;width:27rem;background: linear-gradient(145deg, #ebebeb, #ffffff);"
                     data-name="<?= htmlspecialchars(strtolower($classroom["room_name"])) ?>"
                     data-type="<?= htmlspecialchars(strtolower($classroom["room_type"])) ?>"
                     data-status="<?= htmlspecialchars(strtolower($roomStatus)) ?>"
                     data-teacher="<?= htmlspecialchars(strtolower($classroom["adviser_firstname"] . ' ' . $classroom["adviser_lastname"])) ?>">
-                    <div class="card border-0 shadow classroom-card <?= $cardClass ?>">
+                    <div class="card border-0 classroom-card <?= $cardClass ?>" style="box-shadow:  17px 17px 33px #9d9d9d,-17px -17px 33px #ffffff;">
                         <div class="classroom-info">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="classroom-icon text-white <?= $iconClass ?> me-3">
@@ -292,7 +364,7 @@ endif;
 
     .ua p {
         color: black;
-        font-size: .9rem;
+        font-size: 1.2rem;
         width: fit-content;
         margin-bottom: 0 !important;
     }
@@ -363,14 +435,38 @@ endif;
         <div class="col-md-4 text-start">
             <label for="syFilter">Occupied at</label>
             <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
-                <option value="">--- occupied at ---</option>
                 <?php
-                $catStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name ASC");
-                while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)): ?>
-                    <option value="<?= htmlspecialchars($cat['school_year_id']) ?>">
-                        <?= htmlspecialchars($cat['school_year_name']) ?>
+                // Get all SYs, order active first
+                $catStmt = $pdo->query("
+                            SELECT school_year_id, school_year_name, school_year_status
+                            FROM school_year
+                            ORDER BY 
+                                CASE WHEN school_year_status = 'Active' THEN 0 ELSE 1 END,
+                                school_year_name ASC
+                        ");
+
+                $activeSyId = null;
+                $yr['school_year_id'] = null;
+                $yr['school_year_name'] = null;
+                $schoolYears = [];
+                while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)) {
+                    if ($cat['school_year_status'] === 'Active' && $activeSyId === null) {
+                        $activeSyId = $cat['school_year_id'];
+                        $yr['school_year_id'] = $cat['school_year_id'];
+                        $yr['school_year_name'] = $cat['school_year_name'];
+                    }
+                    $schoolYears[] = $cat;
+                }
+                ?>
+                <option value="">--- active at ---</option>
+
+                <?php foreach ($schoolYears as $sy): ?>
+                    <option value="<?= htmlspecialchars($sy['school_year_id']) ?>"
+                        <?= ($sy['school_year_id'] == $activeSyId) ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($sy['school_year_name']) ?>
+                        <?= $sy['school_year_status'] === 'Active' ? ' (Active)' : '' ?>
                     </option>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </select>
         </div>
     </div>
@@ -473,9 +569,9 @@ endif;
                     <div class="my-2">
                         <label class="form-label">School Year</label>
                         <div class="form-control bg-light">
-                            <?= htmlspecialchars($schoolYears["school_year_name"] ?? 'Not set') ?>
+                            <?= htmlspecialchars($currentSy["school_year_name"] ?? 'Not set') ?>
                         </div>
-                        <input type="hidden" name="schoolYear_id" value="<?= $schoolYears["school_year_id"] ?? '' ?>">
+                        <input type="hidden" name="schoolYear_id" value="<?= $currentSy["school_year_id"] ?? '' ?>">
                     </div>
 
                     <!-- Submit Button -->

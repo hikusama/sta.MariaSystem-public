@@ -8,7 +8,6 @@ if ($result['res']) {
 }
 
 $teacher_id = $_SESSION['user_id'];
-
 $conn = new mysqli("localhost", "root", "", "stamariadb");
 if ($conn->connect_error) die("Connection failed");
 
@@ -17,74 +16,80 @@ $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $perPage;
 
 /* ================= AJAX ================= */
-if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
+if (isset($_POST['ajax'])) {
 
-    $search = trim($_GET['search'] ?? '');
-    $status = trim($_GET['status'] ?? '');
-    $sy     = trim($_GET['sy'] ?? '');
+    $search = trim($_POST['search'] ?? '');
+    $status = trim($_POST['status'] ?? '');
+    $sy     = trim($_POST['sy'] ?? '');
+
+    $limit = 10;
+    $page = max(1, (int)($_POST['page'] ?? 1));
+    $offset = ($page - 1) * $limit;
 
     $where = [];
     $params = [];
     $types = '';
 
-    /* teacher restriction */
-    $where[] = "c.adviser_id = ?";
+    $where[] = "e.adviser_id = ?";
     $params[] = $teacher_id;
     $types .= 'i';
 
-    /* school year */
     if ($sy) {
-        $where[] = "c.sy_id = ?";
+        $where[] = "e.school_year_id = ?";
         $params[] = $sy;
         $types .= 'i';
     }
 
-    /* status (NO pending / rejected) */
     if ($status && !in_array($status, ['pending', 'rejected'])) {
         $where[] = "s.enrolment_status = ?";
         $params[] = $status;
         $types .= 's';
     }
 
-    /* search */
     if ($search) {
         $where[] = "(s.lrn LIKE ? OR s.fname LIKE ? OR s.mname LIKE ? OR s.lname LIKE ?)";
-        $s = "%$search%";
-        array_push($params, $s, $s, $s, $s);
+        $like = "%$search%";
+        array_push($params, $like, $like, $like, $like);
         $types .= 'ssss';
     }
 
-    $whereSQL = " WHERE " . implode(" AND ", $where);
+    $whereSQL = "WHERE " . implode(" AND ", $where);
 
-    /* COUNT */
+    /* ===== COUNT ===== */
     $countSQL = "
-        SELECT COUNT(*) total
+        SELECT COUNT(DISTINCT s.student_id) total
         FROM student s
-        INNER JOIN classes c 
-            ON c.grade_level = s.gradeLevel
+        LEFT JOIN enrolment as e ON s.student_id = e.student_id
         $whereSQL
     ";
 
     $stmt = $conn->prepare($countSQL);
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
-    $total = $stmt->get_result()->fetch_assoc()['total'];
+    $totalRows = (int)$stmt->get_result()->fetch_assoc()['total'];
+    $totalPages = ceil($totalRows / $limit);
 
-    /* DATA */
+    /* ===== DATA ===== */
     $sql = "
-        SELECT s.*, c.grade_level
+        SELECT s.student_id, s.lrn, s.fname, s.mname, s.lname,
+               s.gradeLevel, s.sex, s.enrolment_status,e.adviser_id
         FROM student s
-        INNER JOIN classes c 
-            ON c.grade_level = s.gradeLevel
+        LEFT JOIN enrolment as e ON s.student_id = e.student_id
         $whereSQL
         ORDER BY s.lname, s.fname
-        LIMIT $perPage OFFSET $offset
+        LIMIT ? OFFSET ?
     ";
 
     $stmt = $conn->prepare($sql);
+    $params[] = $limit;
+    $params[] = $offset;
+    $types .= 'ii';
+
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $res = $stmt->get_result();
+
+    ob_start();
 
     if ($res->num_rows) {
         while ($row = $res->fetch_assoc()) {
@@ -120,17 +125,42 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
                     <td><span class='badge bg-" . ($row['enrolment_status'] == 'active' ? 'success' : 'secondary') . "'>
                         <i class='fa-solid fa-circle fa-xs me-1'></i>" . htmlspecialchars($row['enrolment_status']) . "</span></td>
                   </tr>";
-        }
-    } else {
-        echo "<tr><td colspan='7' class='text-center py-3'>No students found.</td></tr>";
-    }
+        } ?>
 
-    echo "<tr id='pagination-info' class='d-none nss'
-            data-total='$total'
-            data-page='$page'
-            data-perpage='$perPage'></tr>";
+        <!-- pagination row -->
+        <tr>
+            <td colspan="7">
+                <div class="d-flex justify-content-between">
+                    <span>Page <?= $page ?> of <?= $totalPages ?></span>
+                    <div>
+                        <?php if ($page > 1): ?>
+                            <button class="btn btn-sm btn-secondary"
+                                onclick="fetchStudents(<?= $page - 1 ?>)">Prev</button>
+                        <?php endif; ?>
+                        <?php if ($page < $totalPages): ?>
+                            <button class="btn btn-sm btn-secondary"
+                                onclick="fetchStudents(<?= $page + 1 ?>)">Next</button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </td>
+        </tr>
+
+    <?php } ?>
+    <tr>
+        <td colspan="7" class="text-center py-4">No students found</td>
+    </tr>
+<?php
+
+    $html = ob_get_clean();
+
+    echo json_encode([
+        'html' => $html,
+        'hasData' => $res->num_rows > 0
+    ]);
     exit;
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -146,9 +176,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
             background: #f5f7fa;
             font-family: "Segoe UI", sans-serif;
         }
-        #pagination{
+
+        #pagination {
             margin-top: 1rem;
         }
+
         .scroll-feedback {
             height: 80vh;
             overflow-y: auto;
@@ -227,16 +259,39 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
             </div>
 
             <div class="col-md-3">
-                <select id="syFilter" class="form-select">
-                    <option value="">All School Year</option>
+                <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
                     <?php
-                    $syq = $conn->query("SELECT school_year_id, school_year_name FROM school_year");
-                    while ($sy = $syq->fetch_assoc()):
+                    // Get all SYs, order active first
+                    $catStmt = $pdo->query("
+                            SELECT school_year_id, school_year_name, school_year_status
+                            FROM school_year
+                            ORDER BY 
+                                CASE WHEN school_year_status = 'Active' THEN 0 ELSE 1 END,
+                                school_year_name ASC
+                        ");
+
+                    $activeSyId = null;
+                    $yr['school_year_id'] = null;
+                    $yr['school_year_name'] = null;
+                    $schoolYears = [];
+                    while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)) {
+                        if ($cat['school_year_status'] === 'Active' && $activeSyId === null) {
+                            $activeSyId = $cat['school_year_id'];
+                            $yr['school_year_id'] = $cat['school_year_id'];
+                            $yr['school_year_name'] = $cat['school_year_name'];
+                        }
+                        $schoolYears[] = $cat;
+                    }
                     ?>
-                        <option value="<?= $sy['school_year_id'] ?>">
-                            <?= $sy['school_year_name'] ?>
+                    <option value="">--- active at ---</option>
+
+                    <?php foreach ($schoolYears as $sy): ?>
+                        <option value="<?= htmlspecialchars($sy['school_year_id']) ?>"
+                            <?= ($sy['school_year_id'] == $activeSyId) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($sy['school_year_name']) ?>
+                            <?= $sy['school_year_status'] === 'Active' ? ' (Active)' : '' ?>
                         </option>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 </select>
             </div>
         </div>
@@ -258,98 +313,75 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
 
         <div id="pagination" class="text-center"></div>
     </div>
-
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        let currentPage = 1;
 
-            const studentTable = document.getElementById('studentTable');
-            const searchInput = document.getElementById('searchInput');
-            const statusFilter = document.getElementById('statusFilter');
-            const syFilter = document.getElementById('syFilter');
-            const pagination = document.getElementById('pagination');
+        function fetchStudents(page = 1) {
+            const search = document.getElementById('searchInput').value;
+            const status = document.getElementById('statusFilter').value;
+            const sy = document.getElementById('syFilter').value;
+            const tbody = document.getElementById('studentTable');
 
-            let page = 1;
+            tbody.innerHTML = `
+        <tr>
+            <td colspan="7" class="text-center py-4">
+                <div class="spinner-border text-primary"></div>
+            </td>
+        </tr>`;
 
-            async function loadStudents() {
-                try {
-                    const response = await fetch(
-                        `contents/sf9.php?ajax=1
-                &page=${page}
-                &search=${encodeURIComponent(searchInput.value)}
-                &status=${encodeURIComponent(statusFilter.value)}
-                &sy=${encodeURIComponent(syFilter.value)}`
-                    );
+            const formData = new FormData();
+            formData.append('ajax', 1);
+            formData.append('search', search);
+            formData.append('status', status);
+            formData.append('sy', sy);
+            formData.append('page', page);
 
-                    if (!response.ok) throw new Error('Fetch failed');
-
-                    const html = await response.text();
-                    studentTable.innerHTML = html;
-
-                    updatePagination();
+            fetch('contents/sf9.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    tbody.innerHTML = data.html || '';
+                    currentPage = page;
                     attachRowClick();
-
-                } catch (err) {
-                    console.error('Load error:', err);
-                }
-            }
-
-            function attachRowClick() {
-                document.querySelectorAll('.student-row').forEach(row => {
-                    row.onclick = () => {
-                        window.location.href =
-                            "<?= BASE_FR ?>/src/UI-teacher/contents/schoolform9.php?student_id=" +
-                            row.dataset.id;
-                    };
+                })
+                .catch(() => {
+                    tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-danger">
+                    Failed to load students
+                </td>
+            </tr>`;
                 });
-            }
+        }
 
-            function updatePagination() {
-                const info = document.getElementById('pagination-info');
-                if (!info) {
-                    pagination.innerHTML = '';
-                    return;
-                }
+        function attachRowClick() {
+            document.querySelectorAll('.student-row').forEach(row => {
+                row.onclick = () => {
+                    window.location.href =
+                        "<?= BASE_FR ?>/src/UI-teacher/contents/schoolform9.php?student_id=" +
+                        row.dataset.id;
+                };
+            });
+        }
 
-                const total = parseInt(info.dataset.total);
-                const perPage = parseInt(info.dataset.perpage);
-                const pages = Math.ceil(total / perPage);
+        document.addEventListener('DOMContentLoaded', () => {
+            ['searchInput', 'statusFilter', 'syFilter'].forEach(id => {
+                document.getElementById(id).addEventListener('input', () => {
+                    currentPage = 1;
+                    fetchStudents();
+                });
+                document.getElementById(id).addEventListener('change', () => {
+                    currentPage = 1;
+                    fetchStudents();
+                });
+            });
 
-                pagination.innerHTML = '';
-
-                for (let i = 1; i <= pages; i++) {
-                    const btn = document.createElement('button');
-                    btn.className =
-                        'btn btn-sm btn-outline-primary mx-1' +
-                        (i === page ? ' active' : '');
-                    btn.textContent = i;
-
-                    btn.onclick = () => {
-                        page = i;
-                        loadStudents();
-                    };
-
-                    pagination.appendChild(btn);
-                }
-            }
-
-            // 🔹 events
-            searchInput.oninput = () => {
-                page = 1;
-                loadStudents();
-            };
-            statusFilter.onchange = () => {
-                page = 1;
-                loadStudents();
-            };
-            syFilter.onchange = () => {
-                page = 1;
-                loadStudents();
-            };
-
-            // 🔹 FIRST LOAD (this was missing before)
-            loadStudents();
+            fetchStudents(currentPage);
         });
     </script>
+
 
 
 </body>

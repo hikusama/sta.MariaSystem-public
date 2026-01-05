@@ -10,7 +10,7 @@ if ($result['res']) {
 $search = trim($_POST['search'] ?? '');
 $sy     = trim($_POST['school_year'] ?? '');
 
-$limit  = 10;
+$limit  = 25;
 $page   = max(1, (int)($_POST['page'] ?? 1));
 $offset = ($page - 1) * $limit;
 
@@ -287,14 +287,38 @@ if (isset($_POST['ajax'])) {
     </div>
     <div style="display: flex; gap: 1rem; align-items: center; border: none;">
         <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
-            <option value="">--- active at ---</option>
             <?php
-            $catStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name ASC");
-            while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)): ?>
-                <option value="<?= htmlspecialchars($cat['school_year_id']) ?>">
-                    <?= htmlspecialchars($cat['school_year_name']) ?>
+            // Get all SYs, order active first
+            $catStmt = $pdo->query("
+                            SELECT school_year_id, school_year_name, school_year_status
+                            FROM school_year
+                            ORDER BY 
+                                CASE WHEN school_year_status = 'Active' THEN 0 ELSE 1 END,
+                                school_year_name ASC
+                        ");
+
+            $activeSyId = null;
+            $yr['school_year_id'] = null;
+            $yr['school_year_name'] = null;
+            $schoolYears = [];
+            while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)) {
+                if ($cat['school_year_status'] === 'Active' && $activeSyId === null) {
+                    $activeSyId = $cat['school_year_id'];
+                    $yr['school_year_id'] = $cat['school_year_id'];
+                    $yr['school_year_name'] = $cat['school_year_name'];
+                }
+                $schoolYears[] = $cat;
+            }
+            ?>
+            <option value="">--- active at ---</option>
+
+            <?php foreach ($schoolYears as $sy): ?>
+                <option value="<?= htmlspecialchars($sy['school_year_id']) ?>"
+                    <?= ($sy['school_year_id'] == $activeSyId) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($sy['school_year_name']) ?>
+                    <?= $sy['school_year_status'] === 'Active' ? ' (Active)' : '' ?>
                 </option>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
         </select>
     </div>
     <div class="fsfs">

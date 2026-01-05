@@ -311,6 +311,11 @@ class Action
 
             $stmt = $this->db->prepare($query);
             $stmt->execute([$status, $schoolYear_name]);
+            $lastId = $this->db->lastInsertId();
+
+            if ($status === 'Active') {
+                $_SESSION['active_sy_id'] = $lastId;
+            }
 
             return json_encode([
                 'status' => 1,
@@ -1369,6 +1374,11 @@ class Action
     function deleteSchoolYear_form()
     {
         $school_year_id = $_POST["school_year_id"];
+        if ($_SESSION['active_sy_id'] === $school_year_id) {
+            session_unset();
+            session_destroy();
+            header('Location: ' . BASE_PATH . '/src/index.php');
+        }
         try {
             $stmt = $this->db->prepare("DELETE FROM school_year WHERE school_year_id = :school_year_id");
             $stmt->bindParam(':school_year_id', $school_year_id, PDO::PARAM_INT);

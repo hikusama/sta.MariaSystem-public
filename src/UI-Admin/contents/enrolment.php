@@ -7,85 +7,208 @@ if ($result['res']) {
     exit;
 }
 
+
+$activeSyStmt = $pdo->prepare("
+    SELECT school_year_id,school_year_name
+    FROM school_year
+    WHERE school_year_status = 'Active'
+    LIMIT 1
+");
+$activeSyStmt->execute();
+$activeSy = $activeSyStmt->fetch(PDO::FETCH_ASSOC);
+
+if ($activeSy) {
+    $_SESSION['active_sy_id'] = $activeSy['school_year_id'];
+} else {
+    $_SESSION['active_sy_id'] = null; // No active SY
+}
+
+if (isset($_POST['ajax2'])) {
+    $grade_level = trim($_POST['grade_level'] ?? '');
+
+    if ($grade_level === '') {
+        echo json_encode([
+            'teachers' => [],
+            'subjects' => [],
+            'sectionMap' => [],
+            'grade_level' => $grade_level,
+            'school_year_name' => $$activeSy['school_year_name'],
+            'school_year_id' => $$activeSy['school_year_id'],
+        ]);
+        exit;
+    }
+
+    $teachersStmt = $pdo->prepare("
+    SELECT 
+        u.user_id AS adviser_id,
+        u.firstname,
+        u.lastname,
+        c.grade_level,
+        c.section_name
+    FROM users u
+    INNER JOIN classes c
+        ON u.user_id = c.adviser_id
+        AND c.sy_id = ?
+        AND c.grade_level = ?
+    WHERE u.user_role = 'TEACHER'
+    ORDER BY u.lastname ASC
+");
+    $teachersStmt->execute([
+        $_SESSION['active_sy_id'],
+        $grade_level
+    ]);
+    $teachers = $teachersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $ste = $pdo->prepare("
+    SELECT *
+    FROM subjects
+    WHERE grade_level = ?
+");
+    $ste->execute([$grade_level]);
+    $subjects = $ste->fetchAll(PDO::FETCH_ASSOC);
+
+    $sectionMap = [];
+    foreach ($teachers as $t) {
+        $sectionMap[$t['adviser_id']] = $t['section_name'];
+    }
+
+    echo json_encode([
+        'teachers' => $teachers,
+        'subjects' => $subjects,
+        'sectionMap' => $sectionMap,
+        'grade_level' => $grade_level,
+        'school_year_name' => $activeSy['school_year_name'],
+        'school_year_id' => $activeSy['school_year_id'],
+    ]);
+    exit;
+
+    exit;
+}
+/*
+|--------------------------------------------------------------------------
+| INPUTS
+|--------------------------------------------------------------------------
+*/
 $search = trim($_POST['search'] ?? '');
 $status = trim($_POST['status'] ?? '');
 $grade  = trim($_POST['grade'] ?? '');
 $sy     = trim($_POST['school_year'] ?? '');
 
-$limit = 1;
+$limit = 25;
 $page = isset($_POST['page']) ? max(1, (int)$_POST['page']) : 1;
 $offset = ($page - 1) * $limit;
 
-// --- Stats query
-$statQuery = "SELECT
+/*
+|--------------------------------------------------------------------------
+| STATS QUERY
+|--------------------------------------------------------------------------
+*/
+$statQuery = "
+SELECT
     COUNT(*) AS total_students,
     SUM(CASE WHEN LOWER(enrolment_status)='active' THEN 1 ELSE 0 END) AS enrolled,
     SUM(CASE WHEN LOWER(enrolment_status)='pending' OR enrolment_status IS NULL THEN 1 ELSE 0 END) AS pending,
     SUM(CASE WHEN LOWER(enrolment_status)='rejected' OR LOWER(enrolment_status)='dropped' THEN 1 ELSE 0 END) AS rejected
 FROM student s
 LEFT JOIN users u ON s.guardian_id = u.user_id
-WHERE 1";
+WHERE 1
+";
 
 $statParams = [];
+
 if ($sy) {
-    $statQuery .= " AND s.student_id IN (SELECT student_id FROM enrolment WHERE school_year_id = ?)";
+    $statQuery .= " AND s.student_id IN (
+        SELECT student_id FROM enrolment WHERE school_year_id = ?
+    )";
     $statParams[] = $sy;
 }
+
 if ($status) {
     $statQuery .= " AND LOWER(s.enrolment_status) = ?";
     $statParams[] = strtolower($status);
 }
+
 if ($grade) {
     $statQuery .= " AND LOWER(s.gradeLevel) = ?";
     $statParams[] = strtolower($grade);
 }
+
 if ($search) {
-    $statQuery .= " AND (s.fname LIKE ? OR s.lname LIKE ? OR s.lrn LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)";
+    $statQuery .= " AND (
+        s.fname LIKE ? OR s.lname LIKE ? OR s.lrn LIKE ?
+        OR u.firstname LIKE ? OR u.lastname LIKE ?
+    )";
     $s = "%$search%";
     array_push($statParams, $s, $s, $s, $s, $s);
 }
+
 $stmtStat = $pdo->prepare($statQuery);
 $stmtStat->execute($statParams);
 $stat = $stmtStat->fetch(PDO::FETCH_ASSOC);
 
-// --- Students query
-$query = "SELECT s.*, u.user_id, u.firstname, u.middlename, u.lastname, u.email, u.contact
+/*
+|--------------------------------------------------------------------------
+| STUDENTS QUERY
+|--------------------------------------------------------------------------
+*/
+$query = "
+SELECT s.*, u.user_id, u.firstname, u.middlename, u.lastname, u.email, u.contact
 FROM student s
 LEFT JOIN users u ON s.guardian_id = u.user_id
-WHERE 1";
+WHERE 1
+";
 
 $params = [];
+
 if ($sy) {
-    $query .= " AND s.student_id IN (SELECT student_id FROM enrolment WHERE school_year_id = ?)";
+    $query .= " AND s.student_id IN (
+        SELECT student_id FROM enrolment WHERE school_year_id = ?
+    )";
     $params[] = $sy;
 }
+
 if ($status) {
     $query .= " AND LOWER(s.enrolment_status) = ?";
     $params[] = strtolower($status);
 }
+
 if ($grade) {
     $query .= " AND LOWER(s.gradeLevel) = ?";
     $params[] = strtolower($grade);
 }
+
 if ($search) {
-    $query .= " AND (s.fname LIKE ? OR s.lname LIKE ? OR s.lrn LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)";
+    $query .= " AND (
+        s.fname LIKE ? OR s.lname LIKE ? OR s.lrn LIKE ?
+        OR u.firstname LIKE ? OR u.lastname LIKE ?
+    )";
     $s = "%$search%";
     array_push($params, $s, $s, $s, $s, $s);
 }
 
 $query .= " ORDER BY s.fname ASC";
 
-// --- Pagination
-$countQuery = "SELECT COUNT(*) as total_count FROM ($query) AS temp";
+/*
+|--------------------------------------------------------------------------
+| PAGINATION
+|--------------------------------------------------------------------------
+*/
+$countQuery = "SELECT COUNT(*) FROM ($query) AS temp";
 $stmtCount = $pdo->prepare($countQuery);
 $stmtCount->execute($params);
-$totalRows = $stmtCount->fetchColumn();
+$totalRows = (int)$stmtCount->fetchColumn();
 $totalPages = ceil($totalRows / $limit);
 
 $query .= " LIMIT $limit OFFSET $offset";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| STATUS MAP
+|--------------------------------------------------------------------------
+*/
 $statusMap = [
     'active'          => ['success', 'Enrolled'],
     'pending'         => ['plo', 'Pending'],
@@ -96,7 +219,18 @@ $statusMap = [
     'dropped'         => ['danger', 'Dropped'],
     'rejected'        => ['purple', 'Rejected']
 ];
+
+/*
+|--------------------------------------------------------------------------
+| TEACHERS (UNCHANGED)
+|--------------------------------------------------------------------------
+*/
+
+// --- Get teachers and their classes in the active SY (if any)
+
+
 // --- JSON Response
+
 if (isset($_POST['ajax'])) {
     ob_start();
     $studentsWithHtml = '';
@@ -128,7 +262,7 @@ if (isset($_POST['ajax'])) {
             }
 
             // $user["isMovingUP"] = true;
-            $user["isMovingUP"] = $user["isMovingUP"] ?? null; 
+            $user["isMovingUP"] = $user["isMovingUP"] ?? null;
             if ($user["isMovingUP"] === false) {
                 $ssdCol = 'solid 1px red';
                 $ssd = '<div class="art"><i class="fas fa-angle-down text-danger"></i></div>';
@@ -163,8 +297,8 @@ if (isset($_POST['ajax'])) {
                 <td width="25%">
                     <div class="d-flex flex-wrap gap-1 justify-content-center">
                         <a href="index.php?page=contents/form&student_id=' . $user["student_id"] . '" class="btn btn-sm btn-info" title="View Enrollment Form"><i class="fa-solid fa-file-lines me-1"></i> Form</a>
-                        ' . ($status != 'active' && $status != 'rejected' ? '<button type="button" class="btn btn-success btn-sm open-enrolment" data-id="' . $user["student_id"] . '" data-gradelevel="' . htmlspecialchars($user["gradeLevel"]) . '" title="Approve Enrollment"><i class="fa-solid fa-check me-1"></i> Approve</button>' : '') . '
-                        ' . ($status != 'rejected' && $status != 'active' ? '<button type="button" class="btn btn-danger btn-sm open-rejection" data-id="' . $user["student_id"] . '" title="Reject Enrollment"><i class="fa-solid fa-xmark me-1"></i> Reject</button>' : '') . '
+                        ' . ($status != 'active' && $status != 'rejected' ? '<button onclick="approvebtn(' . $user['student_id'] . ',\'' . htmlspecialchars($user['gradeLevel'], ENT_QUOTES) . '\')" type="button" class="btn btn-success btn-sm open-enrolment" data-id="' . $user["student_id"] . '" data-gradelevel="' . htmlspecialchars($user["gradeLevel"]) . '" title="Approve Enrollment"><i class="fa-solid fa-check me-1"></i> Approve</button>' : '') . '
+                        ' . ($status != 'rejected' && $status != 'active' ? '<button onclick="rjkbtn(' . $user['student_id'] . ')" type="button" class="btn btn-danger btn-sm open-rejection" data-id="' . $user["student_id"] . '" title="Reject Enrollment"><i class="fa-solid fa-xmark me-1"></i> Reject</button>' : '') . '
                     </div>
                 </td>
             </tr>';
@@ -172,13 +306,13 @@ if (isset($_POST['ajax'])) {
         $bt = "";
         if ($page > 1) {
             $bt = '<button class="btn btn-sm btn-secondary"
-                                onclick="fetchSections(' . $page - 1 . ')">
+                                onclick="fetchStudents(' . $page - 1 . ')">
                                 Prev
                             </button>';
         }
         if ($page < $totalPages) {
             $bt .= '<button class="btn btn-sm btn-secondary"
-                                onclick="fetchSections(' . $page + 1 . ')">
+                                onclick="fetchStudents(' . $page + 1 . ')">
                                 Next
                             </button>';
         }
@@ -250,14 +384,37 @@ if (isset($_POST['ajax'])) {
 
                 <div class="col-md-2">
                     <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
-                        <option value="">--- active at ---</option>
                         <?php
-                        $catStmt = $pdo->query("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name ASC");
-                        while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)): ?>
-                            <option value="<?= htmlspecialchars($cat['school_year_id']) ?>">
-                                <?= htmlspecialchars($cat['school_year_name']) ?>
+                        $catStmt = $pdo->query("
+                            SELECT school_year_id, school_year_name, school_year_status
+                            FROM school_year
+                            ORDER BY 
+                                CASE WHEN school_year_status = 'Active' THEN 0 ELSE 1 END,
+                                school_year_name ASC
+                        ");
+
+                        $activeSyId = null;
+                        $yr['school_year_id'] = null;
+                        $yr['school_year_name'] = null;
+                        $schoolYears = [];
+                        while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)) {
+                            if ($cat['school_year_status'] === 'Active' && $activeSyId === null) {
+                                $activeSyId = $cat['school_year_id'];
+                                $yr['school_year_id'] = $cat['school_year_id'];
+                                $yr['school_year_name'] = $cat['school_year_name'];
+                            }
+                            $schoolYears[] = $cat;
+                        }
+                        ?>
+                        <option value="">--- active at ---</option>
+
+                        <?php foreach ($schoolYears as $sy): ?>
+                            <option value="<?= htmlspecialchars($sy['school_year_id']) ?>"
+                                <?= ($sy['school_year_id'] == $activeSyId) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($sy['school_year_name']) ?>
+                                <?= $sy['school_year_status'] === 'Active' ? ' (Active)' : '' ?>
                             </option>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     </select>
                 </div>
             </div>
@@ -348,7 +505,7 @@ if (isset($_POST['ajax'])) {
 </div>
 
 <!-- enrolment modal -->
-<div class="modal fade" id="AddNewAccount" tabindex="-1" aria-labelledby="AddNewAccountLabel" aria-hidden="true">
+<div class="modal fade" id="AddNewAccount" tabindex="-1" aria-labelledby="AddNewAccountLabel">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
@@ -366,12 +523,6 @@ if (isset($_POST['ajax'])) {
                         <label class="form-label">Class Adviser <span class="text-danger">*</span></label>
                         <select name="adviser_id" id="adviserSelect" class="form-select" required>
                             <option value="">Select Adviser</option>
-                            <?php foreach ($classes as $class): ?>
-                                <option value="<?= $class["adviser_id"] ?>"
-                                    data-section="<?= htmlspecialchars($class["section_name"]) ?>">
-                                    <?= htmlspecialchars($class["lastname"]) . ", " . htmlspecialchars($class["firstname"]) ?>
-                                </option>
-                            <?php endforeach; ?>
                         </select>
                     </div>
 
@@ -383,9 +534,8 @@ if (isset($_POST['ajax'])) {
 
                     <div class="col-md-6">
                         <label class="form-label">School Year <span class="text-danger">*</span></label>
-                        <div class="form-control bg-light">
-                            <?= htmlspecialchars($schoolYear["school_year_name"] ?? 'Not set') ?></div>
-                        <input type="hidden" name="schoolyear_id" value="<?= $schoolYear["school_year_id"] ?? '' ?>">
+                        <div id="syd" class="form-control bg-light">Not set</div>
+                        <input id="syid" type="hidden" name="schoolyear_id" value="">
                     </div>
 
                     <div class="col-md-6">
@@ -454,7 +604,125 @@ if (isset($_POST['ajax'])) {
 
 <script>
     let currentPage = 1;
+    let selectedStudentId = null;
+    let sections = {};
 
+
+    function rjkbtn(studentId) {
+        selectedStudentId = studentId;
+        document.getElementById('studentID').value = studentId;
+
+        const modal = new bootstrap.Modal(
+            document.getElementById('rejectEnrolment')
+        );
+        modal.show();
+    }
+
+    function approvebtn(studentId, gradeLevel = '') {
+        selectedStudentId = studentId;
+
+        document.getElementById('student_id').value = studentId;
+        // document.getElementById('gradeLevelDisplay').textContent = gradeLevel;
+        // document.getElementById('gradeLevelValue').value = gradeLevel;
+
+        loadSubjectsByGrade(gradeLevel);
+
+        const modal = new bootstrap.Modal(
+            document.getElementById('AddNewAccount')
+        );
+        modal.show();
+    }
+
+    /* =========================
+       LOAD SUBJECTS (ajax2)
+    ========================= */
+    function loadSubjectsByGrade(gradeLevel) {
+        const container = document.getElementById('subjectListContainer');
+        const advisers = document.getElementById('adviserSelect');
+        container.innerHTML = `
+        <div class="text-center text-muted py-3">
+            <div class="spinner-border spinner-border-sm"></div>
+            Loading subjects...
+        </div>
+    `;
+
+        const formData = new FormData();
+        formData.append('ajax2', 1);
+        formData.append('grade_level', gradeLevel);
+
+        fetch('contents/enrolment.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                container.innerHTML = '';
+
+                if (!data.subjects || data.subjects.length === 0) {
+                    container.innerHTML = `
+                <p class="text-muted text-center">
+                    No subjects found for this grade
+                </p>
+            `;
+                    return;
+                }
+                document.getElementById('gradeLevelValue').value = data.grade_level ?? ''
+                document.getElementById('gradeLevelDisplay').textContent = data.grade_level ?? ''
+                document.getElementById('syid').value = data.school_year_id ?? ''
+                document.getElementById('syd').textContent = data.school_year_name ?? 'Not set'
+                sections = data.sectionMap ?? {}
+
+
+                advisers.innerHTML = `
+                <option value="">Select Adviser</option>
+                `
+                data.teachers.forEach(t => {
+                    advisers.innerHTML += `
+                    <option value="${t.adviser_id}">${t.lastname}, ${t.firstname}</option>
+                    `
+                })
+
+                data.subjects.forEach(sub => {
+                    container.innerHTML += `
+                <div class="col-md-6 mb-2">
+                    <div class="border rounded p-2">
+                        <strong>${sub.subject_name}</strong>
+                        <div class="small text-muted">
+                            ${sub.subject_code ?? ''}
+                        </div>
+                        <input type="hidden" name="subjects[]" value=" ${sub.subject_id ?? ''}">
+                    </div>
+                </div>
+            `;
+                });
+            })
+            .catch(() => {
+                container.innerHTML = `
+            <p class="text-danger text-center">
+                Failed to load subjects
+            </p>
+        `;
+            });
+    }
+
+document.getElementById('adviserSelect')?.addEventListener('change', function () {
+    const adviserId = this.value;
+
+    if (!adviserId || !sections[adviserId]) {
+        document.getElementById('section_name').textContent = '';
+        document.getElementById('section_name_hidden').value = '';
+        return;
+    }
+
+    const section = sections[adviserId];
+
+    document.getElementById('section_name').textContent = section;
+    document.getElementById('section_name_hidden').value = section;
+});
+
+    /* =========================
+       UPDATE STATS
+    ========================= */
     function updateStats(stats) {
         document.getElementById('ts').textContent = stats.total_students ?? 0;
         document.getElementById('en').textContent = stats.enrolled ?? 0;
@@ -462,20 +730,28 @@ if (isset($_POST['ajax'])) {
         document.getElementById('rd').textContent = stats.rejected ?? 0;
     }
 
+    /* =========================
+       FETCH STUDENTS (ajax)
+    ========================= */
     function fetchStudents(page = 1) {
         currentPage = page;
+
         const tableBody = document.getElementById('enrollmentTableBody');
         const noResults = document.getElementById('noResults');
 
-        tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4">
-        <div class="spinner-border text-primary" role="status"></div>
-        <div>Loading students...</div>
-    </td></tr>`;
+        tableBody.innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center py-4">
+                <div class="spinner-border text-primary"></div>
+                <div>Loading students...</div>
+            </td>
+        </tr>
+    `;
         noResults.classList.add('d-none');
 
         const formData = new FormData();
         formData.append('ajax', 1);
-        formData.append('search', document.getElementById('searchInput').value.trim());
+        formData.append('search', document.getElementById('searchInput').value);
         formData.append('status', document.getElementById('statusFilter').value);
         formData.append('grade', document.getElementById('gradeFilter').value);
         formData.append('school_year', document.getElementById('syFilter').value);
@@ -492,29 +768,33 @@ if (isset($_POST['ajax'])) {
                     noResults.classList.remove('d-none');
                 } else {
                     tableBody.innerHTML = data.html;
-                    noResults.classList.add('d-none');
                 }
                 updateStats(data.stats);
             })
-            .catch(err => {
-                console.error(err);
-                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">Failed to load data</td></tr>`;
+            .catch(() => {
+                tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-danger py-4">
+                    Failed to load data
+                </td>
+            </tr>
+        `;
             });
     }
 
-    // --- Event listeners
+
     document.addEventListener('DOMContentLoaded', () => {
-        ['searchInput', 'statusFilter', 'gradeFilter', 'syFilter'].forEach(id => {
+        ['searchInput', 'statusFilter', 'gradeFilter', 'syFilter']
+        .forEach(id => {
             const el = document.getElementById(id);
             el.addEventListener('change', () => fetchStudents(1));
             el.addEventListener('input', () => fetchStudents(1));
         });
-        document.getElementById('searchInput').addEventListener('keypress', e => {
-            if (e.key === 'Enter') fetchStudents(1);
-        });
-        fetchStudents(currentPage);
+
+        fetchStudents(1);
     });
 </script>
+
 
 <style>
     .bg-plo {

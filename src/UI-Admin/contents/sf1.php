@@ -1,73 +1,106 @@
 <?php
-// Get selected grade level and section from filter
 require_once __DIR__ . '/../../../tupperware.php';
-$result = checkURI('admin', 2);
 
+// Security check
+$result = checkURI('admin', 2);
 if ($result['res']) {
     header($result['uri']);
     exit;
 }
-$result = checkURI('admin', 2);
 
-if ($result['res']) {
-    header($result['uri']);
-    exit;
-}
-$selectedGrade = $_POST['gradeLevelCategory'] ?? '';
-$selectedSection = $_POST['section'] ?? '';
+// AJAX request for filtering students
+if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+    $school_year = $_POST['school_year'] ?? '';
+    $selectedGrade = $_POST['gradeLevelCategory'] ?? '';
+    $selectedSection = $_POST['section'] ?? '';
 
-// Build the SQL query with optional filters
-$sql = "SELECT student.*, parents_info.*, stuEnrolmentInfo.*, enrolment.Grade_level, enrolment.section_name
-        FROM student
-        INNER JOIN parents_info ON student.student_id = parents_info.student_id
-        INNER JOIN stuEnrolmentInfo ON student.student_id = stuEnrolmentInfo.student_id
-        INNER JOIN enrolment ON student.student_id = enrolment.student_id
-        WHERE student.enrolment_status = 'active'";
-
-// Add grade level filter if selected
-if (!empty($selectedGrade)) {
-    $sql .= " AND enrolment.Grade_level = :grade_level";
-}
-
-// Add section filter if selected - FIXED: using section_name instead of section_id
-if (!empty($selectedSection)) {
-    // Get the section name from sections table
-    $stmtSectionName = $pdo->prepare("SELECT section_name FROM sections WHERE section_id = :section_id");
-    $stmtSectionName->bindParam(':section_id', $selectedSection);
-    $stmtSectionName->execute();
-    $sectionData = $stmtSectionName->fetch(PDO::FETCH_ASSOC);
-
-    if ($sectionData) {
-        $sectionName = $sectionData['section_name'];
-        $sql .= " AND enrolment.section_name = :section_name";
+    // Default to active school year if not provided
+    if (!$school_year) {
+        $currentSyStmt = $pdo->prepare("SELECT school_year_id, school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
+        $currentSyStmt->execute();
+        $currentSy = $currentSyStmt->fetch(PDO::FETCH_ASSOC);
+        $school_year = $currentSy['school_year_id'] ?? null;
     }
+
+    // Build SQL with optional filters
+    $sql = "SELECT student.*, parents_info.*, stuEnrolmentInfo.*, enrolment.Grade_level, enrolment.section_name
+            FROM student
+            INNER JOIN parents_info ON student.student_id = parents_info.student_id
+            INNER JOIN stuEnrolmentInfo ON student.student_id = stuEnrolmentInfo.student_id
+            INNER JOIN enrolment ON student.student_id = enrolment.student_id
+            LEFT JOIN school_year ON school_year.school_year_id = enrolment.school_year_id
+            WHERE student.enrolment_status = 'active'";
+
+    if (!empty($school_year)) $sql .= " AND school_year.school_year_id = :syFilter";
+    if (!empty($selectedGrade)) $sql .= " AND enrolment.Grade_level = :grade_level";
+    if (!empty($selectedSection)) {
+        $stmtSection = $pdo->prepare("SELECT section_name FROM sections WHERE section_id = :section_id");
+        $stmtSection->execute([':section_id' => $selectedSection]);
+        $sectionName = $stmtSection->fetchColumn();
+        if ($sectionName) $sql .= " AND enrolment.section_name = :section_name";
+    }
+
+    $stmt = $pdo->prepare($sql);
+    if (!empty($school_year)) $stmt->bindParam(':syFilter', $school_year);
+    if (!empty($selectedGrade)) $stmt->bindParam(':grade_level', $selectedGrade);
+    if (!empty($selectedSection) && isset($sectionName)) $stmt->bindParam(':section_name', $sectionName);
+    $stmt->execute();
+    $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Get sections for grade dropdown
+    $sectionsSql = "SELECT * FROM sections WHERE section_status='Available'";
+    if (!empty($selectedGrade)) $sectionsSql .= " AND section_grade_level = :grade_level";
+    $stmtSections = $pdo->prepare($sectionsSql);
+    if (!empty($selectedGrade)) $stmtSections->bindParam(':grade_level', $selectedGrade);
+    $stmtSections->execute();
+    $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
+
+    ob_start();
+    if (empty($students)) {
+        echo "<tr><td colspan='20' style='text-align:center;'>No students found</td></tr>";
+    } else {
+        foreach ($students as $s) {
+            echo "<tr>
+                <td>" . htmlspecialchars($s['lrn'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['lname'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['fname'] ?? '') . " " . htmlspecialchars(substr($s['mname'] ?? '', 0, 1)) . ".</td>
+                <td>" . ($s['birthdate'] ? date('m/d/y', strtotime($s['birthdate'])) : '') . "</td>
+                <td>" . htmlspecialchars($s['age'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['birthplace_city'] ?? $s['birthplace'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['birthplace_province'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['mother_tongue'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['indigenous_people'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['religion'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['street'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['barangay'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['city'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['province'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['f_firstname'] ?? '') . " " . htmlspecialchars(substr($s['f_middlename'] ?? '', 0, 1)) . ". " . htmlspecialchars($s['f_lastname'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['m_firstname'] ?? '') . " " . htmlspecialchars(substr($s['m_middlename'] ?? '', 0, 1)) . ". " . htmlspecialchars($s['m_lastname'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['g_firstname'] ?? '') . " " . htmlspecialchars(substr($s['g_middlename'] ?? '', 0, 1)) . ". " . htmlspecialchars($s['g_lastname'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['g_relationship'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['p_contact'] ?? '') . "</td>
+                <td>" . htmlspecialchars($s['remarks'] ?? '') . "</td>
+            </tr>";
+        }
+    }
+
+    $html = ob_get_clean();
+    echo json_encode([
+        'html' => $html,
+        'sections' => $availableSections
+    ]);
+    exit;
 }
 
-$stmtStudents = $pdo->prepare($sql);
-
-// Bind parameters if selected
-if (!empty($selectedGrade)) {
-    $stmtStudents->bindParam(':grade_level', $selectedGrade);
-}
-if (!empty($selectedSection) && isset($sectionName)) {
-    $stmtStudents->bindParam(':section_name', $sectionName);
-}
-
-$stmtStudents->execute();
-$studentsEnrolled = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
-
-// Get sections based on selected grade level for the dropdown
-$sectionsSql = "SELECT * FROM sections WHERE section_status = 'Available'";
-if (!empty($selectedGrade)) {
-    $sectionsSql .= " AND section_grade_level = :grade_level";
-}
-$stmtSections = $pdo->prepare($sectionsSql);
-if (!empty($selectedGrade)) {
-    $stmtSections->bindParam(':grade_level', $selectedGrade);
-}
-$stmtSections->execute();
-$availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
+// Get active school year name
+$currentSyStmt = $pdo->prepare("SELECT school_year_id, school_year_name FROM school_year WHERE school_year_status='Active' LIMIT 1");
+$currentSyStmt->execute();
+$currentSy = $currentSyStmt->fetch(PDO::FETCH_ASSOC);
+$school_year_name = $currentSy['school_year_name'] ?? '';
 ?>
+
+
 
 <style>
     main {
@@ -213,11 +246,44 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
     $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
     ?>
     <form class="main-container" id="sfFour-form" method="POST">
-        <div class="mt-3 text-start">
+        <div class="mt-3 text-start" style="display: flex;gap: 1rem;">
             <button type="submit" class="btn btn-danger">Save Data</button>
             <button type="button" id="applyFilter" class="btn d-none btn-primary">Apply Filter</button>
             <button type="button" id="clearFilter" class="btn d-none btn-warning">Clear Filter</button>
             <button type="button" class="btn btn-secondary">Generate Report</button>
+            <div class="col-md-4 text-start">
+                <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px;">
+                    <?php
+                    $catStmt = $pdo->query("
+                            SELECT school_year_id, school_year_name, school_year_status
+                            FROM school_year
+                            ORDER BY 
+                                CASE WHEN school_year_status = 'Active' THEN 0 ELSE 1 END,
+                                school_year_name ASC
+                        ");
+
+                    $activeSyId = null;
+                    $yr['school_year_id'] = null;
+                    $yr['school_year_name'] = null;
+                    $schoolYears = [];
+                    while ($cat = $catStmt->fetch(PDO::FETCH_ASSOC)) {
+                        if ($cat['school_year_status'] === 'Active' && $activeSyId === null) {
+                            $activeSyId = $cat['school_year_id'];
+                            $yr['school_year_id'] = $cat['school_year_id'];
+                            $yr['school_year_name'] = $cat['school_year_name'];
+                        }
+                        $schoolYears[] = $cat;
+                    }
+                    ?>
+                    <?php foreach ($schoolYears as $sy): ?>
+                        <option value="<?= htmlspecialchars($sy['school_year_id']) ?>"
+                            <?= ($sy['school_year_id'] == $activeSyId) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($sy['school_year_name']) ?>
+                            <?= $sy['school_year_status'] === 'Active' ? ' (Active)' : '' ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
         </div>
         <input type="hidden" name="id" value="<?= htmlspecialchars($data_sf_four["sf_add_data_id"] ?? '') ?>">
         <div class="col-md-12 d-flex justify-content-between">
@@ -268,12 +334,7 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
                 <div class="col-md-4">
                     <div class="d-flex align-items-center mb-2">
                         <label class="me-2 col-4">School Year</label>
-                        <?php
-                        $stmt = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
-                        $stmt->execute();
-                        $sy = $stmt->fetch(PDO::FETCH_ASSOC);
-                        ?>
-                        <input readonly class="form-control" type="text" name="school_year_name" value="<?= $sy["school_year_name"] ?>">
+                        <input readonly class="form-control" type="text" name="school_year_name" value="<?= $school_year_name ?>">
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -281,29 +342,25 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
                         <!-- Make sure your HTML has a form wrapping the filters -->
                         <form method="GET" action="" id="filterForm">
                             <div class="d-flex align-items-center mb-2">
-                                <div class="col-md-12 d-flex align-items-center">
-                                    <label class="me-2 col-3">Grade Level</label>
-                                    <select id="categoryFilter" name="gradeLevelCategory" class="form-select">
-                                        <option value="">All Grade Levels</option>
-                                        <option value="Grade 1" <?= $selectedGrade == 'Grade 1' ? 'selected' : '' ?>>Grade 1</option>
-                                        <option value="Grade 2" <?= $selectedGrade == 'Grade 2' ? 'selected' : '' ?>>Grade 2</option>
-                                        <option value="Grade 3" <?= $selectedGrade == 'Grade 3' ? 'selected' : '' ?>>Grade 3</option>
-                                        <option value="Grade 4" <?= $selectedGrade == 'Grade 4' ? 'selected' : '' ?>>Grade 4</option>
-                                        <option value="Grade 5" <?= $selectedGrade == 'Grade 5' ? 'selected' : '' ?>>Grade 5</option>
-                                        <option value="Grade 6" <?= $selectedGrade == 'Grade 6' ? 'selected' : '' ?>>Grade 6</option>
-                                    </select>
+                                <div class="col-md-12">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <select id="categoryFilter" name="gradeLevelCategory" class="form-select">
+                                            <option value="">All Grade Levels</option>
+                                            <option value="Grade 1">Grade 1</option>
+                                            <option value="Grade 2">Grade 2</option>
+                                            <option value="Grade 3">Grade 3</option>
+                                            <option value="Grade 4">Grade 4</option>
+                                            <option value="Grade 5">Grade 5</option>
+                                            <option value="Grade 6">Grade 6</option>
+                                        </select>
+                                    </div>
                                 </div>
-
-                                <div class="col-md-12 d-flex align-items-center">
-                                    <label class="me-2 col-2">Section</label>
-                                    <select name="section" id="section" class="form-select">
-                                        <option value="">All Sections</option>
-                                        <?php foreach ($availableSections as $section): ?>
-                                            <option value="<?= $section["section_id"] ?>" <?= $selectedSection == $section["section_id"] ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($section["section_name"]) ?>
-                                            </option>
-                                        <?php endforeach ?>
-                                    </select>
+                                <div class="col-md-12">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <select name="section" id="section" class="form-select">
+                                            <option value="">All Sections</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                             </div>
@@ -362,62 +419,7 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
 
                         </thead>
                         <tbody id="studentsTableBody">
-                            <?php if (empty($studentsEnrolled)): ?>
-                                <tr>
-                                    <td colspan="20" style="text-align: center; height: 50px;">
-                                        <?php
-                                        if (!empty($selectedGrade) && !empty($selectedSection)) {
-                                            $sectionName = '';
-                                            foreach ($availableSections as $section) {
-                                                if ($section['section_id'] == $selectedSection) {
-                                                    $sectionName = $section['section_name'];
-                                                    break;
-                                                }
-                                            }
-                                            echo 'No students found in ' . $selectedGrade . ' - ' . $sectionName;
-                                        } elseif (!empty($selectedGrade)) {
-                                            echo 'No students found in ' . $selectedGrade;
-                                        } elseif (!empty($selectedSection)) {
-                                            $sectionName = '';
-                                            foreach ($availableSections as $section) {
-                                                if ($section['section_id'] == $selectedSection) {
-                                                    $sectionName = $section['section_name'];
-                                                    break;
-                                                }
-                                            }
-                                            echo 'No students found in ' . $sectionName;
-                                        } else {
-                                            echo 'No students found';
-                                        }
-                                        ?>
-                                    </td>
-                                </tr>
-                            <?php else: ?>
-                                <?php foreach ($studentsEnrolled as $student): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars($student['lrn'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['lname'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['fname'] ?? '') . ' ' . htmlspecialchars(substr($student["mname"] ?? '', 0, 1)) . '.' ?></td>
-                                        <td><?= $student['birthdate'] ? date('m/d/y', strtotime($student['birthdate'])) : '' ?></td>
-                                        <td><?= htmlspecialchars($student['age'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['birthplace_city'] ?? $student['birthplace'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['birthplace_province'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['mother_tongue'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['indigenous_people'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['religion'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['street'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['barangay'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['city'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['province'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['f_firstname'] ?? '') . ' ' . htmlspecialchars(substr($student["f_middlename"] ?? '', 0, 1)) . '. ' . htmlspecialchars($student["f_lastname"] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['m_firstname'] ?? '') . ' ' . htmlspecialchars(substr($student["m_middlename"] ?? '', 0, 1)) . '. ' . htmlspecialchars($student["m_lastname"] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['g_firstname'] ?? '') . ' ' . htmlspecialchars(substr($student["g_middlename"] ?? '', 0, 1)) . '. ' . htmlspecialchars($student["g_lastname"] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['g_relationship'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['p_contact'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($student['remarks'] ?? '') ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
+
                         </tbody>
                     </table>
                 </div>
@@ -425,169 +427,69 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </form>
 </main>
-<!-- filtering Js -->
+
+
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Get references to the filter elements
+    document.addEventListener('DOMContentLoaded', () => {
         const gradeFilter = document.getElementById('categoryFilter');
         const sectionFilter = document.getElementById('section');
+        const syFilter = document.getElementById('syFilter');
+        const studentsTableBody = document.getElementById('studentsTableBody');
 
-        // REMOVE ALL PREVIOUS EVENT LISTENERS FIRST (clean slate)
-        if (gradeFilter) {
-            gradeFilter.replaceWith(gradeFilter.cloneNode(true));
-        }
-        if (sectionFilter) {
-            sectionFilter.replaceWith(sectionFilter.cloneNode(true));
-        }
+        async function fetchStudents() {
+            const formData = new FormData();
+            formData.append('ajax', 'true');
+            formData.append('school_year', syFilter.value);
+            formData.append('gradeLevelCategory', gradeFilter.value);
+            formData.append('section', sectionFilter.value);
 
-        // Get fresh references after cloning
-        const freshGradeFilter = document.getElementById('categoryFilter');
-        const freshSectionFilter = document.getElementById('section');
+            studentsTableBody.innerHTML = '<tr><td colspan="20" style="text-align:center;">Loading...</td></tr>';
 
-        // Find the form that contains the filters
-        let form = null;
-        if (freshGradeFilter && freshGradeFilter.closest('form')) {
-            form = freshGradeFilter.closest('form');
-        }
+            try {
+                const res = await fetch('contents/sf1.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
 
-        // If there's no form wrapping the filters, we need to create/manage one
-        if (!form) {
-            // Check if the filters are in a form somewhere
-            const possibleForms = document.querySelectorAll('form');
-            for (let f of possibleForms) {
-                if (f.contains(freshGradeFilter) || f.contains(freshSectionFilter)) {
-                    form = f;
-                    break;
-                }
+                // Update table
+                studentsTableBody.innerHTML = data.html;
+
+                // Update section dropdown
+                const prevValue = sectionFilter.value;
+                sectionFilter.innerHTML = '<option value="">All Sections</option>';
+                data.sections.forEach(sec => {
+                    const opt = document.createElement('option');
+                    opt.value = sec.section_id;
+                    opt.textContent = sec.section_name;
+                    if (sec.section_id == prevValue) opt.selected = true;
+                    sectionFilter.appendChild(opt);
+                });
+            } catch (err) {
+                console.error(err);
+                studentsTableBody.innerHTML = '<tr><td colspan="20" style="text-align:center;">Error loading data</td></tr>';
             }
         }
 
-        // SIMPLE SOLUTION: Just submit the form when filters change
-        if (freshGradeFilter) {
-            freshGradeFilter.addEventListener('change', function() {
-                // Reset section to "All" when grade changes
-                if (freshSectionFilter) {
-                    freshSectionFilter.value = "";
-                }
+        // Event listeners
+        gradeFilter.addEventListener('change', () => {
+            sectionFilter.value = '';
+            fetchStudents();
+        });
+        sectionFilter.addEventListener('change', fetchStudents);
+        syFilter.addEventListener('change', fetchStudents);
 
-                // Submit the form
-                if (form) {
-                    form.submit();
-                } else {
-                    // If no form, redirect with parameters
-                    redirectWithFilters();
-                }
-            });
-        }
-
-        if (freshSectionFilter) {
-            freshSectionFilter.addEventListener('change', function() {
-                // Submit the form
-                if (form) {
-                    form.submit();
-                } else {
-                    // If no form, redirect with parameters
-                    redirectWithFilters();
-                }
-            });
-        }
-
-        // Helper function to redirect with filter parameters
-        function redirectWithFilters() {
-            const gradeValue = freshGradeFilter ? freshGradeFilter.value : '';
-            const sectionValue = freshSectionFilter ? freshSectionFilter.value : '';
-
-            // Get current URL
-            const url = new URL(window.location.href);
-
-            // Update or remove grade parameter
-            if (gradeValue) {
-                url.searchParams.set('gradeLevelCategory', gradeValue);
-            } else {
-                url.searchParams.delete('gradeLevelCategory');
-            }
-
-            // Update or remove section parameter
-            if (sectionValue) {
-                url.searchParams.set('section', sectionValue);
-            } else {
-                url.searchParams.delete('section');
-            }
-
-            // Remove pagination if exists
-            url.searchParams.delete('page');
-
-            // Redirect to new URL
-            window.location.href = url.toString();
-        }
-
-        // If you want dynamic section loading based on grade (AJAX)
-        // Uncomment this section if you want sections to load dynamically
-        /*
-        if (freshGradeFilter) {
-            freshGradeFilter.addEventListener('change', function() {
-                const gradeLevel = this.value;
-                
-                // Clear and disable section filter while loading
-                if (freshSectionFilter) {
-                    // Save current value
-                    const currentValue = freshSectionFilter.value;
-                    
-                    // Clear all options except first
-                    while (freshSectionFilter.options.length > 1) {
-                        freshSectionFilter.remove(1);
-                    }
-                    
-                    // Add loading option
-                    const loadingOption = new Option('Loading sections...', '', true, true);
-                    loadingOption.disabled = true;
-                    freshSectionFilter.add(loadingOption);
-                    
-                    // Disable dropdown
-                    freshSectionFilter.disabled = true;
-                    
-                    // Fetch sections for selected grade
-                    fetch(`get-sections.php?grade=${encodeURIComponent(gradeLevel)}`)
-                        .then(response => response.json())
-                        .then(sections => {
-                            // Remove loading option
-                            freshSectionFilter.remove(freshSectionFilter.options.length - 1);
-                            
-                            // Add new sections
-                            sections.forEach(section => {
-                                const option = new Option(section.section_name, section.section_id);
-                                freshSectionFilter.add(option);
-                            });
-                            
-                            // Re-enable dropdown
-                            freshSectionFilter.disabled = false;
-                            
-                            // Try to restore previous selection if it exists in new options
-                            if (currentValue) {
-                                const optionExists = Array.from(freshSectionFilter.options)
-                                    .some(opt => opt.value === currentValue);
-                                if (optionExists) {
-                                    freshSectionFilter.value = currentValue;
-                                }
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error loading sections:', error);
-                            freshSectionFilter.remove(freshSectionFilter.options.length - 1);
-                            freshSectionFilter.disabled = false;
-                        });
-                }
-            });
-        }
-        */
+        // Initial load
+        fetchStudents();
     });
-
-    // REMOVE ALL OTHER JAVASCRIPT CODE - Only keep the above
 </script>
+
+
 
 <!-- Generate report JS -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        const syFilter = document.getElementById('syFilter');
         const categoryFilter = document.getElementById('categoryFilter');
         const sectionFilter = document.getElementById('section');
         const applyFilterBtn = document.getElementById('applyFilter');
@@ -643,6 +545,7 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
 
         // Generate Report
         generateReportBtn.addEventListener('click', generatePrintableReport);
+        syFilter.addEventListener('change', );
 
         function generatePrintableReport() {
             // Get form data
@@ -667,7 +570,7 @@ $availableSections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
                 <!DOCTYPE html>
                 <html>
                 <head>
-<?= 
+                <?=
                 '<link rel="icon" href="' . base_url() . '/assets/image/logo2.png" type="image/x-icon">'
                 ?>
                     <title>School Form 1 (SF1) - School Register</title>
