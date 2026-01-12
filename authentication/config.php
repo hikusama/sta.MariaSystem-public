@@ -171,11 +171,12 @@ function db_connect()
                 indigenous_people VARCHAR(50),
                 fourPs VARCHAR(50),
                 FOREIGN KEY (student_id) REFERENCES student(student_id) ON DELETE CASCADE
-            )",
+                )",
             "CREATE TABLE IF NOT EXISTS attendance (
                 attendance_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 student_id INT(11) NOT NULL,
                 adviser_id INT(11) NOT NULL,
+                school_year_name INT(11) NOT NULL,
                 morning_attendance DATETIME NOT NULL,
                 attendance_type ENUM('Present', 'Absent', 'Late') NOT NULL,
                 afternoon_attendance DATETIME DEFAULT NULL,
@@ -271,6 +272,8 @@ function db_connect()
             "CREATE TABLE IF NOT EXISTS sf10_data (
                             id INT AUTO_INCREMENT PRIMARY KEY,
                             student_id INT,
+                            days_present INT DEFAULT 0,
+                            days_absent INT DEFAULT 0,
                             last_name VARCHAR(100),
                             first_name VARCHAR(100),
                             middle_name VARCHAR(100),
@@ -342,6 +345,10 @@ function db_connect()
                         student_id INT(11),
                         student_name VARCHAR(150),
                         lrn VARCHAR(30),
+                        days_present INT DEFAULT 0,
+                        days_absent INT DEFAULT 0,
+                        days_total INT DEFAULT 0,
+                        days_late INT DEFAULT 0,
                         age INT(11),
                         sex VARCHAR(10),
                         grade VARCHAR(20),
@@ -415,7 +422,7 @@ function db_connect()
             $pdo->exec($sql);
         }
 
- 
+
 
         $count = $pdo->query("SELECT COUNT(*) FROM admin")->fetchColumn();
         if ($count == 0) {
@@ -468,9 +475,9 @@ function db_connect()
             $stmtSF8->execute();
         }
 
- 
- 
- 
+
+
+
 
         return $pdo;
     } catch (PDOException $e) {
