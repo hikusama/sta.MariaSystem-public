@@ -72,9 +72,10 @@ if (isset($_POST['ajax'])) {
     /* ===== DATA ===== */
     $sql = "
         SELECT s.student_id, s.lrn, s.fname, s.mname, s.lname,
-               s.gradeLevel, s.sex, s.enrolment_status,e.adviser_id
+               s.gradeLevel, s.sex, s.enrolment_status,e.adviser_id,sy.school_year_name
         FROM student s
         LEFT JOIN enrolment as e ON s.student_id = e.student_id
+        LEFT JOIN school_year as sy ON sy.school_year_id = e.school_year_id
         $whereSQL
         ORDER BY s.lname, s.fname
         LIMIT ? OFFSET ?
@@ -99,6 +100,7 @@ if (isset($_POST['ajax'])) {
 
             echo "
             <tr class='student-row' 
+                     data-school_year_name='" . htmlspecialchars($row['school_year_name']) . "'
                      data-id='" . htmlspecialchars($row['student_id']) . "'
                      data-lrn='" . htmlspecialchars(strtolower($row['lrn'])) . "'
                      data-fname='" . htmlspecialchars(strtolower($row['fname'])) . "'
@@ -360,8 +362,7 @@ if (isset($_POST['ajax'])) {
             document.querySelectorAll('.student-row').forEach(row => {
                 row.onclick = () => {
                     window.location.href =
-                        "<?= BASE_FR ?>/src/UI-teacher/contents/schoolform9.php?student_id=" +
-                        row.dataset.id;
+                        `<?= BASE_FR ?>/src/UI-teacher/contents/schoolform9.php?student_id=${row.dataset.id}&school_year_name=${row.dataset.school_year_name}`;
                 };
             });
         }
