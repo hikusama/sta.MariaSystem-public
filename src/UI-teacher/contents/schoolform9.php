@@ -38,6 +38,7 @@ $sections = $sectionQuery->fetchAll(PDO::FETCH_ASSOC);
 
 
 $student_id = isset($_GET['student_id']) ? trim($_GET['student_id']) : null;
+$school_year_name = isset($_GET['school_year_name']) ? trim($_GET['school_year_name']) : null;
 $student = null;
 if ($student_id) {
   $stmt = $pdo->prepare("SELECT * FROM student WHERE student_id = ?");
@@ -82,14 +83,14 @@ if (!empty($student['student_profile']) && file_exists(__DIR__ . "/assets/image/
 }
 
 
-$saveDir = BASE_PATH .  '/sf9_files';
+$saveDir = BASE_PATH . '/sf9_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
 
 $existingSf9 = null;
 if ($student_id) {
 
-  $q = $pdo->prepare("SELECT * FROM sf9_data WHERE student_id = ? ORDER BY created_at DESC LIMIT 1");
-  $q->execute([$student_id]);
+  $q = $pdo->prepare("SELECT * FROM sf9_data WHERE student_id = ? AND school_year = ?");
+  $q->execute([$student_id,$school_year_name]);
   $existingSf9 = $q->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
@@ -134,7 +135,7 @@ if (isset($_GET['download']) && $_GET['download'] === '1') {
   }
   // file name saving as excel file based sa student info
   $fileName = build_sf9_filename($student['lrn'] ?? '', $student['fname'] ?? '', $student['lname'] ?? '', $student['gradeLevel'] ?? '');
-  $filePath = BASE_PATH .  '/sf9_files/' . $fileName;
+  $filePath = base_url() .  'sf9_files/' . $fileName;
 
   if (!file_exists($filePath)) {
     die("Error: File not found on server. Path: " . htmlspecialchars($filePath));
@@ -307,28 +308,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $savePath = $saveDir . DIRECTORY_SEPARATOR . $filename;
 
 
-  $data = [
-    'student_id' => $student_id,
-    'student_name' => $name_input,
-    'lrn' => $lrn_input,
-    'age' => ($age_input === '' ? null : $age_input),
-    'sex' => $sex_input,
-    'grade' => $grade_input,
-    'section' => $section_input,
-    'school_year' => $sy_input,
-    'teacher' => $teacher_input,
-    'guardian' => $guardian_name
-  ];
+  $data = [];
 
 
-  foreach ($months as $m) {
-    $data["days_school_{$m}"] = isset($_POST["days_school_{$m}"]) && $_POST["days_school_{$m}"] !== '' ? (int)$_POST["days_school_{$m}"] : 0;
-    $data["days_present_{$m}"] = isset($_POST["days_present_{$m}"]) && $_POST["days_present_{$m}"] !== '' ? (int)$_POST["days_present_{$m}"] : 0;
-    $data["days_absent_{$m}"] = isset($_POST["days_absent_{$m}"]) && $_POST["days_absent_{$m}"] !== '' ? (int)$_POST["days_absent_{$m}"] : 0;
-  }
 
 
-  $subjects = $_POST['subject'] ?? [];
+
   $q1 = $_POST['q1'] ?? [];
   $q2 = $_POST['q2'] ?? [];
   $q3 = $_POST['q3'] ?? [];
@@ -338,7 +323,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   for ($i = 0; $i < 15; $i++) {
     $idx = $i + 1;
-    $data["subject_{$idx}"] = isset($subjects[$i]) && $subjects[$i] !== '' ? $subjects[$i] : null;
     $data["q1_{$idx}"] = isset($q1[$i]) && $q1[$i] !== '' ? (float)$q1[$i] : null;
     $data["q2_{$idx}"] = isset($q2[$i]) && $q2[$i] !== '' ? (float)$q2[$i] : null;
     $data["q3_{$idx}"] = isset($q3[$i]) && $q3[$i] !== '' ? (float)$q3[$i] : null;
@@ -377,9 +361,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   try {
     $existingId = null;
-    if (!empty($student_id) && $grade_input !== '') {
-      $checkStmt = $pdo->prepare("SELECT id FROM sf9_data WHERE student_id = ? AND grade = ? LIMIT 1");
-      $checkStmt->execute([$student_id, $grade_input]);
+    if (!empty($student_id) && $school_year_name !== '') {
+      $checkStmt = $pdo->prepare("SELECT id FROM sf9_data WHERE student_id = ? AND school_year = ? LIMIT 1");
+      $checkStmt->execute([$student_id, $school_year_name]);
       $row = $checkStmt->fetch(PDO::FETCH_ASSOC);
       if ($row) $existingId = $row['id'];
     }
@@ -545,13 +529,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     .table-attendance input,
     .table-grades input {
-      width: 72px;
+      width: 100%;
       height: 32px;
       text-align: center;
     }
 
     .table-behavior select {
-      width: 72px;
+      width: 100%;
       height: 32px;
       text-align: center;
     }
@@ -662,45 +646,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
           <div class="mt-2">
             <label>Name</label>
-            <input type="text" class="form-control form-control-sm mb-1" name="student_name"
+            <input type="text" readonly class="form-control form-control-sm mb-1" name="student_name"
               value="<?= htmlspecialchars($_POST['student_name'] ?? getFullName($student)) ?>">
             <label>LRN</label>
-            <input type="text" class="form-control form-control-sm mb-1" name="student_lrn"
+            <input type="text" readonly class="form-control form-control-sm mb-1" name="student_lrn"
               value="<?= htmlspecialchars($_POST['student_lrn'] ?? ($student['lrn'] ?? '')) ?>">
             <label>Age</label>
-            <input type="text" class="form-control form-control-sm mb-1" name="student_age"
+            <input type="text" readonly class="form-control form-control-sm mb-1" name="student_age"
               value="<?= htmlspecialchars($_POST['student_age'] ?? ($existingSf9['age'] ?? $student['age'] ?? '')) ?>">
             <label>Sex</label>
-            <input type="text" class="form-control form-control-sm mb-1" name="student_sex"
+            <input type="text" readonly class="form-control form-control-sm mb-1" name="student_sex"
               value="<?= htmlspecialchars($_POST['student_sex'] ?? ($existingSf9['sex'] ?? $student['sex'] ?? '')) ?>">
             <label>Grade</label>
             <select name="student_grade" id="grade_level" class="form-control form-control-sm mb-1">
-              <option value="">Select Grade</option>
-              <?php foreach ($grades as $g): ?>
-                <option value="<?= htmlspecialchars($g) ?>"
-                  <?= (($existingSf9['grade'] ?? $student['gradeLevel'] ?? '') == $g) ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($g) ?>
-                </option>
-              <?php endforeach; ?>
+              <option value="<?= htmlspecialchars($student['gradeLevel']) ?>"><?= htmlspecialchars($student['gradeLevel']) ?></option>
             </select>
-
             <label>Section</label>
             <select name="student_section" id="section" class="form-control form-control-sm mb-1">
-              <option value="">Select Section</option>
-              <?php foreach ($sections as $s): ?>
-                <option value="<?= htmlspecialchars($s['section_name']) ?>"
-                  data-grade="<?= htmlspecialchars($s['section_grade_level']) ?>"
-                  <?= (($existingSf9['section'] ?? $student['section'] ?? '') == $s['section_name']) ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($s['section_name']) ?>
+                <option value="<?= htmlspecialchars($existingSf9['section']) ?>"
+                  data-grade="<?= htmlspecialchars($existingSf9['grade']) ?>"
+                  <?= (($existingSf9['section'] ?? $student['section'] ?? '') == $existingSf9['section']) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($existingSf9['section']) ?>
                 </option>
-              <?php endforeach; ?>
             </select>
-
             <label>School Year</label>
-            <input type="text" class="form-control form-control-sm mb-1" id="student_sy" name="student_sy"
+            <input type="text" readonly class="form-control form-control-sm mb-1" id="student_sy" name="student_sy"
               value="<?= htmlspecialchars($_POST['student_sy'] ?? ($existingSf9['school_year'] ?? '')) ?>">
             <label>Teacher</label>
-            <input type="text" class="form-control form-control-sm mb-1" id="student_teacher" name="student_teacher"
+            <input type="text" readonly class="form-control form-control-sm mb-1" id="student_teacher" name="student_teacher"
               value="<?= htmlspecialchars($_POST['student_teacher'] ?? ($existingSf9['teacher'] ?? '')) ?>">
             <label>Guardian</label>
             <input type="text" class="form-control form-control-sm mb-1" value="<?= htmlspecialchars($guardian_name) ?>" readonly>
@@ -754,30 +727,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <tbody>
               <tr>
                 <td class="fw-semibold text-dark">No. of School Days</td>
-                <?php foreach ($months as $m):
-                  $val = $_POST["days_school_{$m}"] ?? ($existing_attendance["days_school_{$m}"] ?? '');
+                <?php $totals = 0; foreach ($months as $m):
+                  $val = intval($existing_attendance["days_school_{$m}"] ?? '0');
+                  $totals += $val;
                 ?>
-                  <td><input type="number" name="days_school_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>"></td>
+                  <td><input readonly type="number" name="days_school_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>"></td>
                 <?php endforeach; ?>
-                <td>-</td>
+                <td><?= $totals ?></td>
               </tr>
               <tr>
                 <td class="fw-semibold text-dark">No. of Days Present</td>
-                <?php foreach ($months as $m):
-                  $val = $_POST["days_present_{$m}"] ?? ($existing_attendance["days_present_{$m}"] ?? '');
+                <?php $totalP = 0; foreach ($months as $m):
+                  $val = intval($existing_attendance["days_present_{$m}"] ?? '0');
+                  $totalP += $val;
                 ?>
-                  <td><input type="number" name="days_present_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>"></td>
+                  <td><input readonly type="number" name="days_present_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>"></td>
                 <?php endforeach; ?>
-                <td>-</td>
+                <td><?= $totalP ?></td>
               </tr>
               <tr>
                 <td class="fw-semibold text-dark">No. of Days Absent</td>
-                <?php foreach ($months as $m):
-                  $val = $_POST["days_absent_{$m}"] ?? ($existing_attendance["days_absent_{$m}"] ?? '');
+                <?php $totalA = 0; foreach ($months as $m):
+                  $val = intval($existing_attendance["days_absent_{$m}"] ?? '0');
+                  $totalA += $val;
                 ?>
-                  <td><input type="number" name="days_absent_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>" readonly></td>
+                  <td><input readonly type="number" name="days_absent_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>" readonly></td>
                 <?php endforeach; ?>
-                <td>-</td>
+                <td><?= $totalA ?></td>
               </tr>
             </tbody>
           </table>
@@ -1044,7 +1020,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             const params = new URLSearchParams(window.location.search);
             <?php if (!empty($student_id)): ?>
-              window.location.href = window.location.pathname + '?student_id=' + <?= json_encode($student_id) ?>;
+              window.location.href = window.location.pathname + '?student_id=' + <?= json_encode($student_id) ?>+'&school_year_name='<?= json_encode($school_year_name) ?>;
             <?php else: ?>
               window.location.reload();
             <?php endif; ?>
