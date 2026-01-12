@@ -7,79 +7,60 @@ if ($result['res']) {
     exit;
 }
 
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "stamariadb";
-
-// Use MySQLi for your current code
-$conn = new mysqli($servername, $username, $password, $dbname);
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
-
 // AJAX handler for search & pagination
 if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
     $search = trim($_GET['search'] ?? '');
-    $sy = trim($_GET['sy'] ?? '');
-    $page = max(1, (int)($_GET['page'] ?? 1));
+    $sy     = trim($_GET['sy'] ?? '');
+    $page   = max(1, (int)($_GET['page'] ?? 1));
     $perPage = 10;
     $offset = ($page - 1) * $perPage;
 
     // Base WHERE clauses
-    $where = ["e.adviser_id = ?"];
-    $params = [$_SESSION['user_id']];
-    $types = "i";
+    $where = ["e.adviser_id = :adviser_id"];
+    $params = [':adviser_id' => $_SESSION['user_id']];
 
-    // Filter by school year (optional)
     if ($sy) {
-        $where[] = "e.school_year_id = ?";
-        $params[] = intval($sy);
-        $types .= "i";
+        $where[] = "e.school_year_id = :sy_id";
+        $params[':sy_id'] = intval($sy);
     }
 
-    // Filter by section name (optional search)
     if ($search) {
-        $where[] = "e.section_name LIKE ?";
-        $params[] = "%" . $search . "%";
-        $types .= "s";
+        $where[] = "e.section_name LIKE :section_name";
+        $params[':section_name'] = "%" . $search . "%";
     }
 
     $whereSQL = "WHERE " . implode(" AND ", $where);
 
-    // Count total enrollments
+    // Count total rows
     $countSQL = "SELECT COUNT(*) AS total
              FROM enrolment e
              JOIN student s ON s.student_id = e.student_id
              $whereSQL";
-    $countStmt = $conn->prepare($countSQL);
-    $countStmt->bind_param($types, ...$params);
-    $countStmt->execute();
-    $totalRows = $countStmt->get_result()->fetch_assoc()['total'];
+
+    $countStmt = $pdo->prepare($countSQL);
+    $countStmt->execute($params);
+    $totalRows = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
     $totalPages = ceil($totalRows / $perPage);
 
-    // Fetch paginated enrollments
-    $sql = "SELECT e.*, s.fname, s.lname, s.gradeLevel, sy.school_year_name,sc.section_id
+    // Fetch paginated enrollments (inject LIMIT & OFFSET directly)
+    $sql = "SELECT e.*, s.fname, s.lname, s.gradeLevel, sy.school_year_name, sc.section_id
         FROM enrolment e
         JOIN student s ON s.student_id = e.student_id
         JOIN sections sc ON sc.section_name = e.section_name
         JOIN school_year sy ON sy.school_year_id = e.school_year_id
         $whereSQL
         ORDER BY e.enrolment_id DESC
-        LIMIT ? OFFSET ?";
+        LIMIT $perPage OFFSET $offset"; // <-- direct integers, no placeholders
 
-    $stmt = $conn->prepare($sql);
-    $allParams = array_merge($params, [$perPage, $offset]);
-    $allTypes = $types . "ii";
-    $stmt->bind_param($allTypes, ...$allParams);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
 
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $html = '';
-    if ($result && $result->num_rows > 0) {
+    if ($result) {
         $count = $offset + 1;
-        while ($row = $result->fetch_assoc()) {
+        foreach ($result as $row) {
             $html .= "<tr class='section-row' 
                         data-school_year='" . htmlspecialchars($row['school_year_name']) . "'
                         data-id='" . htmlspecialchars($row['section_id']) . "'
