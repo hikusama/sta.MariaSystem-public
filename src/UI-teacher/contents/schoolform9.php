@@ -721,7 +721,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
           </div>
-          <a href="javascript:history.back()" class="btn btn-secondary btn-lg">Back</a>
+          <a onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf9'" class="btn btn-secondary btn-lg">Back</a>
 
         </div>
 
