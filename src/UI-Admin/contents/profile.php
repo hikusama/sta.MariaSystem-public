@@ -8,6 +8,14 @@ if ($result['res']) {
 }
 // Use prepared statement with parameter binding
 $student_id = $_GET["student_id"] ?? '';
+$school_year_id = $_GET["school_year_id"] ?? '';
+$school_year_name = null;
+
+if ($school_year_id) {
+    $stmt = $pdo->prepare("SELECT school_year_name FROM school_year WHERE school_year_id = ?");
+    $stmt->execute([$school_year_id]);
+    $school_year_name = $stmt->fetchColumn();
+}
 $query = "SELECT student.*, 
             student.student_profile AS student_profile_img,
             users.*, stuenrolmentinfo.*, parents_info.* 
@@ -29,60 +37,56 @@ if (!empty($student_info["birthdate"])) {
 }
 
 // Fetch attendance data with accurate summary
-$attendanceData = [];
-$attendanceSummary = ['present' => 0, 'absent' => 0, 'late' => 0, 'half_day' => 0, 'half_day_late' => 0];
-$attendanceList = []; // For list view
+$attendanceSummary = [
+    'present' => 0,
+    'late' => 0,
+    'absent' => 0,
+];
 
+// Fetch totals directly from sf9_data
+if ($student_id && $school_year_name) {
+    $totalsQuery = "
+        SELECT days_present, days_late, days_absent
+        FROM sf9_data
+        WHERE student_id = :student_id
+          AND school_year = :school_year
+        LIMIT 1
+    ";
+    $stmt = $pdo->prepare($totalsQuery);
+    $stmt->execute([
+        ':student_id' => $student_id,
+        ':school_year' => $school_year_name
+    ]);
+    $totals = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($totals) {
+        $attendanceSummary['present'] = (int)$totals['days_present'];
+        $attendanceSummary['absent'] = (int)$totals['days_absent'];
+        $attendanceSummary['late'] = (int)$totals['days_late'];
+    }
+}
+
+// Optionally, fetch detailed attendance for list view
+$attendanceList = [];
 if ($student_id) {
-    $stmt = $pdo->prepare("SELECT * FROM attendance WHERE student_id = :student_id ORDER BY morning_attendance DESC");
+    $stmt = $pdo->prepare("
+        SELECT * 
+        FROM attendance 
+        WHERE student_id = :student_id 
+        ORDER BY morning_attendance DESC
+    ");
     $stmt->execute([':student_id' => $student_id]);
     $attendanceRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Organize attendance by date
     foreach ($attendanceRecords as $record) {
         $date = date('Y-m-d', strtotime($record['morning_attendance']));
-
-        // Determine daily status based on morning and afternoon
-        $morning_status = $record['attendance_type'] ?? null;
-        $afternoon_status = $record['A_attendance_type'] ?? null;
-        $summary = $record['attendance_summary'] ?? null;
-
-        $attendanceData[$date] = [
-            'morning' => $morning_status,
-            'afternoon' => $afternoon_status,
-            'summary' => $summary,
-            'recorded_at' => $record['attendance_at'] ?? null
-        ];
-
-        // For list view
         $attendanceList[] = [
             'date' => $date,
-            'morning' => $morning_status,
-            'afternoon' => $afternoon_status,
-            'summary' => $summary,
+            'morning' => $record['attendance_type'] ?? null,
+            'afternoon' => $record['A_attendance_type'] ?? null,
+            'summary' => $record['attendance_summary'] ?? null,
             'recorded_at' => $record['attendance_at'] ?? null
         ];
-
-        // Update summary counts
-        if ($summary) {
-            switch (strtolower($summary)) {
-                case 'present':
-                    $attendanceSummary['present']++;
-                    break;
-                case 'absent':
-                    $attendanceSummary['absent']++;
-                    break;
-                case 'late':
-                    $attendanceSummary['late']++;
-                    break;
-                case 'half-day':
-                    $attendanceSummary['half_day']++;
-                    break;
-                case 'half-day-late':
-                    $attendanceSummary['half_day_late']++;
-                    break;
-            }
-        }
     }
 }
 
@@ -109,11 +113,12 @@ $gradesData = [];
                     </ol>
                 </nav>
             </div>
-            <div>
+            <div class="d-flex justify-content-between align-items-center flex-wrap" style="width: 100% !important;">
                 <a href="index.php?page=contents/student"
                     class="btn btn-outline-secondary d-flex align-items-center">
                     <i class="fas fa-arrow-left me-2"></i>Back
                 </a>
+
             </div>
         </div>
     </div>
@@ -186,13 +191,7 @@ $gradesData = [];
                             <div class="col-6 mt-2">
                                 <div class="stat-card p-3 rounded-3" style="background: #fff3cd;">
                                     <small class="text-muted d-block">Late</small>
-                                    <div class="fw-bold fs-5 text-warning"><?= $attendanceSummary['late'] ?></div>
-                                </div>
-                            </div>
-                            <div class="col-6 mt-2">
-                                <div class="stat-card p-3 rounded-3" style="background: #cff4fc;">
-                                    <small class="text-muted d-block">Half Day</small>
-                                    <div class="fw-bold fs-5 text-info"><?= $attendanceSummary['half_day'] + $attendanceSummary['half_day_late'] ?></div>
+                                    <div class="fw-bold fs-5 "><?= $attendanceSummary['late'] ?></div>
                                 </div>
                             </div>
                         </div>
@@ -259,7 +258,7 @@ $gradesData = [];
             <!-- Tab Navigation -->
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body p-3">
-                    <div class="d-flex nav-tabs-custom" role="tablist">
+                    <div class="d-flex nav-tabs-custom flex-wrap gap-1" role="tablist">
                         <button class="nav-link-tab active" id="personal-tab" data-bs-toggle="tab"
                             data-bs-target="#personal-info" type="button">
                             <i class="fas fa-user-circle me-2"></i>Personal Info
@@ -272,6 +271,38 @@ $gradesData = [];
                             data-bs-target="#medical-info" type="button">
                             <i class="fas fa-heartbeat me-2"></i>Medical
                         </button>
+                        <select id="syFilter" class="form-select" style="max-width:200px;">
+                            <?php
+                            $stmt = $pdo->query("
+                        SELECT school_year_id, school_year_name, school_year_status
+                        FROM school_year
+                        ORDER BY 
+                            (school_year_status = 'Active') DESC,
+                            school_year_name DESC
+                    ");
+
+                            $defaultSelected = $school_year_id;
+
+                            if (!$defaultSelected) {
+                                // Auto-select active if nothing chosen
+                                foreach ($stmt as $row) {
+                                    if ($row['school_year_status'] === 'Active') {
+                                        $defaultSelected = $row['school_year_id'];
+                                        break;
+                                    }
+                                }
+                                $stmt->execute(); // rewind
+                            }
+
+                            foreach ($stmt as $row):
+                            ?>
+                                <option value="<?= $row['school_year_id'] ?>"
+                                    <?= ($row['school_year_id'] == $defaultSelected ? 'selected' : '') ?>>
+                                    <?= htmlspecialchars($row['school_year_name']) ?>
+                                    <?= $row['school_year_status'] === 'Active' ? ' (Active)' : '' ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -1578,10 +1609,14 @@ $gradesData = [];
 
         calculateAge();
         birthdateInput.addEventListener('change', calculateAge);
-    });
+        syFilter.addEventListener('change', (e) => {
+            window.location.href =
+                '<?= BASE_FR ?>/src/UI-Admin/index.php?page=contents/profile' +
+                '&student_id=<?= urlencode($student_id) ?>' +
+                '&school_year_id=' + e.target.value;
+        });
 
-    // BMI Calculator
-    document.addEventListener('DOMContentLoaded', function() {
+
         const weightInput = document.querySelector('input[name="weight"]');
         const heightInput = document.querySelector('input[name="height"]');
         const heightSqInput = document.querySelector('input[name="height_squared"]');

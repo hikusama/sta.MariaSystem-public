@@ -5,11 +5,16 @@ if ($result['res']) {
     header($result['uri']);
     exit;
 }
-// Use prepared statement with parameter binding
+$adviser_id = $_SESSION['user_id'];
+
+// Get student ID and school year name from GET
 $student_id = $_GET["student_id"] ?? '';
+$school_year_name = $_GET["school_year_name"] ?? '';
+
+// Fetch student info
 $query = "SELECT student.*, 
-            student.student_profile AS student_profile_img,
-            users.*, stuenrolmentinfo.*, parents_info.* 
+                 student.student_profile AS student_profile_img,
+                 users.*, stuenrolmentinfo.*, parents_info.* 
           FROM student
           LEFT JOIN users ON student.guardian_id = users.user_id
           LEFT JOIN stuenrolmentinfo ON student.student_id = stuenrolmentinfo.student_id 
@@ -19,7 +24,7 @@ $stmt = $pdo->prepare($query);
 $stmt->execute([':student_id' => $student_id]);
 $student_info = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Calculate age if birthdate exists
+// Calculate age
 $age = '';
 if (!empty($student_info["birthdate"])) {
     $birthDate = new DateTime($student_info["birthdate"]);
@@ -27,61 +32,57 @@ if (!empty($student_info["birthdate"])) {
     $age = $birthDate->diff($today)->y;
 }
 
-// Fetch attendance data with accurate summary
-$attendanceData = [];
-$attendanceSummary = ['present' => 0, 'absent' => 0, 'late' => 0, 'half_day' => 0, 'half_day_late' => 0];
-$attendanceList = []; // For list view
+// Initialize attendance summary
+$attendanceSummary = [
+    'present' => 0,
+    'late' => 0,
+    'absent' => 0,
+];
 
+// Fetch totals directly from sf9_data
+if ($student_id && $school_year_name) {
+    $totalsQuery = "
+        SELECT days_present, days_late, days_absent
+        FROM sf9_data
+        WHERE student_id = :student_id
+          AND school_year = :school_year
+        LIMIT 1
+    ";
+    $stmt = $pdo->prepare($totalsQuery);
+    $stmt->execute([
+        ':student_id' => $student_id,
+        ':school_year' => $school_year_name
+    ]);
+    $totals = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($totals) {
+        $attendanceSummary['present'] = (int)$totals['days_present'];
+        $attendanceSummary['late'] = (int)$totals['days_late'];
+        $attendanceSummary['absent'] = (int)$totals['days_absent'];
+    }
+}
+
+// Optionally, fetch detailed attendance for list view
+$attendanceList = [];
 if ($student_id) {
-    $stmt = $pdo->prepare("SELECT * FROM attendance WHERE student_id = :student_id ORDER BY morning_attendance DESC");
+    $stmt = $pdo->prepare("
+        SELECT * 
+        FROM attendance 
+        WHERE student_id = :student_id 
+        ORDER BY morning_attendance DESC
+    ");
     $stmt->execute([':student_id' => $student_id]);
     $attendanceRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Organize attendance by date
     foreach ($attendanceRecords as $record) {
         $date = date('Y-m-d', strtotime($record['morning_attendance']));
-
-        // Determine daily status based on morning and afternoon
-        $morning_status = $record['attendance_type'] ?? null;
-        $afternoon_status = $record['A_attendance_type'] ?? null;
-        $summary = $record['attendance_summary'] ?? null;
-
-        $attendanceData[$date] = [
-            'morning' => $morning_status,
-            'afternoon' => $afternoon_status,
-            'summary' => $summary,
-            'recorded_at' => $record['attendance_at'] ?? null
-        ];
-
-        // For list view
         $attendanceList[] = [
             'date' => $date,
-            'morning' => $morning_status,
-            'afternoon' => $afternoon_status,
-            'summary' => $summary,
+            'morning' => $record['attendance_type'] ?? null,
+            'afternoon' => $record['A_attendance_type'] ?? null,
+            'summary' => $record['attendance_summary'] ?? null,
             'recorded_at' => $record['attendance_at'] ?? null
         ];
-
-        // Update summary counts
-        if ($summary) {
-            switch (strtolower($summary)) {
-                case 'present':
-                    $attendanceSummary['present']++;
-                    break;
-                case 'absent':
-                    $attendanceSummary['absent']++;
-                    break;
-                case 'late':
-                    $attendanceSummary['late']++;
-                    break;
-                case 'half-day':
-                    $attendanceSummary['half_day']++;
-                    break;
-                case 'half-day-late':
-                    $attendanceSummary['half_day_late']++;
-                    break;
-            }
-        }
     }
 }
 
@@ -185,13 +186,7 @@ $gradesData = [];
                             <div class="col-6 mt-2">
                                 <div class="stat-card p-3 rounded-3" style="background: #fff3cd;">
                                     <small class="text-muted d-block">Late</small>
-                                    <div class="fw-bold fs-5 text-warning"><?= $attendanceSummary['late'] ?></div>
-                                </div>
-                            </div>
-                            <div class="col-6 mt-2">
-                                <div class="stat-card p-3 rounded-3" style="background: #cff4fc;">
-                                    <small class="text-muted d-block">Half Day</small>
-                                    <div class="fw-bold fs-5 text-info"><?= $attendanceSummary['half_day'] + $attendanceSummary['half_day_late'] ?></div>
+                                    <div class="fw-bold fs-5 "><?= $attendanceSummary['late'] ?></div>
                                 </div>
                             </div>
                         </div>
