@@ -125,7 +125,8 @@ $iddf = $activeSyId;
 
 if ($sy && $isActiveSy) {
     $systatus = 1;
-    $whereSql[] = "s.enrolment_status = 'pending'";
+    $whereSql[] = "s.enrolment_status = 'pending' OR e.school_year_id = ?";
+    $params[] = $activeSyId;
 } elseif ($sy && !$isActiveSy) {
     $systatus = 2;
     $whereSql[] = "s.student_id IN (SELECT student_id FROM enrolment WHERE school_year_id = ?)";
@@ -165,6 +166,8 @@ SELECT
     SUM(CASE WHEN s.enrolment_status IN ('rejected','dropped') THEN 1 ELSE 0 END) AS rejected
 FROM student s
 LEFT JOIN users u ON s.guardian_id = u.user_id
+LEFT JOIN enrolment e
+    ON e.student_id = s.student_id
 $whereClause
 ";
 

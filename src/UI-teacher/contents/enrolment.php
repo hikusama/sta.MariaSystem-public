@@ -571,9 +571,9 @@ $teacherFull = ($me['student_count'] ?? 0) >= 50;
                     <div class="col-md-6">
                         <label class="form-label">School Year <span class="text-danger">*</span></label>
                         <div class="form-control bg-light">
-                            <?= htmlspecialchars($systatus['school_year_name'] ?? 'Not set') ?>
+                            <?= htmlspecialchars($me['school_year_name'] ?? 'Not set') ?>
                         </div>
-                        <input type="hidden" name="schoolyear_id" value="<?= $systatus['school_year_name'] ?? '' ?>">
+                        <input type="hidden" name="schoolyear_id" value="<?= $me['school_year_id'] ?? '' ?>">
                     </div>
 
                     <div class="col-md-6">
