@@ -122,6 +122,23 @@ if ($result['res']) {
     <?php
     // Get selected month from the form
     $selected_month = isset($_POST['month']) ? $_POST['month'] : (isset($_GET['month']) ? $_GET['month'] : '');
+    
+    // Get active school year (with ID for filtering)
+    $activeSyStmt = $pdo->prepare("SELECT school_year_id, school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
+    $activeSyStmt->execute();
+    $activeSyData = $activeSyStmt->fetch(PDO::FETCH_ASSOC);
+    $defaultSyId = $activeSyData['school_year_id'] ?? 0;
+    $default_sy_name = $activeSyData['school_year_name'] ?? '';
+    
+    // Get selected school year from form (default to active if not selected)
+    $selected_sy_id = isset($_POST['school_year']) ? (int)$_POST['school_year'] : (isset($_GET['school_year']) ? (int)$_GET['school_year'] : $defaultSyId);
+    $activeSyId = $selected_sy_id; // Use selected SY for filtering
+    
+    // Fetch all school years for dropdown
+    $syStmt = $pdo->prepare("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name DESC");
+    $syStmt->execute();
+    $school_years = $syStmt->fetchAll(PDO::FETCH_ASSOC);
+    
     $month_number = 0;
 
     // Convert month name to month number
@@ -130,8 +147,6 @@ if ($result['res']) {
             'JANUARY' => 1,
             'FEBRUARY' => 2,
             'MARCH' => 3,
-            'APRIL' => 4,
-            'MAY' => 5,
             'JUNE' => 6,
             'JULY' => 7,
             'AUGUST' => 8,
@@ -146,11 +161,11 @@ if ($result['res']) {
     // Get current year for filtering
     $current_year = date('Y');
 
-    // Grade filter (for the adviser/section half)
+    // Grade filter (for the adviser/section half) - FILTERED BY ACTIVE SCHOOL YEAR
     $selected_grade = $_POST['filter_grade'] ?? $_GET['filter_grade'] ?? '';
     // fetch available grade levels to populate the filter
-    $grade_stmt = $pdo->prepare("SELECT DISTINCT Grade_level FROM enrolment WHERE enrolment_Status = 'Approved' ORDER BY Grade_level");
-    $grade_stmt->execute();
+    $grade_stmt = $pdo->prepare("SELECT DISTINCT Grade_level FROM enrolment WHERE enrolment_Status = 'Approved' AND school_year_id = ? ORDER BY Grade_level");
+    $grade_stmt->execute([$activeSyId]);
     $grade_levels = $grade_stmt->fetchAll(PDO::FETCH_COLUMN);
 
     $stmt = $pdo->prepare("SELECT * FROM sf_add_data");
@@ -216,13 +231,11 @@ if ($result['res']) {
                 <div class="col-md-4">
                     <div class="d-flex align-items-center mb-2">
                         <label class="me-2 col-4">School Year</label>
-                        <?php
-                        $stmt = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
-                        $stmt->execute();
-                        $sy = $stmt->fetch(PDO::FETCH_ASSOC);
-                        ?>
-                        <input readonly class="form-control" type="text" name="school_year_name"
-                            value="<?= $sy["school_year_name"] ?>">
+                        <select name="school_year" id="school_year" class="form-select" onchange="this.form.submit()">
+                            <?php foreach ($school_years as $sy): ?>
+                                <option value="<?= $sy['school_year_id'] ?>" <?= ($selected_sy_id == $sy['school_year_id']) ? 'selected' : '' ?>><?= htmlspecialchars($sy['school_year_name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -232,7 +245,7 @@ if ($result['res']) {
                             <select name="month" id="month_attendance" class="form-select" onchange="this.form.submit()">
                                 <option value="">Select Month</option>
                                 <?php
-                                $months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+                                $months = ['JANUARY', 'FEBRUARY', 'MARCH', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
                                 foreach ($months as $month) {
                                     $selected = ($selected_month == $month) ? 'selected' : '';
                                     echo "<option value='$month' $selected>$month</option>";
@@ -371,11 +384,15 @@ if ($result['res']) {
                         INNER JOIN users u ON e.adviser_id = u.user_id
                         INNER JOIN student st ON e.student_id = st.student_id
                         WHERE e.enrolment_status = 'Approved'
+                        AND e.school_year_id = :active_sy_id
                         AND DATE(st.enrolled_date) <= :last_day_of_month
                         AND st.enrolment_status NOT IN ('transferred_out','dropped','not_active')
                         ";
 
-                            $params = ['last_day_of_month' => $last_day_of_month];
+                            $params = [
+                                'last_day_of_month' => $last_day_of_month,
+                                'active_sy_id' => $activeSyId
+                            ];
                             if (!empty($selected_grade)) {
                                 $adviserSql .= " AND e.Grade_level = :selected_grade";
                                 $params['selected_grade'] = $selected_grade;
@@ -403,6 +420,7 @@ if ($result['res']) {
                             INNER JOIN enrolment e ON a.student_id = e.student_id
                             WHERE a.adviser_id = :adviser_id
                             AND e.Grade_level = :grade_level
+                            AND a.school_year_id = :active_sy_id
                             AND MONTH(a.morning_attendance) = :month_number
                             AND YEAR(a.morning_attendance) = :current_year
                             AND a.attendance_type = 'Present'
@@ -410,6 +428,7 @@ if ($result['res']) {
                                 $stmtAttend->execute([
                                     'adviser_id' => $adviserId,
                                     'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'month_number' => $month_number,
                                     'current_year' => $current_year
                                 ]);
@@ -424,11 +443,13 @@ if ($result['res']) {
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.adviser_id = :adviser_id
                             AND e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'not_active'
                         ");
                                 $stmtNotActivePrev->execute([
                                     'adviser_id' => $adviserId,
-                                    'grade_level' => $gradeLevel, // Fixed: changed $grade_level to $gradeLevel
+                                    'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'first_day_of_month' => $first_day_of_month
                                 ]);
                                 $notActivePrev = $stmtNotActivePrev->fetch(PDO::FETCH_ASSOC);
@@ -442,11 +463,13 @@ if ($result['res']) {
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.adviser_id = :adviser_id
                             AND e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'not_active'
                         ");
                                 $stmtNotActiveMonth->execute([
                                     'adviser_id' => $adviserId,
-                                    'grade_level' => $gradeLevel, // Fixed: changed $grade_level to $gradeLevel
+                                    'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'month_number' => $month_number,
                                     'current_year' => $current_year
                                 ]);
@@ -466,11 +489,13 @@ if ($result['res']) {
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.adviser_id = :adviser_id
                             AND e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'transferred_out'
                         ");
                                 $stmtTransOutPrev->execute([
                                     'adviser_id' => $adviserId,
-                                    'grade_level' => $gradeLevel, // Fixed: changed $grade_level to $gradeLevel
+                                    'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'first_day_of_month' => $first_day_of_month
                                 ]);
                                 $transOutPrev = $stmtTransOutPrev->fetch(PDO::FETCH_ASSOC);
@@ -484,11 +509,13 @@ if ($result['res']) {
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.adviser_id = :adviser_id
                             AND e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'transferred_out'
                         ");
                                 $stmtTransOutMonth->execute([
                                     'adviser_id' => $adviserId,
-                                    'grade_level' => $gradeLevel, // Fixed: changed $grade_level to $gradeLevel
+                                    'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'month_number' => $month_number,
                                     'current_year' => $current_year
                                 ]);
@@ -508,11 +535,13 @@ if ($result['res']) {
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.adviser_id = :adviser_id
                             AND e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'transferred_in'
                         ");
                                 $stmtTransInPrev->execute([
                                     'adviser_id' => $adviserId,
-                                    'grade_level' => $gradeLevel, // Fixed: changed $grade_level to $gradeLevel
+                                    'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'first_day_of_month' => $first_day_of_month
                                 ]);
                                 $transInPrev = $stmtTransInPrev->fetch(PDO::FETCH_ASSOC);
@@ -526,11 +555,13 @@ if ($result['res']) {
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.adviser_id = :adviser_id
                             AND e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'transferred_in'
                         ");
                                 $stmtTransInMonth->execute([
                                     'adviser_id' => $adviserId,
-                                    'grade_level' => $gradeLevel, // Fixed: changed $grade_level to $gradeLevel
+                                    'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'month_number' => $month_number,
                                     'current_year' => $current_year
                                 ]);
@@ -684,6 +715,7 @@ if ($result['res']) {
                         FROM enrolment e
                         INNER JOIN student st ON e.student_id = st.student_id
                         WHERE e.enrolment_status = 'Approved'
+                        AND e.school_year_id = :active_sy_id
                         AND DATE(st.enrolled_date) <= :last_day_of_month
                         AND st.enrolment_status NOT IN ('transferred_out','dropped','not_active')
                         GROUP BY e.Grade_level
@@ -698,7 +730,7 @@ if ($result['res']) {
                                 ELSE 999
                             END ASC
                     ");
-                            $stmt->execute(['last_day_of_month' => $last_day_of_month]);
+                            $stmt->execute(['last_day_of_month' => $last_day_of_month, 'active_sy_id' => $activeSyId]);
                             $gradeLevels = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                             if (empty($gradeLevels)) {
@@ -724,12 +756,14 @@ if ($result['res']) {
                             INNER JOIN student st ON a.student_id = st.student_id
                             INNER JOIN enrolment e ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
+                            AND a.school_year_id = :active_sy_id
                             AND MONTH(a.morning_attendance) = :month_number
                             AND YEAR(a.morning_attendance) = :current_year
                             AND a.attendance_type = 'Present'
                         ");
                                 $stmtAttend->execute([
                                     'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'month_number' => $month_number,
                                     'current_year' => $current_year
                                 ]);
@@ -763,10 +797,12 @@ if ($result['res']) {
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'dropped'
                         ");
                                 $stmtDroppedPrev->execute([
                                     'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'first_day_of_month' => $first_day_of_month
                                 ]);
                                 $droppedPrev = $stmtDroppedPrev->fetch(PDO::FETCH_ASSOC);
@@ -779,10 +815,12 @@ if ($result['res']) {
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'dropped'
                         ");
                                 $stmtDroppedMonth->execute([
                                     'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'month_number' => $month_number,
                                     'current_year' => $current_year
                                 ]);
@@ -802,10 +840,12 @@ if ($result['res']) {
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'transferred_out'
                         ");
                                 $stmtTransOutPrev->execute([
                                     'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'first_day_of_month' => $first_day_of_month
                                 ]);
                                 $transOutPrev = $stmtTransOutPrev->fetch(PDO::FETCH_ASSOC);
@@ -818,10 +858,12 @@ if ($result['res']) {
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'transferred_out'
                         ");
                                 $stmtTransOutMonth->execute([
                                     'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'month_number' => $month_number,
                                     'current_year' => $current_year
                                 ]);
@@ -841,10 +883,12 @@ if ($result['res']) {
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'transferred_in'
                         ");
                                 $stmtTransInPrev->execute([
                                     'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'first_day_of_month' => $first_day_of_month
                                 ]);
                                 $transInPrev = $stmtTransInPrev->fetch(PDO::FETCH_ASSOC);
@@ -857,10 +901,12 @@ if ($result['res']) {
                             FROM enrolment e
                             INNER JOIN student st ON e.student_id = st.student_id
                             WHERE e.Grade_level = :grade_level
+                            AND e.school_year_id = :active_sy_id
                             AND st.enrolment_status = 'transferred_in'
                         ");
                                 $stmtTransInMonth->execute([
                                     'grade_level' => $gradeLevel,
+                                    'active_sy_id' => $activeSyId,
                                     'month_number' => $month_number,
                                     'current_year' => $current_year
                                 ]);

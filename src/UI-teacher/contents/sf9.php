@@ -7,93 +7,95 @@ if ($result['res']) {
     exit;
 }
 
-$teacher_id = $_SESSION['user_id'];
-$conn = new mysqli("localhost", "root", "", "stamariadb");
-if ($conn->connect_error) die("Connection failed");
+// --- Teacher check ---
+$teacher_id = $_SESSION['user_id'] ?? null;
+if (!$teacher_id) {
+    http_response_code(403);
+    exit;
+}
 
-$perPage = 10;
-$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$offset = ($page - 1) * $perPage;
+// --- Pagination ---
+$limit = 10;
+$page = max(1, (int)($_POST['page'] ?? 1));
+$offset = ($page - 1) * $limit;
 
-/* ================= AJAX ================= */
+// --- Filters ---
+$search = trim($_POST['search'] ?? '');
+$grade  = trim($_POST['grade'] ?? '');
+$status = trim($_POST['status'] ?? '');
+$sy     = trim($_POST['school_year'] ?? '');
+
+// --- Badge map ---
+$statusMap = [
+    'active' => 'success',
+    'pending' => 'warning',
+    'not_active' => 'secondary',
+    'transferred_in' => 'info',
+    'transferred_out' => 'secondary',
+    'dropped' => 'danger',
+    'rejected' => 'danger',
+];
+
+// --- Build WHERE clause ---
+$where = ["e.adviser_id = :teacher_id"];
+$params = [':teacher_id' => $teacher_id];
+
+if ($sy) {
+    $where[] = "e.school_year_id = :sy";
+    $params[':sy'] = $sy;
+}
+
+if ($grade) {
+    $where[] = "LOWER(s.gradeLevel) = :grade";
+    $params[':grade'] = strtolower($grade);
+}
+
+if ($status) {
+    $where[] = "LOWER(s.enrolment_status) = :status";
+    $params[':status'] = strtolower($status);
+}
+
+if ($search) {
+    $where[] = "(s.fname LIKE :search OR s.lname LIKE :search OR s.lrn LIKE :search)";
+    $params[':search'] = "%$search%";
+}
+
+$whereSql = implode(" AND ", $where);
+
+// --- Count total ---
+$countSql = "SELECT COUNT(DISTINCT s.student_id)
+             FROM enrolment e
+             JOIN student s ON s.student_id = e.student_id
+             WHERE $whereSql";
+$stmtCount = $pdo->prepare($countSql);
+$stmtCount->execute($params);
+$totalRows = $stmtCount->fetchColumn();
+$totalPages = max(1, ceil($totalRows / $limit));
+
+// --- Fetch students ---
+$sql = "SELECT DISTINCT s.*, e.section_name, sy.school_year_name
+        FROM enrolment e
+        JOIN student s ON s.student_id = e.student_id
+        JOIN school_year sy ON sy.school_year_id = e.school_year_id
+        WHERE $whereSql
+        ORDER BY s.lname ASC, s.fname ASC
+        LIMIT :limit OFFSET :offset";
+
+$stmt = $pdo->prepare($sql);
+foreach ($params as $k => $v) {
+    $stmt->bindValue($k, $v);
+}
+$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->execute();
+$students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// --- AJAX ---
 if (isset($_POST['ajax'])) {
-
-    $search = trim($_POST['search'] ?? '');
-    $status = trim($_POST['status'] ?? '');
-    $sy     = trim($_POST['sy'] ?? '');
-
-    $limit = 10;
-    $page = max(1, (int)($_POST['page'] ?? 1));
-    $offset = ($page - 1) * $limit;
-
-    $where = [];
-    $params = [];
-    $types = '';
-
-    $where[] = "e.adviser_id = ?";
-    $params[] = $teacher_id;
-    $types .= 'i';
-
-    if ($sy) {
-        $where[] = "e.school_year_id = ?";
-        $params[] = $sy;
-        $types .= 'i';
-    }
-
-    if ($status && !in_array($status, ['pending', 'rejected'])) {
-        $where[] = "s.enrolment_status = ?";
-        $params[] = $status;
-        $types .= 's';
-    }
-
-    if ($search) {
-        $where[] = "(s.lrn LIKE ? OR s.fname LIKE ? OR s.mname LIKE ? OR s.lname LIKE ?)";
-        $like = "%$search%";
-        array_push($params, $like, $like, $like, $like);
-        $types .= 'ssss';
-    }
-
-    $whereSQL = "WHERE " . implode(" AND ", $where);
-
-    /* ===== COUNT ===== */
-    $countSQL = "
-        SELECT COUNT(DISTINCT s.student_id) total
-        FROM student s
-        LEFT JOIN enrolment as e ON s.student_id = e.student_id
-        $whereSQL
-    ";
-
-    $stmt = $conn->prepare($countSQL);
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $totalRows = (int)$stmt->get_result()->fetch_assoc()['total'];
-    $totalPages = ceil($totalRows / $limit);
-
-    /* ===== DATA ===== */
-    $sql = "
-        SELECT s.student_id, s.lrn, s.fname, s.mname, s.lname,
-               s.gradeLevel, s.sex, s.enrolment_status,e.adviser_id,sy.school_year_name
-        FROM student s
-        LEFT JOIN enrolment as e ON s.student_id = e.student_id
-        LEFT JOIN school_year as sy ON sy.school_year_id = e.school_year_id
-        $whereSQL
-        ORDER BY s.lname, s.fname
-        LIMIT ? OFFSET ?
-    ";
-
-    $stmt = $conn->prepare($sql);
-    $params[] = $limit;
-    $params[] = $offset;
-    $types .= 'ii';
-
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $res = $stmt->get_result();
-
     ob_start();
 
-    if ($res->num_rows) {
-        while ($row = $res->fetch_assoc()) {
+    if (!empty($students)) {
+        foreach ($students as $row) {
 
             $sexColor = strtolower($row['sex']) === 'male' ? 'info' : 'warning';
             $statusColor = $row['enrolment_status'] === 'active' ? 'success' : 'secondary';
@@ -132,36 +134,40 @@ if (isset($_POST['ajax'])) {
         <!-- pagination row -->
         <tr>
             <td colspan="7">
-                <div class="d-flex justify-content-between">
-                    <span>Page <?= $page ?> of <?= $totalPages ?></span>
-                    <div>
+                <div class="d-flex justify-content-between align-items-center pt-3">
+                    <small class="text-muted">Page <?= $page ?> of <?= $totalPages ?></small>
+                    <div class="btn-group">
                         <?php if ($page > 1): ?>
-                            <button class="btn btn-sm btn-secondary"
-                                onclick="fetchStudents(<?= $page - 1 ?>)">Prev</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="fetchStudents(<?= $page - 1 ?>)">
+                                <i class="fa-solid fa-chevron-left me-1"></i>Prev
+                            </button>
                         <?php endif; ?>
                         <?php if ($page < $totalPages): ?>
-                            <button class="btn btn-sm btn-secondary"
-                                onclick="fetchStudents(<?= $page + 1 ?>)">Next</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="fetchStudents(<?= $page + 1 ?>)">
+                                Next<i class="fa-solid fa-chevron-right ms-1"></i>
+                            </button>
                         <?php endif; ?>
                     </div>
                 </div>
             </td>
         </tr>
-
-    <?php } ?>
-    <tr>
-        <td colspan="7" class="text-center py-4">No students found</td>
-    </tr>
+    <?php
+    } else {
+    ?>
+        <tr>
+            <td colspan="7" class="text-center py-3">No students found.</td>
+        </tr>
 <?php
-
-    $html = ob_get_clean();
-
+    }
+    $rowsHtml = ob_get_clean();
     echo json_encode([
-        'html' => $html,
-        'hasData' => $res->num_rows > 0
+        'hasData' => !empty($students),
+        'html' => $rowsHtml,
+        'pagination' => ['current' => $page, 'total' => $totalPages]
     ]);
     exit;
 }
+?>
 
 ?>
 
@@ -193,49 +199,103 @@ if (isset($_POST['ajax'])) {
             border: 1px solid #dee2e6;
             border-radius: 8px;
             overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
 
         .table thead th {
-            background: #f8f9fa;
-            font-weight: 600;
+            background: linear-gradient(to bottom, #f8f9fa, #f1f3f5);
+            font-weight: 700;
+            color: #495057;
             position: sticky;
             top: 0;
             z-index: 10;
             white-space: nowrap;
+            border-bottom: 2px solid #dee2e6;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            padding: 0.75rem !important;
         }
 
-        .table tbody tr:hover {
-            background-color: rgba(0, 123, 255, .05);
+        .table tbody tr {
+            transition: all 0.15s ease;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .student-row:hover {
+            background-color: #f8f9fa;
             cursor: pointer;
+            box-shadow: inset 0 0 0 1px rgba(0, 123, 255, 0.1);
         }
 
-        .avatar-placeholder {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: #f8f9fa;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
+        .table td {
+            padding: 0.85rem 0.75rem;
+            vertical-align: middle;
         }
 
-        .empty-state {
-            padding: 3rem 1rem;
+        .badge {
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            letter-spacing: 0.3px;
         }
 
-        .empty-state i {
-            opacity: 0.5;
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
         }
 
-        #pagination button {
-            cursor: pointer;
-            margin: 0 2px;
+        .btn-primary:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+        }
+
+        .form-control, .form-select {
+            border: 1px solid #dee2e6;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .form-control::placeholder {
+            color: #adb5bd;
+            font-weight: 500;
+        }
+
+        .btn-group .btn-outline-secondary {
+            border-color: #dee2e6;
+            color: #495057;
+            transition: all 0.2s ease;
+        }
+
+        .btn-group .btn-outline-secondary:hover {
+            background-color: #f8f9fa;
+            border-color: #495057;
+            color: #212529;
         }
 
         .table-responsive {
-            overflow: auto;
-            max-height: 500px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        h4 {
+            color: #212529;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        h4 i {
+            color: #007bff;
         }
     </style>
 </head>
@@ -335,7 +395,7 @@ if (isset($_POST['ajax'])) {
             formData.append('ajax', 1);
             formData.append('search', search);
             formData.append('status', status);
-            formData.append('sy', sy);
+            formData.append('school_year', sy);
             formData.append('page', page);
 
             fetch('contents/sf9.php', {
@@ -359,7 +419,7 @@ if (isset($_POST['ajax'])) {
         }
 
         function attachRowClick() {
-            document.querySelectorAll('.student-row').forEach(row => {
+            document.querySelectorAll('tbody tr').forEach(row => {
                 row.onclick = () => {
                     window.location.href =
                         `<?= BASE_FR ?>/src/UI-teacher/contents/schoolform9.php?student_id=${row.dataset.id}&school_year_name=${row.dataset.school_year_name}`;

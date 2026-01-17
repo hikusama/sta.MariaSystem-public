@@ -94,28 +94,28 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
                                          data-grade='" . htmlspecialchars(strtolower($row['gradeLevel'])) . "'
                                          data-sex='" . htmlspecialchars(strtolower($row['sex'])) . "'
                                          data-status='" . htmlspecialchars(strtolower($row['enrolment_status'])) . "'>
-                                        <td width='15%'>
-                                            <div class='d-flex align-items-center justify-content-center'>
-                                                <div class='avatar-placeholder me-2'>
+                                        <td class='td-lrn'>
+                                            <div class='lrn-content'>
+                                                <div class='avatar-placeholder'>
                                                     <i class='fa-solid fa-id-card text-info'></i>
                                                 </div>
-                                                <div>
+                                                <div class='lrn-text'>
                                                     <strong>" . htmlspecialchars($row['lrn']) . "</strong>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td width='15%'>" . htmlspecialchars($row['fname']) . "</td>
-                                        <td width='15%'>" . htmlspecialchars($row['mname']) . "</td>
-                                        <td width='15%'>" . htmlspecialchars($row['lname']) . "</td>
-                                        <td width='10%'>
-                                            <span class='badge bg-primary'>" . htmlspecialchars($row['gradeLevel']) . "</span>
+                                        <td class='td-fname'>" . htmlspecialchars($row['fname']) . "</td>
+                                        <td class='td-mname'>" . htmlspecialchars($row['mname']) . "</td>
+                                        <td class='td-lname'>" . htmlspecialchars($row['lname']) . "</td>
+                                        <td class='td-grade'>
+                                            <span class='badge bg-primary text-truncate'>" . htmlspecialchars($row['gradeLevel']) . "</span>
                                         </td>
-                                        <td width='10%'>
+                                        <td class='td-sex'>
                                             <span class='badge bg-" . (strtolower($row['sex']) == 'male' ? 'info' : 'warning') . "'>
                                                 " . htmlspecialchars($row['sex']) . "
                                             </span>
                                         </td>
-                                        <td width='20%'>
+                                        <td class='td-status'>
                                             <span class='badge bg-" . ($row['enrolment_status'] == 'active' ? 'success' : 'secondary') . "'>
                                                 <i class='fa-solid fa-circle fa-xs me-1'></i>
                                                 " . htmlspecialchars($row['enrolment_status']) . "
@@ -154,16 +154,23 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
             font-family: "Segoe UI", sans-serif;
         }
 
-        .scroll-feedback {
-            height: 80vh;
-            overflow-y: auto;
+        .container-fluid {
+            max-width: 100%;
+            padding: 0.75rem;
             overflow-x: hidden;
         }
 
-        .table-container-wrapper {
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
             border: 1px solid #dee2e6;
             border-radius: 8px;
-            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .table {
+            margin-bottom: 0;
+            width: 100%;
         }
 
         .table thead th {
@@ -173,11 +180,35 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
             top: 0;
             z-index: 10;
             white-space: nowrap;
+            padding: 0.75rem;
         }
 
         .table tbody tr:hover {
             background-color: rgba(0, 123, 255, 0.05);
             cursor: pointer;
+        }
+
+        .table tbody td {
+            padding: 0.75rem;
+            vertical-align: middle;
+        }
+
+        /* LRN Cell Styling */
+        .lrn-content {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+        }
+
+        .lrn-text {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .lrn-text strong {
+            word-break: break-word;
+            display: block;
         }
 
         .avatar-placeholder {
@@ -189,6 +220,36 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
             align-items: center;
             justify-content: center;
             font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        /* Responsive columns */
+        .td-lrn {
+            min-width: 120px;
+        }
+
+        .td-fname {
+            min-width: 100px;
+        }
+
+        .td-mname {
+            min-width: 100px;
+        }
+
+        .td-lname {
+            min-width: 100px;
+        }
+
+        .td-grade {
+            min-width: 80px;
+        }
+
+        .td-sex {
+            min-width: 70px;
+        }
+
+        .td-status {
+            min-width: 130px;
         }
 
         .empty-state {
@@ -247,19 +308,180 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
             background: #555;
         }
 
-        @media (max-width: 768px) {
-            .scroll-feedback {
-                height: auto;
-                overflow: visible;
+        @media (max-width: 992px) {
+            .table {
+                font-size: 0.9rem;
             }
 
-            .table-responsive {
+            .table thead th,
+            .table tbody td {
+                padding: 0.6rem;
+            }
+
+            .td-lrn {
+                min-width: 100px;
+            }
+
+            .avatar-placeholder {
+                width: 32px;
+                height: 32px;
+                font-size: 18px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container-fluid {
+                padding: 0.5rem;
+            }
+
+            h4 {
+                font-size: 1.15rem;
+                margin-bottom: 1rem;
+            }
+
+            .row.mb-3 {
+                margin-bottom: 1rem !important;
+            }
+
+            .form-control-sm,
+            .form-select-sm {
+                font-size: 0.875rem;
+                padding: 0.375rem 0.75rem;
+            }
+
+            .table {
                 font-size: 0.75rem;
+            }
+
+            .table thead th,
+            .table tbody td {
+                padding: 0.4rem;
+            }
+
+            .lrn-content {
+                gap: 0.3rem;
+            }
+
+            .avatar-placeholder {
+                width: 28px;
+                height: 28px;
+                font-size: 14px;
+            }
+
+            .td-lrn {
+                min-width: 90px;
+            }
+
+            .td-fname {
+                min-width: 70px;
+            }
+
+            .td-mname {
+                min-width: 70px;
+            }
+
+            .td-lname {
+                min-width: 80px;
+            }
+
+            .td-grade {
+                min-width: 60px;
+            }
+
+            .td-sex {
+                min-width: 50px;
+            }
+
+            .td-status {
+                min-width: 100px;
             }
 
             .btn-sm {
                 padding: 0.2rem 0.4rem;
                 font-size: 0.7rem;
+            }
+
+            .badge {
+                font-size: 0.65rem;
+                padding: 0.25em 0.4em;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .container-fluid {
+                padding: 0.375rem;
+            }
+
+            h4 {
+                font-size: 1rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .form-control-sm,
+            .form-select-sm {
+                font-size: 0.8rem;
+                padding: 0.3rem 0.6rem;
+            }
+
+            .table {
+                font-size: 0.7rem;
+            }
+
+            .table thead th,
+            .table tbody td {
+                padding: 0.3rem 0.2rem;
+            }
+
+            .lrn-content {
+                gap: 0.2rem;
+            }
+
+            .avatar-placeholder {
+                width: 24px;
+                height: 24px;
+                font-size: 12px;
+            }
+
+            .lrn-text strong {
+                font-size: 0.65rem;
+            }
+
+            .td-lrn {
+                min-width: 80px;
+            }
+
+            .td-fname {
+                min-width: 60px;
+            }
+
+            .td-mname {
+                min-width: 60px;
+            }
+
+            .td-lname {
+                min-width: 70px;
+            }
+
+            .td-grade {
+                min-width: 50px;
+            }
+
+            .td-sex {
+                min-width: 45px;
+            }
+
+            .td-status {
+                min-width: 90px;
+            }
+
+            .btn-sm {
+                padding: 0.2rem 0.35rem;
+                font-size: 0.65rem;
+            }
+
+            .badge {
+                font-size: 0.6rem;
+                padding: 0.2em 0.35em;
             }
         }
     </style>
@@ -269,47 +491,49 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
     <div class="container-fluid py-3">
         <h4><i class="fa-solid fa-file-certificate me-2"></i>SF10 - Learner's Permanent Academic Record</h4>
 
-        <div class="row mb-3">
-            <div class="col-md-4">
-                <input class="form-control" id="searchInput" placeholder="Search LRN, Name...">
+        <div class="row mb-3 g-2">
+            <div class="col-12 col-md-4">
+                <input class="form-control form-control-sm" id="searchInput" placeholder="Search LRN, Name...">
             </div>
-            <div class="col-md-3">
-                <select id="statusFilter" class="form-select">
-                    <option value="">All Status</option>
+            <div class="col-6 col-md-3">
+                <select id="statusFilter" class="form-select form-select-sm">
                     <option value="active">Active</option>
                     <option value="not_active">Not Active</option>
                     <option value="transferred_in">Transferred In</option>
                     <option value="transferred_out">Transferred Out</option>
                     <option value="dropped">Dropped</option>
+                    <option value="">All Status</option>
                 </select>
             </div>
-            <div class="col-md-3">
-                <select id="syFilter" class="form-select">
-                    <option value="">All School Year</option>
+            <div class="col-6 col-md-3">
+                <select id="syFilter" class="form-select form-select-sm">
                     <?php
-                    $syq = $conn->query("SELECT school_year_id, school_year_name FROM school_year");
+                    $syq = $conn->query("SELECT school_year_id, school_year_name, school_year_status FROM school_year ORDER BY CASE WHEN school_year_status='Active' THEN 0 ELSE 1 END, school_year_name ASC");
                     while ($sy = $syq->fetch_assoc()):
+                        $isActive = $sy['school_year_status'] == 'Active' ? ' (Active)' : '';
                     ?>
-                        <option value="<?= $sy['school_year_id'] ?>"><?= $sy['school_year_name'] ?></option>
+                        <option value="<?= $sy['school_year_id'] ?>"><?= htmlspecialchars($sy['school_year_name']) . $isActive ?></option>
                     <?php endwhile; ?>
                 </select>
             </div>
         </div>
 
-        <table class="table table-bordered table-hover table-sm">
-            <thead>
-                <tr>
-                    <th>LRN</th>
-                    <th>First</th>
-                    <th>Middle</th>
-                    <th>Last</th>
-                    <th>Grade</th>
-                    <th>Sex</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="studentTable"></tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>LRN</th>
+                        <th>First</th>
+                        <th>Middle</th>
+                        <th>Last</th>
+                        <th>Grade</th>
+                        <th>Sex</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="studentTable"></tbody>
+            </table>
+        </div>
         <div id="pagination" class="text-center"></div>
     </div>
 
@@ -354,17 +578,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
                 const total = parseInt(info.dataset.total);
                 const perPage = parseInt(info.dataset.perpage);
                 const pages = Math.ceil(total / perPage);
-                pagination.innerHTML = '';
-                for (let i = 1; i <= pages; i++) {
-                    const btn = document.createElement('button');
-                    btn.className = 'btn btn-sm btn-outline-primary mx-1' + (i === page ? ' active' : '');
-                    btn.textContent = i;
-                    btn.onclick = () => {
-                        page = i;
-                        loadStudents();
-                    };
-                    pagination.appendChild(btn);
-                }
+                pagination.innerHTML = `<div class="d-flex justify-content-center align-items-center flex-wrap gap-2">
+                    <span class="text-sm">Page ${page} of ${pages}</span>
+                    <div class="d-flex gap-2">
+                        ${page > 1 ? `<button class="btn btn-sm btn-secondary" onclick="page = ${page - 1}; loadStudents();">Prev</button>` : ''}
+                        ${page < pages ? `<button class="btn btn-sm btn-secondary" onclick="page = ${page + 1}; loadStudents();">Next</button>` : ''}
+                    </div>
+                </div>`;
             }
 
             searchInput.oninput = () => {

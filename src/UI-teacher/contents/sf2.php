@@ -5,50 +5,51 @@ if ($result['res']) {
     header($result['uri']);
     exit;
 }
-// First, get section and grade level
-$stmt = $pdo->prepare("SELECT en.section_name, en.Grade_level FROM enrolment en
-    INNER JOIN users u ON en.adviser_id = u.user_id
-    WHERE u.user_id = :user_id");
+
+// Get section, grade level, school form data, and adviser info in one optimized query
+$stmt = $pdo->prepare("SELECT 
+    en.section_name, en.Grade_level,
+    sf.sf_add_data_id, sf.school_id, sf.school_name,
+    sy.school_year_id, sy.school_year_name,
+    u.user_id, u.firstname, u.lastname
+FROM enrolment en
+INNER JOIN users u ON en.adviser_id = u.user_id
+LEFT JOIN classes c ON u.user_id = c.adviser_id
+LEFT JOIN sf_add_data sf ON sf.sf_type = 'sf_8'
+LEFT JOIN school_year sy ON sy.school_year_status = 'Active'
+WHERE u.user_id = :user_id
+LIMIT 1");
 $stmt->execute(['user_id' => $user_id]);
-$getData = $stmt->fetch(PDO::FETCH_ASSOC);
-$section_name = $getData["section_name"] ?? '';
-$Grade_level = $getData["Grade_level"] ?? '';
+$data = $stmt->fetch(PDO::FETCH_ASSOC) ?? [];
 
-// Get school form data
-$stmt = $pdo->prepare("SELECT * FROM sf_add_data WHERE sf_type = 'sf_8'");
-$stmt->execute();
-$data_sf_eight = $stmt->fetch(PDO::FETCH_ASSOC);
+$section_name = $data["section_name"] ?? '';
+$Grade_level = $data["Grade_level"] ?? '';
+$data_sf_eight = ['sf_add_data_id' => $data["sf_add_data_id"] ?? '', 'school_id' => $data["school_id"] ?? '', 'school_name' => $data["school_name"] ?? ''];
+$sy = ['school_year_id' => $data["school_year_id"] ?? '', 'school_year_name' => $data["school_year_name"] ?? ''];
+$adviser_data = ['firstname' => $data["firstname"] ?? '', 'lastname' => $data["lastname"] ?? ''];
 
-// Get active school year
-$stmt = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
-$stmt->execute();
-$sy = $stmt->fetch(PDO::FETCH_ASSOC);
-
-// Get adviser data
-$stmtAdviser_data = $pdo->prepare("SELECT * FROM users
-    INNER JOIN classes ON users.user_id = classes.adviser_id
-    WHERE classes.adviser_id = :user_id");
-$stmtAdviser_data->execute(['user_id' => $user_id]);
-$adviser_data = $stmtAdviser_data->fetch(PDO::FETCH_ASSOC);
-
-// Get selected month from POST or default
+// Get selected month and school year from POST
 $selected_month = $_POST['month'] ?? '';
-$selected_year = date('Y'); // Current year or get from school year
+$selected_year = date('Y');
+$selected_school_year_id = $_POST['school_year'] ?? $sy['school_year_id'];
+
+// Get selected school year details
+$stmt_sy = $pdo->prepare("SELECT school_year_id, school_year_name, school_year_status FROM school_year WHERE school_year_id = ?");
+$stmt_sy->execute([$selected_school_year_id]);
+$selected_sy_data = $stmt_sy->fetch(PDO::FETCH_ASSOC) ?? ['school_year_name' => '', 'school_year_status' => ''];
+$is_active_sy = $selected_sy_data['school_year_status'] === 'Active';
 
 // Function to get all school days for a month
-function getSchoolDaysForMonth($month, $year)
-{
-    $month_num = date('m', strtotime($month . " 1, $year"));
-    $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month_num, $year);
-
+function getSchoolDaysForMonth($month, $year) {
+    $month_num = str_pad(date('m', strtotime($month . " 1, $year")), 2, '0', STR_PAD_LEFT);
+    $days_in_month = cal_days_in_month(CAL_GREGORIAN, (int)$month_num, $year);
     $school_days = [];
     $weekday_count = 0;
 
     for ($day = 1; $day <= $days_in_month; $day++) {
-        $date = "$year-$month_num-" . str_pad($day, 2, '0', STR_PAD_LEFT);
-        $weekday = date('w', strtotime($date)); // 0 = Sunday, 1 = Monday, etc.
+        $date = sprintf("%04d-%02d-%02d", $year, $month_num, $day);
+        $weekday = date('w', strtotime($date));
 
-        // Only Monday to Friday are school days
         if ($weekday >= 1 && $weekday <= 5) {
             $weekday_count++;
             $school_days[$day] = [
@@ -59,169 +60,154 @@ function getSchoolDaysForMonth($month, $year)
             ];
         }
     }
-
     return $school_days;
 }
 
 // Get school days if month is selected
-$school_days = [];
+$school_days = $selected_month ? getSchoolDaysForMonth($selected_month, $selected_year) : [];
+
+// Get all students for this section with attendance data in one optimized query
+$month_num = $selected_month ? str_pad(date('m', strtotime($selected_month . " 1, $selected_year")), 2, '0', STR_PAD_LEFT) : '';
+
+$stmt = $pdo->prepare("SELECT 
+    s.student_id, s.sex, s.lname, s.fname, s.mname, e.enrolment_id, e.enrolment_status,
+    a.attendance_at, a.attendance_summary
+FROM student s 
+INNER JOIN enrolment e ON s.student_id = e.student_id 
+LEFT JOIN attendance a ON s.student_id = a.student_id 
+    AND a.school_year_id = ? 
+    AND a.attendance_summary IS NOT NULL
+    " . ($selected_month ? "AND MONTH(a.attendance_at) = ? AND YEAR(a.attendance_at) = ?" : "") . "
+WHERE e.section_name = ? AND e.Grade_level = ? AND e.enrolment_Status = 'Approved'
+ORDER BY s.sex, s.lname, s.fname, s.mname");
+
+$params = [$selected_school_year_id];
 if ($selected_month) {
-    $school_days = getSchoolDaysForMonth($selected_month, $selected_year);
+    $params[] = $month_num;
+    $params[] = $selected_year;
 }
+$params[] = $section_name;
+$params[] = $Grade_level;
 
-// Get all students for this section, separated by gender
-$stmt = $pdo->prepare("SELECT s.*, e.enrolment_id 
-    FROM student s 
-    INNER JOIN enrolment e ON s.student_id = e.student_id 
-    WHERE e.section_name = :section_name 
-    AND e.Grade_level = :grade_level 
-    AND e.enrolment_Status = 'Approved'
-    ORDER BY s.sex, s.lname, s.fname, s.mname");
-$stmt->execute([
-    'section_name' => $section_name,
-    'grade_level' => $Grade_level
-]);
-$students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$stmt->execute($params);
+$attendance_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Separate male and female students
-$male_students = array_filter($students, function ($student) {
-    return strtoupper($student['sex'] ?? '') === 'MALE';
-});
-
-$female_students = array_filter($students, function ($student) {
-    return strtoupper($student['sex'] ?? '') === 'FEMALE';
-});
-
-// Get attendance data for selected month
+// Process attendance data and organize by student
+$students = [];
 $student_attendance = [];
 $student_present_counts = [];
 $student_absent_counts = [];
-if ($selected_month && !empty($students)) {
-    $student_ids = array_column($students, 'student_id');
-    $placeholders = str_repeat('?,', count($student_ids) - 1) . '?';
+$daily_totals = [];
 
-    // Convert month name to number
-    $month_num = date('m', strtotime($selected_month . " 1, $selected_year"));
-
-    // Get attendance records for the selected month
-    $stmt = $pdo->prepare("SELECT a.*, s.student_id 
-        FROM attendance a 
-        INNER JOIN student s ON a.student_id = s.student_id 
-        WHERE s.student_id IN ($placeholders) 
-        AND MONTH(a.morning_attendance) = ? 
-        AND YEAR(a.morning_attendance) = ?");
-
-    $params = array_merge($student_ids, [$month_num, $selected_year]);
-    $stmt->execute($params);
-    $attendance_records = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Organize attendance by student and date
-    foreach ($attendance_records as $record) {
-        $student_id = $record['student_id'];
-        $date = date('Y-m-d', strtotime($record['morning_attendance']));
-        $day = date('j', strtotime($record['morning_attendance']));
-        $attendance_type = $record['attendance_summary'] ?? $record['attendance_type'];
-
-        if (!isset($student_attendance[$student_id])) {
-            $student_attendance[$student_id] = [];
-        }
-
-        $student_attendance[$student_id][$day] = $attendance_type;
-
-        // Initialize counts if not set
-        if (!isset($student_present_counts[$student_id])) {
-            $student_present_counts[$student_id] = 0;
-            $student_absent_counts[$student_id] = 0;
-        }
-
-        // Count present days (including tardy/late as present)
-        if (in_array(strtoupper($attendance_type), ['PRESENT', 'LATE', 'HALF-DAY', 'HALF-DAY-LATE'])) {
-            $student_present_counts[$student_id]++;
-        } elseif (strtoupper($attendance_type) === 'ABSENT') {
-            $student_absent_counts[$student_id]++;
+foreach ($attendance_rows as $row) {
+    $sid = $row['student_id'];
+    
+    // Add student info once
+    if (!isset($students[$sid])) {
+        $students[$sid] = $row;
+        $student_absent_counts[$sid] = 0;
+        $student_present_counts[$sid] = 0;
+    }
+    
+    // Process attendance
+    if ($row['attendance_at'] && $selected_month) {
+        $day = (int)date('d', strtotime($row['attendance_at']));
+        $is_absent = $row['attendance_summary'] === 'Absent';
+        
+        $student_attendance[$sid][$day] = $is_absent ? 'ABSENT' : 'PRESENT';
+        
+        if ($is_absent) {
+            $student_absent_counts[$sid]++;
+        } else {
+            $student_present_counts[$sid]++;
         }
     }
 }
 
-// Calculate daily totals for male, female, and combined
-$daily_male_present = [];
-$daily_female_present = [];
-$daily_combined_present = [];
-$daily_male_absent = [];
-$daily_female_absent = [];
-$daily_combined_absent = [];
+// Separate by gender
+$male_students = array_filter($students, fn($s) => strtoupper($s['sex'] ?? '') === 'MALE');
+$female_students = array_filter($students, fn($s) => strtoupper($s['sex'] ?? '') === 'FEMALE');
+
+// Calculate daily and monthly totals
+$daily_male_present = $daily_male_absent = $daily_female_present = $daily_female_absent = [];
+$monthly_male_absent_total = $monthly_male_present_total = $monthly_female_absent_total = $monthly_female_present_total = 0;
 
 if ($selected_month && !empty($school_days)) {
     foreach ($school_days as $day => $day_info) {
-        $daily_male_present[$day] = 0;
-        $daily_female_present[$day] = 0;
-        $daily_male_absent[$day] = 0;
-        $daily_female_absent[$day] = 0;
+        $daily_male_absent[$day] = $daily_male_present[$day] = 0;
+        $daily_female_absent[$day] = $daily_female_present[$day] = 0;
 
-        // Count male attendance per day
         foreach ($male_students as $student) {
             $student_id = $student['student_id'];
             if (isset($student_attendance[$student_id][$day])) {
-                $attendance_type = strtoupper($student_attendance[$student_id][$day]);
-                if (in_array($attendance_type, ['PRESENT', 'LATE', 'HALF-DAY', 'HALF-DAY-LATE'])) {
-                    $daily_male_present[$day]++;
-                } elseif ($attendance_type === 'ABSENT') {
+                if ($student_attendance[$student_id][$day] === 'ABSENT') {
                     $daily_male_absent[$day]++;
+                } else {
+                    $daily_male_present[$day]++;
                 }
             }
         }
 
-        // Count female attendance per day
         foreach ($female_students as $student) {
             $student_id = $student['student_id'];
             if (isset($student_attendance[$student_id][$day])) {
-                $attendance_type = strtoupper($student_attendance[$student_id][$day]);
-                if (in_array($attendance_type, ['PRESENT', 'LATE', 'HALF-DAY', 'HALF-DAY-LATE'])) {
-                    $daily_female_present[$day]++;
-                } elseif ($attendance_type === 'ABSENT') {
+                if ($student_attendance[$student_id][$day] === 'ABSENT') {
                     $daily_female_absent[$day]++;
+                } else {
+                    $daily_female_present[$day]++;
                 }
             }
         }
-
-        // Combined totals per day
-        $daily_combined_present[$day] = $daily_male_present[$day] + $daily_female_present[$day];
-        $daily_combined_absent[$day] = $daily_male_absent[$day] + $daily_female_absent[$day];
     }
-}
+    
+    // Calculate monthly totals
+    foreach ($male_students as $student) {
+        $monthly_male_absent_total += $student_absent_counts[$student['student_id']] ?? 0;
+        $monthly_male_present_total += $student_present_counts[$student['student_id']] ?? 0;
+    }
 
-// Calculate monthly totals
-$monthly_male_absent_total = 0;
-$monthly_female_absent_total = 0;
-$monthly_combined_absent_total = 0;
-$monthly_male_present_total = 0;
-$monthly_female_present_total = 0;
-$monthly_combined_present_total = 0;
-
-// Calculate totals from student data
-foreach ($male_students as $student) {
-    $student_id = $student['student_id'];
-    $monthly_male_absent_total += $student_absent_counts[$student_id] ?? 0;
-    $monthly_male_present_total += $student_present_counts[$student_id] ?? 0;
-}
-
-foreach ($female_students as $student) {
-    $student_id = $student['student_id'];
-    $monthly_female_absent_total += $student_absent_counts[$student_id] ?? 0;
-    $monthly_female_present_total += $student_present_counts[$student_id] ?? 0;
+    foreach ($female_students as $student) {
+        $monthly_female_absent_total += $student_absent_counts[$student['student_id']] ?? 0;
+        $monthly_female_present_total += $student_present_counts[$student['student_id']] ?? 0;
+    }
 }
 
 $monthly_combined_absent_total = $monthly_male_absent_total + $monthly_female_absent_total;
 $monthly_combined_present_total = $monthly_male_present_total + $monthly_female_present_total;
-
-$count = 1;
 ?>
 
 <main>
     <form class="main-container" id="sfEight-form" style="width: 1900px;" method="POST">
-        <div class="mt-3 text-start">
-            <button type="submit" class="btn btn-danger" name="save">Save Data</button>
+        <div class="mt-3 text-start d-flex flex-wrap gap-1 justify-center align-center">
+            <?php if ($is_active_sy): ?>
+                <button type="submit" class="btn btn-danger" name="save">Save Data</button>
+            <?php endif; ?>
             <button type="button" class="btn btn-secondary" onclick="generateReport()">Generate Report</button>
+            <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px; margin-bottom: .8rem;" onchange="this.form.submit()">
+                <?php
+                $schoolYears = $pdo->query("
+                    SELECT school_year_id, school_year_name, school_year_status
+                    FROM school_year
+                    ORDER BY 
+                        CASE WHEN school_year_status = 'Active' THEN 0 ELSE 1 END,
+                        school_year_name ASC
+                ")->fetchAll(PDO::FETCH_ASSOC);
+                
+                $activeSyId = null;
+                foreach ($schoolYears as $cat) {
+                    if ($cat['school_year_status'] === 'Active' && $activeSyId === null) {
+                        $activeSyId = $cat['school_year_id'];
+                    }
+                }
+                ?>
+                <?php foreach ($schoolYears as $sy_item): ?>
+                    <option value="<?= htmlspecialchars($sy_item['school_year_id']) ?>"
+                        <?= ($sy_item['school_year_id'] == $selected_school_year_id) ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($sy_item['school_year_name']) ?>
+                        <?= $sy_item['school_year_status'] === 'Active' ? ' (Active)' : '' ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
         </div>
         <input type="hidden" name="id" value="<?= htmlspecialchars($data_sf_eight["sf_add_data_id"] ?? '') ?>">
         <div class="col-md-12 d-flex justify-content-between">
@@ -248,14 +234,14 @@ $count = 1;
                     </div>
                     <div class="col-md-3 d-flex">
                         <label class="me-2 col-4">School Year</label>
-                        <input readonly class="form-control" type="text" name="school_year_name" value="<?= htmlspecialchars($sy["school_year_name"] ?? '') ?>">
+                        <input readonly class="form-control" type="text" name="school_year_name" value="<?= htmlspecialchars($selected_sy_data["school_year_name"] ?? '') ?>">
                     </div>
                     <div class="col-md-5 ms-5 d-flex">
                         <label class="me-2 col-4">Report for the month of</label>
                         <select name="month" id="month_attendance" class="form-select" onchange="this.form.submit()">
                             <option value="">Select Month</option>
                             <?php
-                            $months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+                            $months = ['JANUARY', 'FEBRUARY', 'MARCH', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
                             foreach ($months as $month) {
                                 $selected = ($selected_month == $month) ? 'selected' : '';
                                 echo "<option value='$month' $selected>$month</option>";
@@ -296,193 +282,130 @@ $count = 1;
                             <th rowspan="3" width="20%"><strong>REMARKS</strong> (if <strong>DROPPED OUT</strong>, state reason, please refer to <br> legend number 2 <br> if <strong>TRANSFERRED IN/OUT, </strong>write the name of school)</th>
                         </tr>
                         <tr>
-                            <?php
-                            // Display dates row
-                            if ($selected_month && !empty($school_days)) {
-                                foreach ($school_days as $day => $day_info) {
-                                    echo "<th width='0.5%' class='m-0 p-0 text-center'><p>{$day}</p></th>";
-                                }
-                            } else {
-                                // Display empty cells if no month selected
-                                for ($i = 1; $i <= 25; $i++) {
-                                    echo "<th width='0.5%' class='m-0 p-0 text-center'><p></p></th>";
-                                }
-                            }
-                            ?>
+                            <?php if ($selected_month && !empty($school_days)): ?>
+                                <?php foreach ($school_days as $day => $day_info): ?>
+                                    <th width='0.5%' class='m-0 p-0 text-center'><?= $day ?></th>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php for ($i = 1; $i <= 25; $i++): ?>
+                                    <th width='0.5%' class='m-0 p-0 text-center'></th>
+                                <?php endfor; ?>
+                            <?php endif; ?>
                         </tr>
                         <tr class="text-center p-0 m-0">
-                            <?php
-                            // Display weekday abbreviations
-                            if ($selected_month && !empty($school_days)) {
-                                foreach ($school_days as $day => $day_info) {
-                                    $weekday_abbr = substr($day_info['weekday_name'], 0, 1);
-                                    echo "<th width='0.5%' class='text-center p-0 m-0'>$weekday_abbr</th>";
-                                }
-                            } else {
-                                // Display empty weekday cells if no month selected
-                                $weekdays = ['M', 'T', 'W', 'TH', 'F', 'M', 'T', 'W', 'TH', 'F', 'M', 'T', 'W', 'TH', 'F', 'M', 'T', 'W', 'TH', 'F', 'M', 'T', 'W', 'TH', 'F'];
-                                foreach ($weekdays as $abbr) {
-                                    echo "<th width='0.5%' class='text-center p-0 m-0'>$abbr</th>";
-                                }
-                            }
-                            ?>
+                            <?php if ($selected_month && !empty($school_days)): ?>
+                                <?php foreach ($school_days as $day => $day_info): ?>
+                                    <th width='0.5%' class='text-center p-0 m-0'><?= substr($day_info['weekday_name'], 0, 1) ?></th>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php $weekdays = ['M', 'T', 'W', 'TH', 'F', 'M', 'T', 'W', 'TH', 'F', 'M', 'T', 'W', 'TH', 'F', 'M', 'T', 'W', 'TH', 'F', 'M', 'T', 'W', 'TH', 'F']; ?>
+                                <?php foreach ($weekdays as $abbr): ?>
+                                    <th width='0.5%' class='text-center p-0 m-0'><?= $abbr ?></th>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                             <th width="7.5">ABSENT</th>
                             <th width="7.5">PRESENT</th>
                         </tr>
                     </thead>
 
                     <tbody style="font-size: 0.85rem;">
-                        <!-- all male -->
-                        <?php
-                        $male_count = 1;
-                        if (!empty($male_students)) {
-                            foreach ($male_students as $student) :
-                                $student_id = $student['student_id'];
-
-                                // Calculate absent count and get present count
-                                $absent_count = $student_absent_counts[$student_id] ?? 0;
-                                $present_count = $student_present_counts[$student_id] ?? 0;
-                        ?>
-                                <tr>
-                                    <td><?= $male_count++ ?></td>
-                                    <td style="text-align: left; padding-left: 10px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?= htmlspecialchars(strtoupper($student["lname"] . ', ' . $student["fname"] . ' ' . $student["mname"])) ?>">
-                                        <?= htmlspecialchars(strtoupper($student["lname"] . ', ' . $student["fname"] . ' ' . $student["mname"])) ?>
-                                    </td>
-
+                        <!-- MALE STUDENTS -->
+                        <?php $male_count = 1; ?>
+                        <?php foreach ($male_students as $student): ?>
+                            <?php $student_id = $student['student_id']; ?>
+                            <tr>
+                                <td><?= $male_count++ ?></td>
+                                <td style="text-align: left; padding-left: 10px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?= htmlspecialchars(strtoupper($student["lname"] . ', ' . $student["fname"] . ' ' . $student["mname"])) ?>">
+                                    <?= htmlspecialchars(strtoupper($student["lname"] . ', ' . $student["fname"] . ' ' . $student["mname"])) ?>
+                                </td>
+                                <?php if ($selected_month && !empty($school_days)): ?>
+                                    <?php foreach ($school_days as $day => $day_info): ?>
+                                        <td><?= (isset($student_attendance[$student_id][$day]) && $student_attendance[$student_id][$day] === 'ABSENT') ? 'X' : '' ?></td>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <?php for ($i = 1; $i <= 25; $i++): ?>
+                                        <td></td>
+                                    <?php endfor; ?>
+                                <?php endif; ?>
+                                <td><strong><?= $student_absent_counts[$student_id] ?? 0 ?></strong></td>
+                                <td><strong><?= $student_present_counts[$student_id] ?? 0 ?></strong></td>
+                                <td>
                                     <?php
-                                    // Display attendance cells for each school day
-                                    if ($selected_month && !empty($school_days)) {
-                                        foreach ($school_days as $day => $day_info) {
-                                            $attendance_status = $student_attendance[$student_id][$day] ?? '';
-                                            $is_absent = (strtoupper($attendance_status) === 'ABSENT');
-
-                                            echo '<td>';
-                                            if ($is_absent) {
-                                                echo 'X';
-                                            }
-                                            echo '</td>';
-                                        }
-                                    } else {
-                                        // Display empty cells if no month selected
-                                        for ($i = 1; $i <= 25; $i++) {
-                                            echo '<td></td>';
-                                        }
-                                    }
+                                    $status = $student['enrolment_status'] ?? '';
+                                    echo match($status) {
+                                        'dropped' => 'DROPPED OUT',
+                                        'transferred_out' => 'TRANSFERRED OUT',
+                                        'transferred_in' => 'TRANSFERRED IN',
+                                        default => ''
+                                    };
                                     ?>
-
-                                    <td><strong><?= $absent_count ?></strong></td>
-                                    <td><strong><?= $present_count ?></strong></td>
-                                    <td>
-                                        <?php
-                                        // Display remarks based on enrolment status
-                                        $status = $student['enrolment_status'] ?? '';
-                                        if ($status == 'dropped') {
-                                            echo 'DROPPED OUT';
-                                        } elseif ($status == 'transferred_out') {
-                                            echo 'TRANSFERRED OUT';
-                                        } elseif ($status == 'transferred_in') {
-                                            echo 'TRANSFERRED IN';
-                                        }
-                                        ?>
-                                    </td>
-                                </tr>
-                        <?php endforeach;
-                        } ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
 
                         <!-- MONTHLY TOTAL FOR MALE -->
                         <tr>
                             <th colspan="2">MONTHLY TOTAL (Male)</th>
-                            <?php
-                            if ($selected_month && !empty($school_days)) {
-                                foreach ($school_days as $day => $day_info) {
-                                    $absent_count = $daily_male_absent[$day] ?? 0;
-                                    $present_count = $daily_male_present[$day] ?? 0;
-                                    echo '<td><strong>' . $absent_count . '/' . $present_count . '</strong></td>';
-                                }
-                            } else {
-                                for ($i = 1; $i <= 25; $i++) {
-                                    echo '<td></td>';
-                                }
-                            }
-                            ?>
+                            <?php if ($selected_month && !empty($school_days)): ?>
+                                <?php foreach ($school_days as $day => $day_info): ?>
+                                    <td><strong><?= ($daily_male_absent[$day] ?? 0) ?>/<?= ($daily_male_present[$day] ?? 0) ?></strong></td>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php for ($i = 1; $i <= 25; $i++): ?>
+                                    <td></td>
+                                <?php endfor; ?>
+                            <?php endif; ?>
                             <td><strong><?= $monthly_male_absent_total ?></strong></td>
                             <td><strong><?= $monthly_male_present_total ?></strong></td>
                             <td></td>
                         </tr>
 
-                        <!-- all female -->
-                        <?php
-                        $female_count = 1;
-                        if (!empty($female_students)) {
-                            foreach ($female_students as $student) :
-                                $student_id = $student['student_id'];
-
-                                // Calculate absent count and get present count
-                                $absent_count = $student_absent_counts[$student_id] ?? 0;
-                                $present_count = $student_present_counts[$student_id] ?? 0;
-                        ?>
-                                <tr>
-                                    <td><?= $female_count++ ?></td>
-                                    <td style="text-align: left; padding-left: 10px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                        <?= htmlspecialchars(strtoupper($student["lname"] . ', ' . $student["fname"] . ' ' . $student["mname"])) ?>
-                                    </td>
-
+                        <!-- FEMALE STUDENTS -->
+                        <?php $female_count = 1; ?>
+                        <?php foreach ($female_students as $student): ?>
+                            <?php $student_id = $student['student_id']; ?>
+                            <tr>
+                                <td><?= $female_count++ ?></td>
+                                <td style="text-align: left; padding-left: 10px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?= htmlspecialchars(strtoupper($student["lname"] . ', ' . $student["fname"] . ' ' . $student["mname"])) ?>">
+                                    <?= htmlspecialchars(strtoupper($student["lname"] . ', ' . $student["fname"] . ' ' . $student["mname"])) ?>
+                                </td>
+                                <?php if ($selected_month && !empty($school_days)): ?>
+                                    <?php foreach ($school_days as $day => $day_info): ?>
+                                        <td><?= (isset($student_attendance[$student_id][$day]) && $student_attendance[$student_id][$day] === 'ABSENT') ? 'X' : '' ?></td>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <?php for ($i = 1; $i <= 25; $i++): ?>
+                                        <td></td>
+                                    <?php endfor; ?>
+                                <?php endif; ?>
+                                <td><strong><?= $student_absent_counts[$student_id] ?? 0 ?></strong></td>
+                                <td><strong><?= $student_present_counts[$student_id] ?? 0 ?></strong></td>
+                                <td>
                                     <?php
-                                    // Display attendance cells for each school day
-                                    if ($selected_month && !empty($school_days)) {
-                                        foreach ($school_days as $day => $day_info) {
-                                            $attendance_status = $student_attendance[$student_id][$day] ?? '';
-                                            $is_absent = (strtoupper($attendance_status) === 'ABSENT');
-
-                                            echo '<td>';
-                                            if ($is_absent) {
-                                                echo 'X';
-                                            }
-                                            echo '</td>';
-                                        }
-                                    } else {
-                                        // Display empty cells if no month selected
-                                        for ($i = 1; $i <= 25; $i++) {
-                                            echo '<td></td>';
-                                        }
-                                    }
+                                    $status = $student['enrolment_status'] ?? '';
+                                    echo match($status) {
+                                        'dropped' => 'DROPPED OUT',
+                                        'transferred_out' => 'TRANSFERRED OUT',
+                                        'transferred_in' => 'TRANSFERRED IN',
+                                        default => ''
+                                    };
                                     ?>
-
-                                    <td><strong><?= $absent_count ?></strong></td>
-                                    <td><strong><?= $present_count ?></strong></td>
-                                    <td>
-                                        <?php
-                                        // Display remarks based on enrolment status
-                                        $status = $student['enrolment_status'] ?? '';
-                                        if ($status == 'dropped') {
-                                            echo 'DROPPED OUT';
-                                        } elseif ($status == 'transferred_out') {
-                                            echo 'TRANSFERRED OUT';
-                                        } elseif ($status == 'transferred_in') {
-                                            echo 'TRANSFERRED IN';
-                                        }
-                                        ?>
-                                    </td>
-                                </tr>
-                        <?php endforeach;
-                        } ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
 
                         <!-- MONTHLY TOTAL FOR FEMALE -->
                         <tr>
                             <th colspan="2">MONTHLY TOTAL (Female)</th>
-                            <?php
-                            if ($selected_month && !empty($school_days)) {
-                                foreach ($school_days as $day => $day_info) {
-                                    $absent_count = $daily_female_absent[$day] ?? 0;
-                                    $present_count = $daily_female_present[$day] ?? 0;
-                                    echo '<td><strong>' . $absent_count . '/' . $present_count . '</strong></td>';
-                                }
-                            } else {
-                                for ($i = 1; $i <= 25; $i++) {
-                                    echo '<td></td>';
-                                }
-                            }
-                            ?>
+                            <?php if ($selected_month && !empty($school_days)): ?>
+                                <?php foreach ($school_days as $day => $day_info): ?>
+                                    <td><strong><?= ($daily_female_absent[$day] ?? 0) ?>/<?= ($daily_female_present[$day] ?? 0) ?></strong></td>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php for ($i = 1; $i <= 25; $i++): ?>
+                                    <td></td>
+                                <?php endfor; ?>
+                            <?php endif; ?>
                             <td><strong><?= $monthly_female_absent_total ?></strong></td>
                             <td><strong><?= $monthly_female_present_total ?></strong></td>
                             <td></td>
@@ -491,31 +414,25 @@ $count = 1;
                         <!-- COMBINED MONTHLY TOTAL -->
                         <tr>
                             <th colspan="2">MONTHLY TOTAL (Combined)</th>
-                            <?php
-                            if ($selected_month && !empty($school_days)) {
-                                foreach ($school_days as $day => $day_info) {
-                                    $absent_count = $daily_combined_absent[$day] ?? 0;
-                                    $present_count = $daily_combined_present[$day] ?? 0;
-                                    echo '<td><strong>' . $absent_count . '/' . $present_count . '</strong></td>';
-                                }
-                            } else {
-                                for ($i = 1; $i <= 25; $i++) {
-                                    echo '<td></td>';
-                                }
-                            }
-                            ?>
+                            <?php if ($selected_month && !empty($school_days)): ?>
+                                <?php foreach ($school_days as $day => $day_info): ?>
+                                    <td><strong><?= ($daily_male_absent[$day] + $daily_female_absent[$day] ?? 0) ?>/<?= ($daily_male_present[$day] + $daily_female_present[$day] ?? 0) ?></strong></td>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php for ($i = 1; $i <= 25; $i++): ?>
+                                    <td></td>
+                                <?php endfor; ?>
+                            <?php endif; ?>
                             <td><strong><?= $monthly_combined_absent_total ?></strong></td>
                             <td><strong><?= $monthly_combined_present_total ?></strong></td>
                             <td></td>
                         </tr>
 
-                        <?php
-                        // Show message if no students found
-                        if (empty($students)) { ?>
+                        <?php if (empty($students)): ?>
                             <tr>
                                 <td colspan="<?= count($school_days) + 5 ?>">No students found for this section.</td>
                             </tr>
-                        <?php } ?>
+                        <?php endif; ?>
 
                         <!-- SUMMARY ROWS -->
                         <tr>
@@ -697,6 +614,30 @@ $count = 1;
         opacity: 0.6;
         pointer-events: none;
     }
+
+    @media print {
+        .main-container {
+            min-width: auto !important;
+            width: 100% !important;
+            padding: 0;
+        }
+        main {
+            max-width: 100% !important;
+            padding: 0;
+        }
+        .table-responsive {
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        table {
+            font-size: 9px !important;
+        }
+        .table-bordered td,
+        .table-bordered th {
+            padding: 2px !important;
+            height: auto !important;
+        }
+    }
 </style>
 
 <script>
@@ -736,9 +677,6 @@ $count = 1;
         <!DOCTYPE html>
         <html>
         <head>
-                        <?=
-                        '<link rel="icon" href="' . base_url() . '/assets/image/logo2.png" type="image/x-icon">'
-                        ?>
             <title>Attendance Report - ${month}</title>
             <style>
                 body {
@@ -797,6 +735,24 @@ $count = 1;
                     color: #777;
                     text-align: center;
                 }
+                .no-print {
+                    text-align: center;
+                    margin-top: 20px;
+                }
+                .no-print button {
+                    padding: 10px 20px;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    margin: 0 5px;
+                }
+                .btn-print {
+                    background: #007bff;
+                }
+                .btn-close {
+                    background: #6c757d;
+                }
                 @media print {
                     body {
                         margin: 0;
@@ -805,74 +761,93 @@ $count = 1;
                     .no-print {
                         display: none !important;
                     }
+                    .report-header h1 {
+                        font-size: 16px;
+                    }
+                    .report-header h2 {
+                        font-size: 11px;
+                    }
+                    .report-info {
+                        font-size: 9px;
+                    }
+                    .summary {
+                        padding: 8px;
+                        font-size: 8px;
+                    }
+                    table {
+                        font-size: 8px;
+                    }
+                    th, td {
+                        padding: 2px;
+                    }
+                    .footer {
+                        font-size: 8px;
+                    }
                 }
             </style>
         </head>
         <body>
     `);
     
-    // Get form data
-    const gradeLevel = document.querySelector('input[name="grade_level"]').value;
-    const sectionName = document.getElementById('section_name').value;
-    const schoolYear = document.querySelector('input[name="school_year_name"]').value;
-    const schoolName = document.querySelector('input[name="school_name"]').value;
-    const schoolId = document.querySelector('input[name="school_id"]').value;
-    
-    // Add header
-    printWindow.document.write(`
-        <div class="report-header">
-            <h1>DEPARTMENT OF EDUCATION</h1>
-            <h2>School Form 2 - Daily Attendance Report of Learners</h2>
-            <div class="report-info">
-                <div>
-                    <strong>School:</strong> ${schoolName}<br>
-                    <strong>School ID:</strong> ${schoolId}<br>
-                    <strong>Month:</strong> ${month}
-                </div>
-                <div>
-                    <strong>School Year:</strong> ${schoolYear}<br>
-                    <strong>Grade Level:</strong> ${gradeLevel}<br>
-                    <strong>Section:</strong> ${sectionName}
-                </div>
-                <div>
-                    <strong>Generated:</strong> ${new Date().toLocaleDateString()}<br>
-                    <strong>Time:</strong> ${new Date().toLocaleTimeString()}
+        // Get form data
+        const gradeLevel = document.querySelector('input[name="grade_level"]').value;
+        const sectionName = document.getElementById('section_name').value;
+        const schoolYear = document.querySelector('input[name="school_year_name"]').value;
+        const schoolName = document.querySelector('input[name="school_name"]').value;
+        const schoolId = document.querySelector('input[name="school_id"]').value;
+        const currentDate = new Date();
+        
+        // Add header
+        printWindow.document.write(`
+            <div class="report-header">
+                <h1>DEPARTMENT OF EDUCATION</h1>
+                <h2>School Form 2 - Daily Attendance Report of Learners</h2>
+                <div class="report-info">
+                    <div>
+                        <strong>School:</strong> ${schoolName}<br>
+                        <strong>School ID:</strong> ${schoolId}<br>
+                        <strong>Month:</strong> ${month}
+                    </div>
+                    <div>
+                        <strong>School Year:</strong> ${schoolYear}<br>
+                        <strong>Grade Level:</strong> ${gradeLevel}<br>
+                        <strong>Section:</strong> ${sectionName}
+                    </div>
+                    <div>
+                        <strong>Generated:</strong> ${currentDate.toLocaleDateString()}<br>
+                        <strong>Time:</strong> ${currentDate.toLocaleTimeString()}
+                    </div>
                 </div>
             </div>
-        </div>
-    `);
+        `);
 
         // Add the table
         const tableHTML = document.querySelector('.table-responsive').innerHTML;
         printWindow.document.write(`
-        <div class="summary">
-            <strong>Legend:</strong> X = Absent, Blank = Present (including Late/Tardy) | 
-            <strong>Daily Totals:</strong> Absent/Present
-        </div>
-        ${tableHTML}
-    `);
+            <div class="summary">
+                <strong>Legend:</strong> X = Absent, Blank = Present (including Late/Tardy) | 
+                <strong>Daily Totals:</strong> Absent/Present
+            </div>
+            ${tableHTML}
+        `);
 
         // Add footer
         printWindow.document.write(`
-        <div class="footer">
-            <div style="margin-bottom: 10px;">
-                <strong>Department of Education - Official Attendance Report</strong><br>
-                This is a computer-generated document. Valid without signature for electronic copy.
+            <div class="footer">
+                <div style="margin-bottom: 10px;">
+                    <strong>Department of Education - Official Attendance Report</strong><br>
+                    This is a computer-generated document. Valid without signature for electronic copy.
+                </div>
+                <div>
+                    Generated on: ${currentDate.toLocaleString()} | 
+                    System Generated Report
+                </div>
             </div>
-            <div>
-                Generated on: ${new Date().toLocaleString()} | 
-                System Generated Report
+            <div class="no-print">
+                <button class="btn-print" onclick="window.print()">Print Report</button>
+                <button class="btn-close" onclick="window.close()">Close</button>
             </div>
-        </div>
-        <div class="no-print" style="text-align: center; margin-top: 20px;">
-            <button onclick="window.print()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                Print Report
-            </button>
-            <button onclick="window.close()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">
-                Close
-            </button>
-        </div>
-    `);
+        `);
 
         printWindow.document.write('</body></html>');
         printWindow.document.close();
@@ -893,27 +868,4 @@ $count = 1;
         // Focus on the print window
         printWindow.focus();
     }
-
-    // Add print button to the page
-    // document.addEventListener('DOMContentLoaded', function() {
-    //     const buttonContainer = document.querySelector('.mt-3.text-start');
-    //     if (buttonContainer) {
-    //         const printButton = document.createElement('button');
-    //         printButton.type = 'button';
-    //         printButton.className = 'btn btn-info ms-2';
-    //         printButton.innerHTML = '<i class="bi bi-printer d-none"></i> Print Report';
-    //         printButton.onclick = function() {
-    //             // Simple print function
-    //             const month = document.getElementById('month_attendance').value;
-    //             if (!month) {
-    //                 alert('Please select a month first!');
-    //                 return;
-    //             }
-
-    //             // Show print dialog
-    //             window.print();
-    //         };
-    //         buttonContainer.appendChild(printButton);
-    //     }
-    // });
 </script>
