@@ -7,18 +7,68 @@ if ($result['res']) {
     header($result['uri']);
     exit;
 }
-$studentCount = $pdo->query("SELECT COUNT(*) FROM student")->fetchColumn();
-$teacherCount = $pdo->query("SELECT COUNT(*) FROM users WHERE user_role = 'TEACHER'")->fetchColumn();
-$parentCount = $pdo->query("SELECT COUNT(*) FROM users WHERE user_role = 'PARENT'")->fetchColumn();
 
-$classroom = $pdo->query("SELECT COUNT(*) FROM classrooms")->fetchColumn();
-$sections = $pdo->query("SELECT COUNT(*) FROM sections")->fetchColumn();
-$subjects = $pdo->query("SELECT COUNT(*) FROM subjects")->fetchColumn();
-$school_year = $pdo->query("SELECT COUNT(*) FROM school_year")->fetchColumn();
+// Get selected school year from filter (null means all school years)
+$selectedSyId = isset($_GET['school_year_id']) ? (int)$_GET['school_year_id'] : null;
 
-$stmt = $pdo->prepare("SELECT school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
+// Get active school year first
+$stmt = $pdo->prepare("SELECT school_year_id, school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
 $stmt->execute();
 $activeSY = $stmt->fetch(PDO::FETCH_ASSOC);
+$activeSyId = $activeSY['school_year_id'] ?? null;
+
+// Get all school years for dropdown filter
+$stmt = $pdo->prepare("SELECT school_year_id, school_year_name, school_year_status FROM school_year ORDER BY school_year_status = 'Active' DESC, school_year_id DESC");
+$stmt->execute();
+$allSchoolYears = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Optimized single query to get all admin dashboard data (with optional school year filter)
+// If selectedSyId is null, it gets ALL data without SY filtering
+$sql = "
+SELECT 
+    COUNT(DISTINCT e.student_id) AS student_count,
+    COUNT(DISTINCT u.user_id) AS parent_count,
+    COUNT(DISTINCT t.user_id) AS teacher_count,
+    COUNT(DISTINCT c.section_id) AS section_count,
+    COUNT(DISTINCT c.class_id) AS class_count
+FROM enrolment e
+LEFT JOIN student s ON s.student_id = e.student_id
+LEFT JOIN users u ON u.user_id = s.guardian_id AND u.user_role = 'PARENT'
+LEFT JOIN classes c ON c.sy_id = e.school_year_id
+LEFT JOIN users t ON t.user_id = c.adviser_id AND t.user_role = 'TEACHER'
+";
+
+// Add WHERE clause only if specific SY is selected
+if ($selectedSyId !== null) {
+    $sql .= "WHERE e.school_year_id = ?";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$selectedSyId]);
+} else {
+    // No WHERE clause - get all data from all school years
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+}
+
+$activeSYData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// Extract counts (filtered or all)
+$studentCount = (int)($activeSYData['student_count'] ?? 0);
+$parentCount = (int)($activeSYData['parent_count'] ?? 0);
+$teacherCount = (int)($activeSYData['teacher_count'] ?? 0);
+$sections = (int)($activeSYData['section_count'] ?? 0);
+$classroom = (int)($activeSYData['class_count'] ?? 0);
+
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM subjects");
+$stmt->execute();
+$subjects = $stmt->fetchColumn();
+
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM school_year");
+$stmt->execute();
+$school_year = $stmt->fetchColumn();
+
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM classrooms");
+$stmt->execute();
+$classroom_total = $stmt->fetchColumn();
 ?>
 
 <style>
@@ -210,12 +260,31 @@ $activeSY = $stmt->fetch(PDO::FETCH_ASSOC);
                         <h1 class="h3 mb-2 text-gray-800">Welcome to School Management System</h1>
                         <p class="text-muted mb-0">Overview and analytics dashboard</p>
                     </div>
-                    <div class="sy-badge">
-                        <div class="d-flex align-items-center gap-3">
-                            <i class="fa-solid fa-calendar-alt fa-2x"></i>
-                            <div>
-                                <small class="d-block mb-1">Active School Year</small>
-                                <h4 class="mb-0 fw-bold"><?= $activeSY["school_year_name"] ?? 'No Active SY' ?></h4>
+                    <div class="d-flex align-items-center gap-3 flex-wrap qwe">
+                        <!-- School Year Filter Dropdown -->
+                        <div class="filter-container">
+                            <label for="syFilter" class="form-label mb-0 me-2">Filter by School Year:</label>
+                            <select id="syFilter" class="form-select" style="width: 250px;">
+                                <option value="" <?= ($selectedSyId === null) ? 'selected' : '' ?>>
+                                    📊 All School Years
+                                </option>
+                                <?php foreach ($allSchoolYears as $sy): ?>
+                                    <option value="<?= $sy['school_year_id'] ?>" <?= ($selectedSyId == $sy['school_year_id']) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($sy['school_year_name']) ?> 
+                                        <?php if ($sy['school_year_status'] === 'Active'): ?>
+                                            (Active)
+                                        <?php endif; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="sy-badge">
+                            <div class="d-flex align-items-center gap-3">
+                                <i class="fa-solid fa-calendar-alt fa-2x"></i>
+                                <div>
+                                    <small class="d-block mb-1">Active School Year</small>
+                                    <h4 class="mb-0 fw-bold"><?= $activeSY["school_year_name"] ?? 'No Active SY' ?></h4>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -502,6 +571,22 @@ $activeSY = $stmt->fetch(PDO::FETCH_ASSOC);
         
         // Update time every minute
         setInterval(updateTime, 60000);
+        
+        // Handle school year filter dropdown
+        document.getElementById('syFilter').addEventListener('change', function() {
+            const syId = this.value;
+            if (syId) {
+                // Redirect to current page with school_year_id parameter
+                const currentUrl = new URL(window.location);
+                currentUrl.searchParams.set('school_year_id', syId);
+                window.location.href = currentUrl.toString();
+            } else {
+                // Clear filter
+                const currentUrl = new URL(window.location);
+                currentUrl.searchParams.delete('school_year_id');
+                window.location.href = currentUrl.toString();
+            }
+        });
     });
     </script>
 </body>

@@ -3,21 +3,21 @@
     section::-webkit-scrollbar {
         width: 6px;
     }
-    
+
     section::-webkit-scrollbar-track {
         background: #f1f1f1;
         border-radius: 10px;
     }
-    
+
     section::-webkit-scrollbar-thumb {
         background: #888;
         border-radius: 10px;
     }
-    
+
     section::-webkit-scrollbar-thumb:hover {
         background: #555;
     }
-    
+
     /* Card Styling */
     .stat-card {
         border: none;
@@ -27,12 +27,12 @@
         overflow: hidden;
         position: relative;
     }
-    
+
     .stat-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
     }
-    
+
     .stat-card::before {
         content: '';
         position: absolute;
@@ -42,51 +42,51 @@
         height: 5px;
         background: linear-gradient(90deg, #4e73df, #224abe);
     }
-    
+
     .stat-card.primary::before {
         background: linear-gradient(90deg, #4e73df, #224abe);
     }
-    
+
     .stat-card.success::before {
         background: linear-gradient(90deg, #1cc88a, #13855c);
     }
-    
+
     .stat-card.info::before {
         background: linear-gradient(90deg, #36b9cc, #258391);
     }
-    
+
     .stat-card.warning::before {
         background: linear-gradient(90deg, #f6c23e, #dda20a);
     }
-    
+
     .stat-card.danger::before {
         background: linear-gradient(90deg, #e74a3b, #be2617);
     }
-    
+
     .stat-card.secondary::before {
         background: linear-gradient(90deg, #858796, #5a5c69);
     }
-    
+
     .stat-card.dark::before {
         background: linear-gradient(90deg, #5a5c69, #3a3b45);
     }
-    
+
     .stat-card.purple::before {
         background: linear-gradient(90deg, #6f42c1, #4e2a8c);
     }
-    
+
     .stat-card.orange::before {
         background: linear-gradient(90deg, #fd7e14, #c96a10);
     }
-    
+
     .stat-card.pink::before {
         background: linear-gradient(90deg, #e83e8c, #b52b6e);
     }
-    
+
     .stat-card.teal::before {
         background: linear-gradient(90deg, #20c9a6, #179b80);
     }
-    
+
     /* Icon Styling */
     .stat-icon {
         width: 60px;
@@ -98,51 +98,51 @@
         font-size: 24px;
         color: white;
     }
-    
+
     .stat-icon.primary {
         background: linear-gradient(135deg, #4e73df, #224abe);
     }
-    
+
     .stat-icon.success {
         background: linear-gradient(135deg, #1cc88a, #13855c);
     }
-    
+
     .stat-icon.info {
         background: linear-gradient(135deg, #36b9cc, #258391);
     }
-    
+
     .stat-icon.warning {
         background: linear-gradient(135deg, #f6c23e, #dda20a);
     }
-    
+
     .stat-icon.danger {
         background: linear-gradient(135deg, #e74a3b, #be2617);
     }
-    
+
     .stat-icon.secondary {
         background: linear-gradient(135deg, #858796, #5a5c69);
     }
-    
+
     .stat-icon.dark {
         background: linear-gradient(135deg, #5a5c69, #3a3b45);
     }
-    
+
     .stat-icon.purple {
         background: linear-gradient(135deg, #6f42c1, #4e2a8c);
     }
-    
+
     .stat-icon.orange {
         background: linear-gradient(135deg, #fd7e14, #c96a10);
     }
-    
+
     .stat-icon.pink {
         background: linear-gradient(135deg, #e83e8c, #b52b6e);
     }
-    
+
     .stat-icon.teal {
         background: linear-gradient(135deg, #20c9a6, #179b80);
     }
-    
+
     /* Parent Info Card */
     .parent-info-card {
         background: linear-gradient(135deg, #e83e8c 0%, #6f42c1 100%);
@@ -151,7 +151,7 @@
         padding: 20px;
         box-shadow: 0 4px 20px rgba(232, 62, 140, 0.3);
     }
-    
+
     /* School Year Badge */
     .sy-badge {
         background: linear-gradient(135deg, #e83e8c 0%, #6f42c1 100%);
@@ -160,14 +160,14 @@
         border-radius: 12px;
         box-shadow: 0 4px 15px rgba(232, 62, 140, 0.2);
     }
-    
+
     /* Section Headers */
     .section-header {
         position: relative;
         padding-left: 15px;
         margin-bottom: 25px;
     }
-    
+
     .section-header::before {
         content: '';
         position: absolute;
@@ -178,85 +178,152 @@
         background: linear-gradient(180deg, #e83e8c, #6f42c1);
         border-radius: 2px;
     }
-    
+
     /* Attendance Progress */
     .attendance-progress {
         height: 8px;
         border-radius: 4px;
         overflow: hidden;
     }
-    
+
     /* Responsive Adjustments */
     @media (max-width: 768px) {
         .stat-card {
             margin-bottom: 20px;
         }
-        
+
         .sy-badge {
             padding: 12px 20px;
         }
     }
-    
+
     /* Animation */
     @keyframes fadeInUp {
         from {
             opacity: 0;
             transform: translateY(20px);
         }
+
         to {
             opacity: 1;
             transform: translateY(0);
         }
     }
-    
+
     .animate-card {
         animation: fadeInUp 0.6s ease-out forwards;
         opacity: 0;
     }
-    
-    .animate-card:nth-child(1) { animation-delay: 0.1s; }
-    .animate-card:nth-child(2) { animation-delay: 0.2s; }
-    .animate-card:nth-child(3) { animation-delay: 0.3s; }
-    .animate-card:nth-child(4) { animation-delay: 0.4s; }
-    
+
+    .animate-card:nth-child(1) {
+        animation-delay: 0.1s;
+    }
+
+    .animate-card:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .animate-card:nth-child(3) {
+        animation-delay: 0.3s;
+    }
+
+    .animate-card:nth-child(4) {
+        animation-delay: 0.4s;
+    }
+
     /* Children List */
     .child-item {
         border-left: 4px solid #e83e8c;
         transition: all 0.3s ease;
     }
-    
+
     .child-item:hover {
         transform: translateX(5px);
         background: #f8f9fa;
     }
+
+    .card-body {
+        display: flex;
+        flex-direction: column;
+    }
+
+
 </style>
 <?php
-      $studentCount = $pdo->query("SELECT COUNT(*) FROM student WHERE student.guardian_id = '$user_id' AND enrolment_status = 'active'")->fetchColumn();
-      $teacherCount = $pdo->query("SELECT COUNT(*) FROM users WHERE user_role = 'TEACHER'")->fetchColumn();
-      $parentCount = $pdo->query("SELECT COUNT(*) FROM users WHERE user_role = 'PARENT'")->fetchColumn();
-      $PresentCounts = $pdo->query("SELECT COUNT(*) FROM attendance 
-      INNER JOIN student ON attendance.student_id = student.student_id
-      WHERE student.guardian_id = '$user_id' AND attendance.attendance_type = 'Present'")->fetchColumn();
-      $AbsentCounts = $pdo->query("SELECT COUNT(*) FROM attendance 
-      INNER JOIN student ON attendance.student_id = student.student_id
-      WHERE student.guardian_id = '$user_id' AND attendance.attendance_type = 'Absent'")->fetchColumn();
-      $LateCounts = $pdo->query("SELECT COUNT(*) FROM attendance 
-      INNER JOIN student ON attendance.student_id = student.student_id
-      WHERE student.guardian_id = '$user_id' AND attendance.attendance_type = 'Late'")->fetchColumn();
+require_once __DIR__ . '/../../tupperware.php';
+$result = checkURI('parent', 1);
+if ($result['res']) {
+    header($result['uri']);
+    exit;
+}
 
-      $stmt = $pdo->prepare("SELECT section_name, grade_level FROM classes WHERE adviser_id = :user_id");
-        $stmt->execute([':user_id' => $user_id]);
-        $sectionName = $stmt->fetch(PDO::FETCH_ASSOC);
+// Get selected school year from filter (null means all school years)
+$selectedSyId = isset($_GET['school_year_id']) ? (int)$_GET['school_year_id'] : null;
 
+// Get active school year first
+$stmt = $pdo->prepare("SELECT school_year_id, school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
+$stmt->execute();
+$activeSY = $stmt->fetch(PDO::FETCH_ASSOC);
+$activeSyId = $activeSY['school_year_id'] ?? null;
 
-      $stmt = $pdo->prepare("SELECT school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
-      $stmt->execute();
-      $activeSY = $stmt->fetch(PDO::FETCH_ASSOC);
-   ?>
+// Get all school years for dropdown filter
+$stmt = $pdo->prepare("SELECT school_year_id, school_year_name, school_year_status FROM school_year ORDER BY school_year_status = 'Active' DESC, school_year_id DESC");
+$stmt->execute();
+$allSchoolYears = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Optimized single query to get all parent dashboard data (with optional school year filter)
+$sql = "
+SELECT 
+    COUNT(DISTINCT e.student_id) AS student_count,
+    SUM(CASE WHEN a.attendance_summary = 'Present' THEN 1 ELSE 0 END) AS present_count,
+    SUM(CASE WHEN a.attendance_summary = 'Absent' THEN 1 ELSE 0 END) AS absent_count,
+    SUM(CASE WHEN a.attendance_summary = 'Late' THEN 1 ELSE 0 END) AS late_count
+FROM enrolment e
+LEFT JOIN student s 
+    ON s.student_id = e.student_id
+    AND s.guardian_id = ?
+    AND s.enrolment_status = 'active'
+LEFT JOIN attendance a 
+    ON a.student_id = e.student_id
+WHERE s.student_id IS NOT NULL
+";
+
+// Add school year filter if selected
+if ($selectedSyId !== null) {
+    $sql .= " AND e.school_year_id = ?";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$user_id, $selectedSyId]);
+} else {
+    // No SY filter - get all data from all school years
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$user_id]);
+}
+
+$data = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// Extract data from optimized query
+$activeSY = $activeSY ?? ['school_year_id' => null, 'school_year_name' => 'No Active SY'];
+$studentCount = (int)($data['student_count'] ?? 0);
+$PresentCounts = (int)($data['present_count'] ?? 0);
+$AbsentCounts = (int)($data['absent_count'] ?? 0);
+$LateCounts = (int)($data['late_count'] ?? 0);
+
+// Get system-wide counts (all users)
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE user_role = 'TEACHER'");
+$stmt->execute();
+$teacherCount = $stmt->fetchColumn();
+
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE user_role = 'PARENT'");
+$stmt->execute();
+$parentCount = $stmt->fetchColumn();
+
+// Get section info (placeholder - parents may not have a direct section)
+$sectionName = null;
+?>
 
 <body class="bg-light">
     <section class="container-fluid py-4" style="max-height: 85vh; overflow-y: auto;">
-        
+
         <!-- Welcome Header with Parent Info -->
         <div class="row mb-4">
             <div class="col-12">
@@ -267,19 +334,38 @@
                             Monitoring your children's school performance
                         </p>
                     </div>
-                    <div class="sy-badge">
-                        <div class="d-flex align-items-center gap-3">
-                            <i class="fa-solid fa-calendar-alt fa-2x"></i>
-                            <div>
-                                <small class="d-block mb-1">Active School Year</small>
-                                <h4 class="mb-0 fw-bold"><?= $activeSY["school_year_name"] ?? 'No Active SY' ?></h4>
+                    <div class="d-flex align-items-center gap-3 flex-wrap qwe">
+                        <!-- School Year Filter Dropdown -->
+                        <div class="filter-container">
+                            <label for="syFilter" class="form-label mb-0 me-2">Filter by SY:</label>
+                            <select id="syFilter" class="form-select" style="width: 220px;">
+                                <option value="" <?= ($selectedSyId === null) ? 'selected' : '' ?>>
+                                    📊 All School Years
+                                </option>
+                                <?php foreach ($allSchoolYears as $sy): ?>
+                                    <option value="<?= $sy['school_year_id'] ?>" <?= ($selectedSyId == $sy['school_year_id']) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($sy['school_year_name']) ?> 
+                                        <?php if ($sy['school_year_status'] === 'Active'): ?>
+                                            (Active)
+                                        <?php endif; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="sy-badge">
+                            <div class="d-flex align-items-center gap-3">
+                                <i class="fa-solid fa-calendar-alt fa-2x"></i>
+                                <div>
+                                    <small class="d-block mb-1">Active School Year</small>
+                                    <h4 class="mb-0 fw-bold"><?= $activeSY["school_year_name"] ?? 'No Active SY' ?></h4>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        
+
         <!-- Parent Information Card -->
         <div class="row mb-4 animate-card">
             <div class="col-12">
@@ -312,58 +398,58 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Children Overview -->
         <?php if (!empty($children)): ?>
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="section-header">
-                    <h2 class="h4 text-gray-800 mb-0">My Children</h2>
-                    <p class="text-muted">Overview of your children's status</p>
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="section-header">
+                        <h2 class="h4 text-gray-800 mb-0">My Children</h2>
+                        <p class="text-muted">Overview of your children's status</p>
+                    </div>
                 </div>
-            </div>
-            
-            <?php foreach ($children as $child): ?>
-            <div class="col-lg-6 mb-3 animate-card">
-                <div class="card border-0 shadow h-100">
-                    <div class="card-body">
-                        <div class="d-flex align-items-start gap-3">
-                            <div class="stat-icon pink">
-                                <i class="fa-solid fa-child"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h5 class="card-title mb-1">
-                                    <?= htmlspecialchars($child['firstname'] . ' ' . ($child['middlename'] ? $child['middlename'][0] . '. ' : '') . $child['lastname']) ?>
-                                </h5>
-                                <p class="text-muted mb-2">
-                                    <?php if ($child['section_name']): ?>
-                                        <?= htmlspecialchars($child['grade_level']) ?> - <?= htmlspecialchars($child['section_name']) ?>
-                                    <?php else: ?>
-                                        Not yet assigned to a class
-                                    <?php endif; ?>
-                                </p>
-                                <div class="d-flex gap-3">
-                                    <small class="text-muted">
-                                        <i class="fa-solid fa-id-card me-1"></i>
-                                        LRN: <?= htmlspecialchars($child['lrn']) ?>
-                                    </small>
-                                    <small class="text-muted">
-                                        <i class="fa-solid fa-user-graduate me-1"></i>
-                                        ID: <?= htmlspecialchars($child['student_id']) ?>
-                                    </small>
+
+                <?php foreach ($children as $child): ?>
+                    <div class="col-lg-6 mb-3 animate-card">
+                        <div class="card border-0 shadow h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="stat-icon pink">
+                                        <i class="fa-solid fa-child"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h5 class="card-title mb-1">
+                                            <?= htmlspecialchars($child['firstname'] . ' ' . ($child['middlename'] ? $child['middlename'][0] . '. ' : '') . $child['lastname']) ?>
+                                        </h5>
+                                        <p class="text-muted mb-2">
+                                            <?php if ($child['section_name']): ?>
+                                                <?= htmlspecialchars($child['grade_level']) ?> - <?= htmlspecialchars($child['section_name']) ?>
+                                            <?php else: ?>
+                                                Not yet assigned to a class
+                                            <?php endif; ?>
+                                        </p>
+                                        <div class="d-flex gap-3">
+                                            <small class="text-muted">
+                                                <i class="fa-solid fa-id-card me-1"></i>
+                                                LRN: <?= htmlspecialchars($child['lrn']) ?>
+                                            </small>
+                                            <small class="text-muted">
+                                                <i class="fa-solid fa-user-graduate me-1"></i>
+                                                ID: <?= htmlspecialchars($child['student_id']) ?>
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-success">Active</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="text-end">
-                                <span class="badge bg-success">Active</span>
                             </div>
                         </div>
                     </div>
-                </div>
+                <?php endforeach; ?>
             </div>
-            <?php endforeach; ?>
-        </div>
         <?php endif; ?>
-        
+
         <!-- Attendance Summary -->
         <div class="row mb-4">
             <div class="col-12">
@@ -372,7 +458,7 @@
                     <p class="text-muted">Overall attendance performance</p>
                 </div>
             </div>
-            
+
             <!-- Total Children Card -->
             <div class="col-xl-3 col-md-6 mb-4 animate-card">
                 <div class="stat-card card border-0 shadow h-100 py-2 pink">
@@ -394,7 +480,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Present Days Card -->
             <div class="col-xl-3 col-md-6 mb-4 animate-card">
                 <div class="stat-card card border-0 shadow h-100 py-2 success">
@@ -412,8 +498,8 @@
                                 <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format(round($PresentCounts / 2)) ?></div>
                                 <div class="attendance-progress bg-light mt-2">
                                     <?php if ($studentCount > 0 && $PresentCounts > 0): ?>
-                                    <?php $avgPresent = round(($PresentCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>
-                                    <div class="bg-success" style="width: <?= min(100, $avgPresent) ?>%; height: 100%;"></div>
+                                        <?php $avgPresent = round(($PresentCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>
+                                        <div class="bg-success" style="width: <?= min(100, $avgPresent) ?>%; height: 100%;"></div>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -421,7 +507,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Absent Days Card -->
             <div class="col-xl-3 col-md-6 mb-4 animate-card">
                 <div class="stat-card card border-0 shadow h-100 py-2 danger">
@@ -439,8 +525,8 @@
                                 <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format(round($AbsentCounts / 2)) ?></div>
                                 <div class="attendance-progress bg-light mt-2">
                                     <?php if ($studentCount > 0 && $AbsentCounts > 0): ?>
-                                    <?php $avgAbsent = round(($AbsentCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>
-                                    <div class="bg-danger" style="width: <?= min(100, $avgAbsent) ?>%; height: 100%;"></div>
+                                        <?php $avgAbsent = round(($AbsentCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>
+                                        <div class="bg-danger" style="width: <?= min(100, $avgAbsent) ?>%; height: 100%;"></div>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -448,7 +534,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Tardiness Card -->
             <div class="col-xl-3 col-md-6 mb-4 animate-card">
                 <div class="stat-card card border-0 shadow h-100 py-2 warning">
@@ -466,8 +552,8 @@
                                 <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format(round($LateCounts / 2)) ?></div>
                                 <div class="attendance-progress bg-light mt-2">
                                     <?php if ($studentCount > 0 && $LateCounts > 0): ?>
-                                    <?php $avgLate = round(($LateCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>
-                                    <div class="bg-warning" style="width: <?= min(100, $avgLate) ?>%; height: 100%;"></div>
+                                        <?php $avgLate = round(($LateCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>
+                                        <div class="bg-warning" style="width: <?= min(100, $avgLate) ?>%; height: 100%;"></div>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -476,7 +562,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Detailed Statistics -->
         <div class="row mb-5">
             <div class="col-lg-12 mb-4">
@@ -496,14 +582,14 @@
                                         <div class="d-flex justify-content-between align-items-center">
                                             <span class="h5 mb-0"><?= number_format(round($PresentCounts / 2)) ?></span>
                                             <?php if (($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) > 0): ?>
-                                            <span class="badge bg-success">
-                                                <?= round(($PresentCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>%
-                                            </span>
+                                                <span class="badge bg-success">
+                                                    <?= round(($PresentCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>%
+                                                </span>
                                             <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="d-flex align-items-center mb-4">
                                     <div class="me-3">
                                         <div class="p-3 rounded bg-danger bg-opacity-10">
@@ -515,15 +601,15 @@
                                         <div class="d-flex justify-content-between align-items-center">
                                             <span class="h5 mb-0"><?= number_format(round($AbsentCounts / 2)) ?></span>
                                             <?php if (($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) > 0): ?>
-                                            <span class="badge bg-danger">
-                                                <?= round(($AbsentCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>%
-                                            </span>
+                                                <span class="badge bg-danger">
+                                                    <?= round(($AbsentCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>%
+                                                </span>
                                             <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center mb-4">
                                     <div class="me-3">
@@ -536,14 +622,14 @@
                                         <div class="d-flex justify-content-between align-items-center">
                                             <span class="h5 mb-0"><?= number_format(round($LateCounts / 2)) ?></span>
                                             <?php if (($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) > 0): ?>
-                                            <span class="badge bg-warning">
-                                                <?= round(($LateCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>%
-                                            </span>
+                                                <span class="badge bg-warning">
+                                                    <?= round(($LateCounts / 2) / ($PresentCounts / 2 + $AbsentCounts / 2 + $LateCounts / 2) * 100, 1) ?>%
+                                                </span>
                                             <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="d-flex align-items-center">
                                     <div class="me-3">
                                         <div class="p-3 rounded bg-pink bg-opacity-10">
@@ -563,7 +649,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Quick Actions -->
             <!-- <div class="col-lg-4 mb-4">
                 <div class="card border-0 shadow h-100">
@@ -587,7 +673,7 @@
                 </div>
             </div> -->
         </div>
-        
+
         <!-- Today's Overview -->
         <div class="row">
             <div class="col-12">
@@ -627,7 +713,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Footer Note -->
         <div class="row mt-4">
             <div class="col-12">
@@ -637,57 +723,73 @@
                 </div>
             </div>
         </div>
-        
+
     </section>
-    
+
     <script>
-    // Add interactivity
-    document.addEventListener('DOMContentLoaded', function() {
-        // Add hover effect to all cards
-        const cards = document.querySelectorAll('.stat-card');
-        cards.forEach(card => {
-            card.addEventListener('mouseenter', function() {
-                this.style.transform = 'translateY(-8px)';
+        // Add interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add hover effect to all cards
+            const cards = document.querySelectorAll('.stat-card');
+            cards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-8px)';
+                });
+
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                });
             });
-            
-            card.addEventListener('mouseleave', function() {
-                this.style.transform = 'translateY(0)';
+
+            // Update time every minute
+            function updateTime() {
+                const now = new Date();
+                const timeString = now.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                document.querySelector('.last-updated').textContent = `Last updated: ${timeString}`;
+            }
+
+            // Update time every minute
+            setInterval(updateTime, 60000);
+
+            // Handle school year filter dropdown
+            document.getElementById('syFilter').addEventListener('change', function() {
+                const syId = this.value;
+                if (syId) {
+                    // Redirect to current page with school_year_id parameter
+                    const currentUrl = new URL(window.location);
+                    currentUrl.searchParams.set('school_year_id', syId);
+                    window.location.href = currentUrl.toString();
+                } else {
+                    // Clear filter
+                    const currentUrl = new URL(window.location);
+                    currentUrl.searchParams.delete('school_year_id');
+                    window.location.href = currentUrl.toString();
+                }
             });
-        });
-        
-        // Update time every minute
-        function updateTime() {
-            const now = new Date();
-            const timeString = now.toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
+
+            // Add animation to quick action buttons
+            const actionButtons = document.querySelectorAll('.btn-quick-action');
+            actionButtons.forEach(btn => {
+                btn.addEventListener('mouseenter', function() {
+                    this.querySelector('.fa-arrow-right').style.transform = 'translateX(5px)';
+                });
+
+                btn.addEventListener('mouseleave', function() {
+                    this.querySelector('.fa-arrow-right').style.transform = 'translateX(0)';
+                });
             });
-            
-            document.querySelector('.last-updated').textContent = `Last updated: ${timeString}`;
-        }
-        
-        // Update time every minute
-        setInterval(updateTime, 60000);
-        
-        // Add animation to quick action buttons
-        const actionButtons = document.querySelectorAll('.btn-quick-action');
-        actionButtons.forEach(btn => {
-            btn.addEventListener('mouseenter', function() {
-                this.querySelector('.fa-arrow-right').style.transform = 'translateX(5px)';
-            });
-            
-            btn.addEventListener('mouseleave', function() {
-                this.querySelector('.fa-arrow-right').style.transform = 'translateX(0)';
-            });
-        });
-        
-        // Add CSS for pink button
-        const style = document.createElement('style');
-        style.textContent = `
+
+            // Add CSS for pink button
+            const style = document.createElement('style');
+            style.textContent = `
             .btn-pink {
                 background: linear-gradient(135deg, #e83e8c, #b52b6e);
                 border: none;
@@ -706,7 +808,7 @@
                 color: #e83e8c !important;
             }
         `;
-        document.head.appendChild(style);
-    });
+            document.head.appendChild(style);
+        });
     </script>
 </body>
