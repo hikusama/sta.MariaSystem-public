@@ -16,14 +16,18 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 $pdo = new PDO("mysql:host=localhost;dbname=stamariadb;charset=utf8", "root", "");
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+$student_id = isset($_GET['student_id']) ? trim($_GET['student_id']) : null;
+$school_year_name = isset($_GET['school_year_name']) ? trim($_GET['school_year_name']) : null;
 
 function build_sf9_filename($lrn, $first, $last, $grade)
 {
+  $school_year_name = isset($_GET['school_year_name']) ? trim($_GET['school_year_name']) : null;
   $safe_lrn = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$lrn);
   $safe_first = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$first);
   $safe_last = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$last);
   $safe_grade = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$grade);
-  $filename = trim($safe_lrn . '_' . $safe_first . '_' . $safe_last . '_' . $safe_grade . '.xlsx', '_');
+  $safe_syname = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$school_year_name);
+  $filename = trim($safe_lrn . '_' . $safe_first . '_' . $safe_last . '_' . $safe_grade . $safe_syname . '.xlsx', '_');
   return $filename;
 }
 
@@ -37,8 +41,6 @@ $sectionQuery = $pdo->query("SELECT section_id, section_name, section_grade_leve
 $sections = $sectionQuery->fetchAll(PDO::FETCH_ASSOC);
 
 
-$student_id = isset($_GET['student_id']) ? trim($_GET['student_id']) : null;
-$school_year_name = isset($_GET['school_year_name']) ? trim($_GET['school_year_name']) : null;
 $student = null;
 if ($student_id) {
   $stmt = $pdo->prepare("SELECT * FROM student WHERE student_id = ?");
@@ -135,7 +137,7 @@ if (isset($_GET['download']) && $_GET['download'] === '1') {
   }
   // file name saving as excel file based sa student info
   $fileName = build_sf9_filename($student['lrn'] ?? '', $student['fname'] ?? '', $student['lname'] ?? '', $student['gradeLevel'] ?? '');
-  $filePath = base_url() .  'sf9_files/' . $fileName;
+  $filePath = BASE_PATH . '/sf9_files/' . $fileName;
 
   if (!file_exists($filePath)) {
     die("Error: File not found on server. Path: " . htmlspecialchars($filePath));
@@ -163,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $age_input     = $_POST['student_age']     ?? ($student['age'] ?? '');
   $sex_input     = $_POST['student_sex']     ?? ($student['sex'] ?? '');
   $grade_input   = $_POST['student_grade']   ?? ($student['gradeLevel'] ?? '');
-
+  $subjects = [];
   $subjects_for_grade = [];
   if ($grade_input !== '') {
     $stmt = $pdo->prepare("SELECT subject_name FROM subjects WHERE grade_level = ?");
@@ -320,19 +322,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $q4 = $_POST['q4'] ?? [];
   $finals = $_POST['final'] ?? [];
   $remarks = $_POST['remarks'] ?? [];
+  $data['general_average'] = isset($_POST['general_average']) && $_POST['general_average'] !== '' ? (float)$_POST['general_average'] : null;
 
-  for ($i = 0; $i < 15; $i++) {
-    $idx = $i + 1;
-    $data["q1_{$idx}"] = isset($q1[$i]) && $q1[$i] !== '' ? (float)$q1[$i] : null;
-    $data["q2_{$idx}"] = isset($q2[$i]) && $q2[$i] !== '' ? (float)$q2[$i] : null;
-    $data["q3_{$idx}"] = isset($q3[$i]) && $q3[$i] !== '' ? (float)$q3[$i] : null;
-    $data["q4_{$idx}"] = isset($q4[$i]) && $q4[$i] !== '' ? (float)$q4[$i] : null;
-    $data["final_{$idx}"] = isset($finals[$i]) && $finals[$i] !== '' ? (float)$finals[$i] : null;
-    $data["remarks_{$idx}"] = isset($remarks[$i]) && $remarks[$i] !== '' ? $remarks[$i] : null;
+  if ($data["general_average"] !== null) {
+    for ($i = 0; $i < 15; $i++) {
+      $idx = $i + 1;
+      $data["q1_{$idx}"] = isset($q1[$i]) && $q1[$i] !== '' ? (float)$q1[$i] : null;
+      $data["q2_{$idx}"] = isset($q2[$i]) && $q2[$i] !== '' ? (float)$q2[$i] : null;
+      $data["q3_{$idx}"] = isset($q3[$i]) && $q3[$i] !== '' ? (float)$q3[$i] : null;
+      $data["q4_{$idx}"] = isset($q4[$i]) && $q4[$i] !== '' ? (float)$q4[$i] : null;
+      $data["final_{$idx}"] = isset($finals[$i]) && $finals[$i] !== '' ? (float)$finals[$i] : null;
+      $data["remarks_{$idx}"] = isset($remarks[$i]) && $remarks[$i] !== '' ? $remarks[$i] : null;
+    }
   }
 
 
-  $data['general_average'] = isset($_POST['general_average']) && $_POST['general_average'] !== '' ? (float)$_POST['general_average'] : null;
+  if ($data["general_average"] !== null) {
+    $passed = false;
+    if ($data["general_average"] >= 75.0) {
+      $passed = true;
+    }
+    $pdo->prepare("UPDATE student SET IsMovingUp = ? WHERE student_id = ?")
+      ->execute([$passed, $student_id]);
+  }
 
   $behavior_texts = [
     "Expresses one’s spiritual beliefs while respecting the spiritual beliefs of others.",
@@ -357,8 +369,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data["b{$idx}_q3"] = $bq3[$i] ?? null;
     $data["b{$idx}_q4"] = $bq4[$i] ?? null;
   }
-
-
   try {
     $existingId = null;
     if (!empty($student_id) && $school_year_name !== '') {
@@ -386,25 +396,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
       }
       $stmt->bindValue(':existing_id', $existingId, PDO::PARAM_INT);
-      $stmt->execute();
-    } else {
-
-      $columns = array_keys($data);
-      $placeholders = array_map(function ($c) {
-        return ':' . $c;
-      }, $columns);
-      $sql = "INSERT INTO sf9_data (" . implode(',', $columns) . ", created_at)
-                    VALUES (" . implode(',', $placeholders) . ", NOW())";
-      $stmt = $pdo->prepare($sql);
-      foreach ($data as $k => $v) {
-        if (is_int($v)) {
-          $stmt->bindValue(':' . $k, $v, PDO::PARAM_INT);
-        } elseif (is_null($v)) {
-          $stmt->bindValue(':' . $k, null, PDO::PARAM_NULL);
-        } else {
-          $stmt->bindValue(':' . $k, $v, PDO::PARAM_STR);
-        }
-      }
       $stmt->execute();
     }
 
@@ -555,7 +546,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .header-brand {
       background-color: #f5365c;
       border-bottom: solid 1px #FF3860;
-      height: 75px;
+      height: auto;
+      min-height: 75px;
+      padding: 10px 0;
     }
 
     /* Widen inputs in GRADES table only */
@@ -579,11 +572,163 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       width: 120px;
     }
 
+    /* Responsive table wrapper */
+    .table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
 
-    @media (max-width: 767px) {
+    /* Tablet and large devices */
+    @media (max-width: 992px) {
+      .sidebar {
+        margin-bottom: 20px;
+      }
+
+      .btn-lg {
+        padding: 8px 12px;
+        font-size: 14px;
+      }
+    }
+
+    /* Tablet devices */
+    @media (max-width: 768px) {
+      .header-brand {
+        flex-direction: column;
+      }
+
+      .header-brand .d-flex {
+        padding: 10px;
+      }
+
+      .header-brand img {
+        width: 50px !important;
+        height: 50px !important;
+        margin-right: 10px !important;
+      }
+
+      .header-brand h4 {
+        font-size: 1rem !important;
+      }
+
       .sidebar img {
-        width: 86px;
-        height: 104px;
+        width: 80px;
+        height: 96px;
+      }
+
+      .table-sm input.form-control,
+      .table-sm select.form-select {
+        height: 28px;
+        padding: 2px;
+        font-size: 12px;
+      }
+
+      .btn-lg {
+        padding: 6px 10px;
+        font-size: 12px;
+        width: 100%;
+        margin-bottom: 5px;
+      }
+
+      .section-title {
+        font-size: 0.95rem;
+      }
+
+      .table-attendance th,
+      .table-grades th,
+      .table-behavior th {
+        font-size: 11px;
+        padding: 5px 2px;
+      }
+
+      .table-attendance td,
+      .table-grades td,
+      .table-behavior td {
+        font-size: 11px;
+        padding: 4px 2px;
+      }
+
+      .table-grades input {
+        font-size: 11px;
+      }
+
+      .table-grades td:first-child input {
+        width: 100px;
+      }
+
+      .table-grades td:last-child input {
+        width: 80px;
+      }
+
+      .legend-box {
+        padding: 10px 15px;
+        font-size: 12px;
+      }
+
+      .legend-row {
+        gap: 8px;
+      }
+
+      .legend-item {
+        font-size: 11px;
+      }
+    }
+
+    /* Mobile devices */
+    @media (max-width: 576px) {
+      .sidebar img {
+        width: 70px;
+        height: 84px;
+      }
+
+      .sidebar label {
+        font-size: 12px;
+      }
+
+      .sidebar .mt-2 {
+        margin-top: 8px !important;
+      }
+
+      .btn-lg {
+        padding: 5px 8px;
+        font-size: 11px;
+      }
+
+      .container-fluid {
+        padding: 10px !important;
+      }
+
+      .form-row {
+        margin-left: -5px;
+        margin-right: -5px;
+      }
+
+      .form-row>[class*='col-'] {
+        padding-left: 5px;
+        padding-right: 5px;
+      }
+
+      .p-3 {
+        padding: 10px !important;
+      }
+
+      .table-wrapper {
+        font-size: 10px;
+      }
+
+      .table-sm input.form-control,
+      .table-sm select.form-select {
+        height: 24px;
+        padding: 1px;
+        font-size: 10px;
+      }
+
+      .legend-row {
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .modal-dialog {
+        margin: 10px;
       }
     }
 
@@ -622,14 +767,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         box-shadow: none;
       }
     }
+
+    .table-behavior {
+      table-layout: fixed;
+      width: 100%;
+    }
+
+    .table-behavior th,
+    .table-behavior td {
+      vertical-align: middle;
+      overflow: hidden;
+      word-wrap: break-word;
+    }
+
+    .table-behavior th:nth-child(1) {
+      width: 18%;
+    }
+
+    .table-behavior th:nth-child(2) {
+      width: 52%;
+      text-align: left;
+    }
+
+    .table-behavior th:nth-child(n+3) {
+      width: 10%;
+    }
+
+
+    .table-behavior select {
+      width: 100% !important;
+      height: auto;
+      font-size: 13px;
+    }
+
+    @media (max-width: 576px) {
+
+      .table-behavior th:nth-child(n+3),
+      .table-behavior td:nth-child(n+3) {
+        min-width: 40px;
+      }
+    }
   </style>
 </head>
 
 <body>
 
 
-  <div class="text-white d-flex align-items-center justify-content-between col-12 m-0 p-0 header-brand">
-    <div class="d-flex align-items-center ps-4">
+  <div class="text-white d-flex align-items-center justify-content-between col-12 m-0 p-0 header-brand flex-wrap">
+    <div class="d-flex align-items-center ps-md-4 ps-2">
       <img src="<?= BASE_FR ?>/assets/image/logo2.png" alt="Logo"
         style="width: 65px; height: 65px; border-radius: 50%; margin-right: 15px; object-fit: cover;">
       <h4 class="card-title text-white m-0 fw-bold" style="font-size: 1.3rem;">STA.MARIA WEB SYSTEM</h4>
@@ -638,51 +823,82 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
   <div class="container-fluid p-3">
-    <form method="post" class="row g-0">
+    <?php
+    $showAlert = false;
+    $alertTitle = '';
+    $alertMessage = '';
+
+    if (!$student_id || !$school_year_name) {
+      $showAlert = true;
+      $alertTitle = 'Invalid Request';
+      $alertMessage = 'Missing Student ID or School Year.';
+    } elseif (!$existingSf9) {
+      $showAlert = true;
+      $alertTitle = 'Student Not Found';
+      $alertMessage = 'No SF9 record exists for this student.';
+    }
+    ?>
+
+    <?php if ($showAlert): ?>
+      <!-- BLOCKING ALERT OVERLAY -->
+      <div id="blockingAlert" class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+        style="background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1050;">
+        <div class="bg-white p-4 rounded shadow text-center" style="max-width: 400px;">
+          <i class="fa-solid fa-triangle-exclamation fa-3x text-warning mb-3"></i>
+          <h5 class="fw-bold text-danger mb-2"><?= htmlspecialchars($alertTitle) ?></h5>
+          <p class="text-muted mb-3"><?= htmlspecialchars($alertMessage) ?></p>
+          <button type="button" onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf9'" class="btn btn-primary">
+            <i class="fa-solid fa-arrow-left me-1"></i> Go Back
+          </button>
+        </div>
+      </div>
+
+    <?php endif; ?>
+
+    <form method="post" id="saveGradess" class="row g-2 g-md-0">
 
 
-      <div class="col-md-2 col-sm-12 p-2">
+      <div class="col-lg-2 col-md-3 col-sm-4 col-12 p-lg-2 p-md-2 p-2">
         <div class="sidebar">
 
           <div class="mt-2">
-            <label>Name</label>
-            <input type="text" readonly class="form-control form-control-sm mb-1" name="student_name"
+            <label class="form-label">Name</label>
+            <input type="text" readonly class="form-control form-control-sm mb-2" name="student_name"
               value="<?= getFullName($student) ?>">
-            <label>LRN</label>
-            <input type="text" readonly class="form-control form-control-sm mb-1" name="student_lrn"
+            <label class="form-label">LRN</label>
+            <input type="text" readonly class="form-control form-control-sm mb-2" name="student_lrn"
               value="<?= ($student['lrn'] ?? '') ?>">
-            <label>Age</label>
-            <input type="text" readonly class="form-control form-control-sm mb-1" name="student_age"
+            <label class="form-label">Age</label>
+            <input type="text" readonly class="form-control form-control-sm mb-2" name="student_age"
               value="<?= $existingSf9['age'] ?>">
-            <label>Sex</label>
-            <input type="text" readonly class="form-control form-control-sm mb-1" name="student_sex"
+            <label class="form-label">Sex</label>
+            <input type="text" readonly class="form-control form-control-sm mb-2" name="student_sex"
               value="<?= $existingSf9['sex'] ?>">
-            <label>Grade</label>
-            <select name="student_grade" id="grade_level" class="form-control form-control-sm mb-1">
+            <label class="form-label">Grade</label>
+            <select name="student_grade" id="grade_level" class="form-control form-control-sm mb-2">
               <option value="<?= htmlspecialchars($student['gradeLevel']) ?>"><?= htmlspecialchars($student['gradeLevel']) ?></option>
             </select>
-            <label>Section</label>
-            <select name="student_section" id="section" class="form-control form-control-sm mb-1">
+            <label class="form-label">Section</label>
+            <select name="student_section" id="section" class="form-control form-control-sm mb-2">
               <option value="<?= htmlspecialchars($existingSf9['section']) ?>"
                 data-grade="<?= htmlspecialchars($existingSf9['grade']) ?>"
                 <?= (($existingSf9['section']) == $existingSf9['section']) ? 'selected' : '' ?>>
                 <?= htmlspecialchars($existingSf9['section']) ?>
               </option>
             </select>
-            <label>School Year</label>
-            <input type="text" readonly class="form-control form-control-sm mb-1" id="student_sy" name="student_sy"
+            <label class="form-label">School Year</label>
+            <input type="text" readonly class="form-control form-control-sm mb-2" id="student_sy" name="student_sy"
               value="<?= ($existingSf9['school_year']) ?>">
-            <label>Teacher</label>
-            <input type="text" readonly class="form-control form-control-sm mb-1" id="student_teacher" name="student_teacher"
+            <label class="form-label">Teacher</label>
+            <input type="text" readonly class="form-control form-control-sm mb-2" id="student_teacher" name="student_teacher"
               value="<?= ($existingSf9['teacher']) ?>">
-            <label>Guardian</label>
-            <input type="text" class="form-control form-control-sm mb-1" value="<?= htmlspecialchars($guardian_name) ?>" readonly>
+            <label class="form-label">Guardian</label>
+            <input type="text" class="form-control form-control-sm mb-2" value="<?= htmlspecialchars($guardian_name) ?>" readonly>
           </div>
 
-          <div class="text-center mt-2 mb-4 d-flex justify-content-center gap-2">
+          <div class="d-grid gap-2 mt-2 mb-3">
             <!-- SAVE funtion sa SF9 -->
-            <button type="submit" class="btn btn-primary btn-lg">Save</button>
-
+            <button type="button" id="save-grades" class="btn btn-primary btn-lg">Save</button>
 
             <?php if ($student):
               $downloadUrl = htmlspecialchars($_SERVER['PHP_SELF']) . '?student_id=' . urlencode($student_id) . '&download=1';
@@ -691,143 +907,145 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php else: ?>
               <a href="#" class="btn btn-success btn-lg disabled" title="No student selected">Download</a>
             <?php endif; ?>
-
-
+            <a onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf9'" class="btn btn-secondary btn-lg">Back</a>
           </div>
-          <a onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf9'" class="btn btn-secondary btn-lg">Back</a>
 
         </div>
 
       </div>
 
 
-      <div class="col-md-10 col-sm-12 p-3">
+      <div class="col-lg-10 col-md-9 col-sm-8 col-12 p-lg-3 p-md-2 p-2">
 
 
-        <div class="bg-white p-3 rounded shadow-sm mb-3">
+        <div class="bg-white p-2 p-md-3 rounded shadow-sm mb-3">
           <div class="section-title">Attendance Record</div>
-          <table class="table table-bordered table-sm table-attendance text-center align-middle">
-            <thead class="table-light">
-              <tr>
-                <th></th>
-                <th>June</th>
-                <th>July</th>
-                <th>Aug</th>
-                <th>Sep</th>
-                <th>Oct</th>
-                <th>Nov</th>
-                <th>Dec</th>
-                <th>Jan</th>
-                <th>Feb</th>
-                <th>Mar</th>
-                <th>Apr</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="fw-semibold text-dark">No. of School Days</td>
-                <?php $totals = 0;
-                foreach ($months as $m):
-                  $val = intval($existing_attendance["days_school_{$m}"] ?? '0');
-                  $totals += $val;
-                ?>
-                  <td><input readonly type="number" name="days_school_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>"></td>
-                <?php endforeach; ?>
-                <td><?= $totals ?></td>
-              </tr>
-              <tr>
-                <td class="fw-semibold text-dark">No. of Days Present</td>
-                <?php $totalP = 0;
-                foreach ($months as $m):
-                  $val = intval($existing_attendance["days_present_{$m}"] ?? '0');
-                  $totalP += $val;
-                ?>
-                  <td><input readonly type="number" name="days_present_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>"></td>
-                <?php endforeach; ?>
-                <td><?= $totalP ?></td>
-              </tr>
-              <tr>
-                <td class="fw-semibold text-dark">No. of Days Absent</td>
-                <?php $totalA = 0;
-                foreach ($months as $m):
-                  $val = intval($existing_attendance["days_absent_{$m}"] ?? '0');
-                  $totalA += $val;
-                ?>
-                  <td><input readonly type="number" name="days_absent_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>" readonly></td>
-                <?php endforeach; ?>
-                <td><?= $totalA ?></td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-wrapper">
+            <table class="table table-bordered table-sm table-attendance text-center align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th></th>
+                  <th>June</th>
+                  <th>July</th>
+                  <th>Aug</th>
+                  <th>Sep</th>
+                  <th>Oct</th>
+                  <th>Nov</th>
+                  <th>Dec</th>
+                  <th>Jan</th>
+                  <th>Feb</th>
+                  <th>Mar</th>
+                  <th>Apr</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="fw-semibold text-dark">No. of School Days</td>
+                  <?php $totals = 0;
+                  foreach ($months as $m):
+                    $val = intval($existing_attendance["days_school_{$m}"] ?? '0');
+                    $totals += $val;
+                  ?>
+                    <td><input readonly type="number" name="days_school_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>"></td>
+                  <?php endforeach; ?>
+                  <td><?= $totals ?></td>
+                </tr>
+                <tr>
+                  <td class="fw-semibold text-dark">No. of Days Present</td>
+                  <?php $totalP = 0;
+                  foreach ($months as $m):
+                    $val = intval($existing_attendance["days_present_{$m}"] ?? '0');
+                    $totalP += $val;
+                  ?>
+                    <td><input readonly type="number" name="days_present_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>"></td>
+                  <?php endforeach; ?>
+                  <td><?= $totalP ?></td>
+                </tr>
+                <tr>
+                  <td class="fw-semibold text-dark">No. of Days Absent</td>
+                  <?php $totalA = 0;
+                  foreach ($months as $m):
+                    $val = intval($existing_attendance["days_absent_{$m}"] ?? '0');
+                    $totalA += $val;
+                  ?>
+                    <td><input readonly type="number" name="days_absent_<?= $m ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($val) ?>" readonly></td>
+                  <?php endforeach; ?>
+                  <td><?= $totalA ?></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div class="bg-white p-3 rounded shadow-sm mb-3">
+        <div class="bg-white p-2 p-md-3 rounded shadow-sm mb-3">
           <div class="section-title">Grades</div>
-          <table class="table table-bordered table-sm table-grades text-center align-middle">
-            <thead class="table-light">
-              <tr>
-                <th>Learning Area</th>
-                <th>Q1</th>
-                <th>Q2</th>
-                <th>Q3</th>
-                <th>Q4</th>
-                <th>Final Rating</th>
-                <th>Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php
-
-              for ($i = 0; $i < 15; $i++):
-                $subject_val = $_POST['subject'][$i] ?? ($existing_subjects[$i] ?? '');
-                if ($subject_val === '') continue;
-                $q1_val = $_POST['q1'][$i] ?? ($existing_q1[$i] ?? '');
-                $q2_val = $_POST['q2'][$i] ?? ($existing_q2[$i] ?? '');
-                $q3_val = $_POST['q3'][$i] ?? ($existing_q3[$i] ?? '');
-                $q4_val = $_POST['q4'][$i] ?? ($existing_q4[$i] ?? '');
-                $final_val = $_POST['final'][$i] ?? ($existing_final[$i] ?? '');
-                $remarks_val = $_POST['remarks'][$i] ?? ($existing_remarks[$i] ?? '');
-              ?>
+          <div class="table-wrapper">
+            <table class="table table-bordered table-sm table-grades text-center align-middle">
+              <thead class="table-light">
                 <tr>
-                  <td><input type="text" readonly name="subject[]" style="width: 100%;" disabled class="form-control form-control-sm" value="<?= htmlspecialchars($subject_val) ?>"></td>
-                  <td>
-                    <input type="number" name="q1[]" min="50" max="100"
-                      onblur="this.value = Math.min(100, Math.max(50, this.value))" class="q form-control form-control-sm"
-                      value="<?= htmlspecialchars($q1_val) ?>">
-                  </td>
-
-                  <td>
-                    <input type="number" name="q2[]" min="50" max="100"
-                      onblur="this.value = Math.min(100, Math.max(50, this.value))" class="q form-control form-control-sm"
-                      value="<?= htmlspecialchars($q2_val) ?>">
-                  </td>
-
-                  <td>
-                    <input type="number" name="q3[]" min="50" max="100"
-                      onblur="this.value = Math.min(100, Math.max(50, this.value))" class="q form-control form-control-sm"
-                      value="<?= htmlspecialchars($q3_val) ?>">
-                  </td>
-
-                  <td>
-                    <input type="number" name="q4[]" min="50" max="100"
-                      onblur="this.value = Math.min(100, Math.max(50, this.value))" class="q form-control form-control-sm"
-                      value="<?= htmlspecialchars($q4_val) ?>">
-                  </td>
-                  <td><input type="text" style="width: 100%;" disabled name="final[]" class="final form-control form-control-sm" readonly value="<?= htmlspecialchars($final_val) ?>"></td>
-                  <td><input type="text" style="width: 100%;" disabled name="remarks[]" class="remarks form-control form-control-sm" readonly value="<?= htmlspecialchars($remarks_val) ?>"></td>
+                  <th>Learning Area</th>
+                  <th>Q1</th>
+                  <th>Q2</th>
+                  <th>Q3</th>
+                  <th>Q4</th>
+                  <th>Final Rating</th>
+                  <th>Remarks</th>
                 </tr>
-              <?php endfor; ?>
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="5" class="text-end fw-bold">General Average</td>
-                <td><input type="text" id="general_average" name="general_average" class="form-control form-control-sm" readonly value="<?= htmlspecialchars($_POST['general_average'] ?? ($existingSf9['general_average'] ?? '')) ?>"></td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-          <div class="legend-box text-center mt-4 mb-4">
+              </thead>
+              <tbody>
+                <?php
+
+                for ($i = 0; $i < 15; $i++):
+                  $subject_val = $_POST['subject'][$i] ?? ($existing_subjects[$i] ?? '');
+                  if ($subject_val === '') continue;
+                  $q1_val = $_POST['q1'][$i] ?? ($existing_q1[$i] ?? '');
+                  $q2_val = $_POST['q2'][$i] ?? ($existing_q2[$i] ?? '');
+                  $q3_val = $_POST['q3'][$i] ?? ($existing_q3[$i] ?? '');
+                  $q4_val = $_POST['q4'][$i] ?? ($existing_q4[$i] ?? '');
+                  $final_val = $_POST['final'][$i] ?? ($existing_final[$i] ?? '');
+                  $remarks_val = $_POST['remarks'][$i] ?? ($existing_remarks[$i] ?? '');
+                ?>
+                  <tr>
+                    <td><input type="text" readonly name="subject[]" style="width: 100%;" disabled class="form-control form-control-sm" value="<?= htmlspecialchars($subject_val) ?>"></td>
+                    <td>
+                      <input type="number" name="q1[]" min="50" max="100" <?php if(htmlspecialchars($q1_val)) echo 'disabled'; ?>
+                        onblur="this.value = Math.min(100, Math.max(50, this.value))" class="q form-control form-control-sm"
+                        value="<?= htmlspecialchars($q1_val) ?>">
+                    </td>
+
+                    <td>
+                      <input type="number" name="q2[]" min="50" max="100" <?php if(htmlspecialchars($q2_val)) echo 'disabled'; ?>
+                        onblur="this.value = Math.min(100, Math.max(50, this.value))" class="q form-control form-control-sm"
+                        value="<?= htmlspecialchars($q2_val) ?>">
+                    </td>
+
+                    <td>
+                      <input type="number" name="q3[]" min="50" max="100" <?php if(htmlspecialchars($q3_val)) echo 'disabled'; ?>
+                        onblur="this.value = Math.min(100, Math.max(50, this.value))" class="q form-control form-control-sm"
+                        value="<?= htmlspecialchars($q3_val) ?>">
+                    </td>
+
+                    <td>
+                      <input type="number" name="q4[]" min="50" max="100" <?php if(htmlspecialchars($q4_val)) echo 'disabled'; ?>
+                        onblur="this.value = Math.min(100, Math.max(50, this.value))" class="q form-control form-control-sm"
+                        value="<?= htmlspecialchars($q4_val) ?>">
+                    </td>
+                    <td><input type="text" style="width: 100%;" disabled name="final[]" class="final form-control form-control-sm grade-input" readonly value="<?= htmlspecialchars($final_val) ?>"></td>
+                    <td><input type="text" style="width: 100%;" disabled name="remarks[]" class="remarks form-control form-control-sm" readonly value="<?= htmlspecialchars($remarks_val) ?>"></td>
+                  </tr>
+                <?php endfor; ?>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="5" class="text-end fw-bold">General Average</td>
+                  <td><input type="text" id="general_average" name="general_average" class="form-control form-control-sm" readonly value="<?= htmlspecialchars($_POST['general_average'] ?? ($existingSf9['general_average'] ?? '')) ?>"></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div class="legend-box text-center mt-3 mt-md-4 mb-3 mb-md-4">
             <strong>LEGEND:</strong>
             <div class="legend-row">
               <span class="legend-item"><strong>90–100</strong> = Outstanding │</span>
@@ -840,98 +1058,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
 
-        <div class="bg-white p-3 rounded shadow-sm mb-3">
+        <div class="bg-white p-2 p-md-3 rounded shadow-sm mb-3">
           <div class="section-title">Behavior</div>
-          <table class="table table-bordered table-sm table-behavior text-center align-middle">
-            <thead class="table-light">
-              <tr>
-                <th style="width:18%;">Core Value</th>
-                <th style="width:52%;">Behavior Statement</th>
-                <th style="width:10%;">Q1</th>
-                <th style="width:10%;">Q2</th>
-                <th style="width:10%;">Q3</th>
-                <th style="width:10%;">Q4</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php
-              $core_values = [
-                "Maka-Diyos" => [
-                  "Expresses one’s spiritual beliefs while respecting the spiritual beliefs of others.",
-                  "Shows adherence to ethical principles by upholding truth in all undertakings."
-                ],
-                "Makatao" => [
-                  "Is sensitive to individual, social, and cultural differences.",
-                  "Demonstrates contributions towards solidarity."
-                ],
-                "Makakalikasan" => [
-                  "Cares for environment and utilizes resources wisely, judiciously and economically."
-                ],
-                "Makabansa" => [
-                  "Demonstrates pride in being a Filipino; exercises the rights and responsibilities of a Filipino citizen.",
-                  "Demonstrates appropriate behavior in carrying out activities in school, community and country."
-                ]
-              ];
+          <div class="table-wrapper">
+            <table class="table table-bordered table-sm table-behavior text-center align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th style="width:18%;">Core Value</th>
+                  <th style="width:52%;">Behavior Statement</th>
+                  <th style="width:10%;">Q1</th>
+                  <th style="width:10%;">Q2</th>
+                  <th style="width:10%;">Q3</th>
+                  <th style="width:10%;">Q4</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php
+                $core_values = [
+                  "Maka-Diyos" => [
+                    "Expresses one’s spiritual beliefs while respecting the spiritual beliefs of others.",
+                    "Shows adherence to ethical principles by upholding truth in all undertakings."
+                  ],
+                  "Makatao" => [
+                    "Is sensitive to individual, social, and cultural differences.",
+                    "Demonstrates contributions towards solidarity."
+                  ],
+                  "Makakalikasan" => [
+                    "Cares for environment and utilizes resources wisely, judiciously and economically."
+                  ],
+                  "Makabansa" => [
+                    "Demonstrates pride in being a Filipino; exercises the rights and responsibilities of a Filipino citizen.",
+                    "Demonstrates appropriate behavior in carrying out activities in school, community and country."
+                  ]
+                ];
 
-              $behIndex = 0;
-              foreach ($core_values as $core => $behaviors):
-                $rowspan = count($behaviors);
-                foreach ($behaviors as $i => $behavior):
+                $behIndex = 0;
+                foreach ($core_values as $core => $behaviors):
+                  $rowspan = count($behaviors);
+                  foreach ($behaviors as $i => $behavior):
 
-                  $bq1_val = $_POST['behavior_q1'][$behIndex] ?? ($existing_behavior["b" . ($behIndex + 1) . "_q1"] ?? '');
-                  $bq2_val = $_POST['behavior_q2'][$behIndex] ?? ($existing_behavior["b" . ($behIndex + 1) . "_q2"] ?? '');
-                  $bq3_val = $_POST['behavior_q3'][$behIndex] ?? ($existing_behavior["b" . ($behIndex + 1) . "_q3"] ?? '');
-                  $bq4_val = $_POST['behavior_q4'][$behIndex] ?? ($existing_behavior["b" . ($behIndex + 1) . "_q4"] ?? '');
-              ?>
-                  <tr>
-                    <?php if ($i == 0): ?>
-                      <td rowspan="<?= $rowspan ?>" class="fw-bold align-middle"><?= htmlspecialchars($core) ?></td>
-                    <?php endif; ?>
-                    <td class="text-start"><?= htmlspecialchars($behavior) ?></td>
-                    <td>
-                      <select name="behavior_q1[]" class="form-select form-select-sm">
-                        <option value=""></option>
-                        <option value="AO" <?= $bq1_val === 'AO' ? 'selected' : '' ?>>AO</option>
-                        <option value="SO" <?= $bq1_val === 'SO' ? 'selected' : '' ?>>SO</option>
-                        <option value="RO" <?= $bq1_val === 'RO' ? 'selected' : '' ?>>RO</option>
-                        <option value="NO" <?= $bq1_val === 'NO' ? 'selected' : '' ?>>NO</option>
-                      </select>
-                    </td>
-                    <td>
-                      <select name="behavior_q2[]" class="form-select form-select-sm">
-                        <option value=""></option>
-                        <option value="AO" <?= $bq2_val === 'AO' ? 'selected' : '' ?>>AO</option>
-                        <option value="SO" <?= $bq2_val === 'SO' ? 'selected' : '' ?>>SO</option>
-                        <option value="RO" <?= $bq2_val === 'RO' ? 'selected' : '' ?>>RO</option>
-                        <option value="NO" <?= $bq2_val === 'NO' ? 'selected' : '' ?>>NO</option>
-                      </select>
-                    </td>
-                    <td>
-                      <select name="behavior_q3[]" class="form-select form-select-sm">
-                        <option value=""></option>
-                        <option value="AO" <?= $bq3_val === 'AO' ? 'selected' : '' ?>>AO</option>
-                        <option value="SO" <?= $bq3_val === 'SO' ? 'selected' : '' ?>>SO</option>
-                        <option value="RO" <?= $bq3_val === 'RO' ? 'selected' : '' ?>>RO</option>
-                        <option value="NO" <?= $bq3_val === 'NO' ? 'selected' : '' ?>>NO</option>
-                      </select>
-                    </td>
-                    <td>
-                      <select name="behavior_q4[]" class="form-select form-select-sm">
-                        <option value=""></option>
-                        <option value="AO" <?= $bq4_val === 'AO' ? 'selected' : '' ?>>AO</option>
-                        <option value="SO" <?= $bq4_val === 'SO' ? 'selected' : '' ?>>SO</option>
-                        <option value="RO" <?= $bq4_val === 'RO' ? 'selected' : '' ?>>RO</option>
-                        <option value="NO" <?= $bq4_val === 'NO' ? 'selected' : '' ?>>NO</option>
-                      </select>
-                    </td>
-                  </tr>
-              <?php
-                  $behIndex++;
+                    $bq1_val = $_POST['behavior_q1'][$behIndex] ?? ($existing_behavior["b" . ($behIndex + 1) . "_q1"] ?? '');
+                    $bq2_val = $_POST['behavior_q2'][$behIndex] ?? ($existing_behavior["b" . ($behIndex + 1) . "_q2"] ?? '');
+                    $bq3_val = $_POST['behavior_q3'][$behIndex] ?? ($existing_behavior["b" . ($behIndex + 1) . "_q3"] ?? '');
+                    $bq4_val = $_POST['behavior_q4'][$behIndex] ?? ($existing_behavior["b" . ($behIndex + 1) . "_q4"] ?? '');
+                ?>
+                    <tr>
+                      <?php if ($i == 0): ?>
+                        <td rowspan="<?= $rowspan ?>" class="fw-bold align-middle"><?= htmlspecialchars($core) ?></td>
+                      <?php endif; ?>
+                      <td class="text-start"><?= htmlspecialchars($behavior) ?></td>
+                      <td>
+                        <select name="behavior_q1[]" class="form-select form-select-sm">
+                          <option value=""></option>
+                          <option value="AO" <?= $bq1_val === 'AO' ? 'selected' : '' ?>>AO</option>
+                          <option value="SO" <?= $bq1_val === 'SO' ? 'selected' : '' ?>>SO</option>
+                          <option value="RO" <?= $bq1_val === 'RO' ? 'selected' : '' ?>>RO</option>
+                          <option value="NO" <?= $bq1_val === 'NO' ? 'selected' : '' ?>>NO</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select name="behavior_q2[]" class="form-select form-select-sm">
+                          <option value=""></option>
+                          <option value="AO" <?= $bq2_val === 'AO' ? 'selected' : '' ?>>AO</option>
+                          <option value="SO" <?= $bq2_val === 'SO' ? 'selected' : '' ?>>SO</option>
+                          <option value="RO" <?= $bq2_val === 'RO' ? 'selected' : '' ?>>RO</option>
+                          <option value="NO" <?= $bq2_val === 'NO' ? 'selected' : '' ?>>NO</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select name="behavior_q3[]" class="form-select form-select-sm">
+                          <option value=""></option>
+                          <option value="AO" <?= $bq3_val === 'AO' ? 'selected' : '' ?>>AO</option>
+                          <option value="SO" <?= $bq3_val === 'SO' ? 'selected' : '' ?>>SO</option>
+                          <option value="RO" <?= $bq3_val === 'RO' ? 'selected' : '' ?>>RO</option>
+                          <option value="NO" <?= $bq3_val === 'NO' ? 'selected' : '' ?>>NO</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select name="behavior_q4[]" class="form-select form-select-sm">
+                          <option value=""></option>
+                          <option value="AO" <?= $bq4_val === 'AO' ? 'selected' : '' ?>>AO</option>
+                          <option value="SO" <?= $bq4_val === 'SO' ? 'selected' : '' ?>>SO</option>
+                          <option value="RO" <?= $bq4_val === 'RO' ? 'selected' : '' ?>>RO</option>
+                          <option value="NO" <?= $bq4_val === 'NO' ? 'selected' : '' ?>>NO</option>
+                        </select>
+                      </td>
+                    </tr>
+                <?php
+                    $behIndex++;
+                  endforeach;
                 endforeach;
-              endforeach;
-              ?>
-            </tbody>
-          </table>
+                ?>
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </div>
@@ -948,8 +1168,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </div>
 
+  <div class="modal fade" id="saveModal" tabindex="-1" aria-labelledby="saveLabel" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered">
+      <div class="modal-content">
 
-  <script src="<?= BASE_FR ?>/assets/js/bootstrap.min.js"></script>.table-grades input
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="saveLabel">
+            <i class="fa-solid fa-floppy-disk me-2"></i> Save Records
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+
+          <div id="gradeLockWarning" class="mb-3 d-none">
+            <div class="d-flex align-items-start gap-3 p-3 border border-warning rounded bg-light">
+
+              <i class="fa-solid fa-triangle-exclamation fa-2x text-warning"></i>
+
+              <div class="w-100">
+                <h6 class="fw-bold text-warning mb-1">Partial Lock Warning</h6>
+
+                <p class="mb-1">
+                  All <strong>filled grades</strong> will be locked after saving.
+                </p>
+
+                <p class="mb-2 text-danger fw-semibold">
+                  Only empty grades will remain editable.
+                </p>
+
+                <small class="text-muted d-block mb-2">
+                  Type <strong>CONFIRM</strong> to continue.
+                </small>
+
+                <input type="text"
+                  class="form-control"
+                  id="confirmInput"
+                  placeholder="Type CONFIRM"
+                  autocomplete="off">
+              </div>
+
+            </div>
+          </div>
+
+          <p class="text-muted text-center mb-4">
+            Are you sure you want to save these records?
+          </p>
+
+          <div class="text-center">
+            <button type="button" class="btn btn-secondary px-4 me-3" data-bs-dismiss="modal">
+              Cancel
+            </button>
+
+            <button type="button" class="btn btn-success px-4" id="saveBtn" disabled>
+              Save
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="<?= BASE_FR ?>/assets/js/bootstrap.min.js"></script>
   <script>
     (function() {
       const schoolInputs = Array.from(document.querySelectorAll("input[name^='days_school_']"));
@@ -1053,6 +1334,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       });
     });
 
+    function checkGradesAndShowWarning() {
+      const inputs = document.querySelectorAll('.grade-input');
+      let hasFilled = false;
+
+      inputs.forEach(input => {
+        if (input.value.trim() !== '') hasFilled = true;
+      });
+
+      const warning = document.getElementById('gradeLockWarning');
+      const saveBtn = document.getElementById('saveBtn');
+      const confirmInput = document.getElementById('confirmInput');
+
+      if (hasFilled) {
+        warning.classList.remove('d-none');
+        saveBtn.disabled = true;
+        confirmInput.value = '';
+      } else {
+        warning.classList.add('d-none');
+        saveBtn.disabled = false;
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       const gradeSelect = document.getElementById('grade_level');
       const subjectInputs = document.querySelectorAll('input[name="subject[]"]');
@@ -1067,6 +1370,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             });
           })
           .catch(err => console.error(err));
+      });
+      document.getElementById('save-grades').addEventListener('click', () => {
+        const lockConf = document.getElementById('saveModal');
+        const svm = new bootstrap.Modal(lockConf);
+        svm.show()
+        checkGradesAndShowWarning();
+      });
+
+      // Handle the Save button in the modal - submit the main form
+      document.getElementById('saveBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        const mainForm = document.getElementById('saveGradess');
+        if (mainForm) {
+          mainForm.submit();
+        }
+      });
+
+      document.addEventListener('input', function(e) {
+        if (e.target.id === 'confirmInput') {
+          document.getElementById('saveBtn').disabled = (e.target.value !== 'CONFIRM');
+        }
       });
     });
     document.getElementById('grade_level').addEventListener('change', function() {
