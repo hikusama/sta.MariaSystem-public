@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../tupperware.php';
 $result = checkURI('teacher', 2);
+
 if ($result['res']) {
     header($result['uri']);
     exit;
@@ -28,7 +29,7 @@ if ($student_id) {
     $stmt->execute([$student_id]);
     $student = $stmt->fetch(PDO::FETCH_ASSOC);
 }
-$saveDir = BASE_PATH . '/sf10_files';
+$saveDir = BASE_PATH .  '/sf10_files';
 if (!is_dir($saveDir)) mkdir($saveDir, 0777, true);
 
 $grades = $sections = $school_years = $advisers = [];
@@ -57,6 +58,27 @@ if (isset($_GET['student_id'])) {
     } else {
         $scholastic_data = [];
     }
+
+    $remedial_loaded = [];
+
+if (!empty($sf10_data)) {
+    for ($i = 1; $i <= 8; $i++) {
+        $remedial_loaded[$i] = [
+            'area'       => !empty($sf10_data["rem{$i}_area"])
+                            ? explode('|', $sf10_data["rem{$i}_area"]) : [],
+            'final'      => !empty($sf10_data["rem{$i}_final"])
+                            ? explode('|', $sf10_data["rem{$i}_final"]) : [],
+            'class_mark' => !empty($sf10_data["rem{$i}_class_mark"])
+                            ? explode('|', $sf10_data["rem{$i}_class_mark"]) : [],
+            'recomputed' => !empty($sf10_data["rem{$i}_recomputed"])
+                            ? explode('|', $sf10_data["rem{$i}_recomputed"]) : [],
+            'remarks'    => !empty($sf10_data["rem{$i}_remarks"])
+                            ? explode('|', $sf10_data["rem{$i}_remarks"]) : [],
+        ];
+    }
+}
+
+
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -133,6 +155,25 @@ for ($i = 1; $i <= 8; $i++) {
     ];
 }
 
+for ($i = 1; $i <= 8; $i++) {
+    $areas = $_POST["rem{$i}_area"] ?? [];
+    $recomputed = $_POST["rem{$i}_recomputed"] ?? [];
+
+    // Initialize arrays
+    $learning_areas_all[$i]['remedial_subject'] = [];
+    $final_ratings_all[$i]['remedial'] = [];
+
+    for ($c = 0; $c < 5; $c++) {
+        // First row of each subject
+        $learning_areas_all[$i]['remedial_subject'][$c*2] = $areas[$c*2] ?? '';
+        $final_ratings_all[$i]['remedial'][$c*2] = $recomputed[$c*2] ?? '';
+
+        // Second row of each subject
+        $learning_areas_all[$i]['remedial_subject'][$c*2+1] = $areas[$c*2+1] ?? '';
+        $final_ratings_all[$i]['remedial'][$c*2+1] = $recomputed[$c*2+1] ?? '';
+    }
+}
+
 
     $personal_data = [
         'student_id' => $student_id,
@@ -191,7 +232,7 @@ $stmt->execute(array_values($personal_data));
 
    
     try {
-        $template_path = BASE_PATH . '/src/UI-Admin/contents/sf10/sf10.xlsx';
+        $template_path = BASE_PATH .  '/src/UI-Admin/contents/sf10/sf10.xlsx';
         $spreadsheet = IOFactory::load($template_path);
         $sheet = $spreadsheet->getSheet(0);
         $sheet_back = $spreadsheet->getSheet(1);
@@ -294,19 +335,39 @@ $remedial_positions_back = [
 for ($i = 1; $i <= 4; $i++) {
     $pos = $remedial_positions_front[$i];
     for ($c = 0; $c < 5; $c++) {
-        $sheet->setCellValue($pos['subject'][$c], $learning_areas_all[$i]['remedial_subject'][$c] ?? '');
-        $sheet->setCellValue($pos['grade'][$c], $final_ratings_all[$i]['remedial'][$c] ?? '');
+        // First row
+        $sheet->setCellValue($pos['subject'][$c], $learning_areas_all[$i]['remedial_subject'][$c*2] ?? '');
+        $sheet->setCellValue($pos['grade'][$c], $final_ratings_all[$i]['remedial'][$c*2] ?? '');
+        // Second row: move 1 row down
+        $sheet->setCellValue(
+            preg_replace_callback('/\d+/', function($m){ return $m[0]+1; }, $pos['subject'][$c]),
+            $learning_areas_all[$i]['remedial_subject'][$c*2+1] ?? ''
+        );
+        $sheet->setCellValue(
+            preg_replace_callback('/\d+/', function($m){ return $m[0]+1; }, $pos['grade'][$c]),
+            $final_ratings_all[$i]['remedial'][$c*2+1] ?? ''
+        );
     }
 }
-
 
 for ($i = 5; $i <= 8; $i++) {
     $pos = $remedial_positions_back[$i];
     for ($c = 0; $c < 5; $c++) {
-        $sheet_back->setCellValue($pos['subject'][$c], $learning_areas_all[$i]['remedial_subject'][$c] ?? '');
-        $sheet_back->setCellValue($pos['grade'][$c], $final_ratings_all[$i]['remedial'][$c] ?? '');
+        // First row
+        $sheet_back->setCellValue($pos['subject'][$c], $learning_areas_all[$i]['remedial_subject'][$c*2] ?? '');
+        $sheet_back->setCellValue($pos['grade'][$c], $final_ratings_all[$i]['remedial'][$c*2] ?? '');
+        // Second row: move 1 row down
+        $sheet_back->setCellValue(
+            preg_replace_callback('/\d+/', function($m){ return $m[0]+1; }, $pos['subject'][$c]),
+            $learning_areas_all[$i]['remedial_subject'][$c*2+1] ?? ''
+        );
+        $sheet_back->setCellValue(
+            preg_replace_callback('/\d+/', function($m){ return $m[0]+1; }, $pos['grade'][$c]),
+            $final_ratings_all[$i]['remedial'][$c*2+1] ?? ''
+        );
     }
 }
+
 
 $full_name = trim($last_name . ', ' . $first_name . ' ' . $middle_name . ' ' . $suffix);
 
@@ -323,7 +384,7 @@ foreach ($certifications as $cert) {
         $drawing = new Drawing();
         $drawing->setName('DepEd Logo');
         $drawing->setDescription('DepEd Logo');
-        $drawing->setPath(BASE_PATH . '/assets/image/deped.png');
+        $drawing->setPath($_SERVER['DOCUMENT_ROOT'] . BASE_FR . '/assets/image/deped.png');
         $drawing->setCoordinates('A1');
         $drawing->setWidth(80);
         $drawing->setHeight(80);
@@ -357,70 +418,151 @@ foreach ($certifications as $cert) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<link rel="icon" href="<?php echo base_url() ?>/assets/image/logo2.png" type="image/x-icon">
 <title>SF10 Fill</title>
 <link href="<?= base_url() ?>assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; padding:0; }
-.header-brand { border-bottom:1px solid rgba(0,0,0,.2); height:75px; background:#f5365c; }
-.header-brand img { width:65px; height:65px; border-radius:50%; margin-right:15px; object-fit:cover; }
-.header-brand h4 { font-size:1.3rem; font-weight:700; color:#fff; margin:0; }
-.sidebar, .eligibility-container, .scholastic-container { background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.08); margin-bottom:20px; }
-.sidebar h5, .eligibility-container h5, .scholastic-container h5 { font-weight:700; font-size:1.2rem; color:#333; margin-bottom:15px; text-align:center; }
-.form-label { font-weight:600; margin-top:10px; }
-.form-control.form-control-sm { font-weight:500; padding:8px 10px; border-radius:6px; border:1px solid #ccc; }
-.btn-lg { padding:10px 18px; font-size:16px; border-radius:6px; }
-.table input { width:100%; }
+body {
+  font-family: 'Poppins', Arial, sans-serif;
+  background: #f4f5f7;
+  margin: 0;
+  padding: 0;
+}
+
+/* Header */
+.header-brand {
+  border-bottom: 1px solid rgba(0,0,0,.2);
+  height: 75px;
+  background: #f5365c;
+}
+.header-brand img {
+  width: 65px;
+  height: 65px;
+  border-radius: 50%;
+  margin-right: 15px;
+  object-fit: cover;
+}
+.header-brand h4 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+/* Containers */
+.sidebar,
+.eligibility-container,
+.scholastic-container {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  margin-bottom: 20px;
+}
+
+.sidebar h5,
+.eligibility-container h5,
+.scholastic-container h5 {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: #333;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+/* Sidebar behavior */
+.sidebar {
+  position: sticky;
+  top: 90px;
+  height: fit-content;
+}
+
+/* Main content centering */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.main-content > .eligibility-container,
+.main-content > .scholastic-container {
+  width: 100%;
+  max-width: 1100px;
+}
+
+/* Forms */
+.form-label {
+  font-weight: 600;
+  margin-top: 10px;
+}
+.form-control.form-control-sm {
+  font-weight: 500;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+.btn-lg {
+  padding: 10px 18px;
+  font-size: 16px;
+  border-radius: 6px;
+}
+.table input {
+  width: 100%;
+}
+
+/* Remedial carousel */
 .remedial-carousel-container {
-    position: relative;
-    width: 100%;
-    max-width: 1000px;
-    margin: 20px auto;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 15px;
-    background: #f9f9f9;
-    transform: translate(-3in, -4in);
+  width: 100%;
+  background: #fff; /* same as other containers */
+  padding: 20px; /* match other containers */
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  margin: 30px auto 20px; /* space from Scholastic and below */
+  position: relative;
+  overflow: hidden;
 }
 
+/* Wrapper inside carousel */
 .remedial-wrapper {
-    overflow: hidden;
-    position: relative;
+  position: relative;
 }
 
+/* Individual slides */
 .remedial-slide {
-    display: none;
-    width: 100%;
+  display: none;
+  width: 100%;
 }
 
 .remedial-slide.active {
-    display: block;
+  display: block;
 }
 
+/* Table inside slides */
 .remedial-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
 }
 
-.remedial-table th, .remedial-table td {
-    border: 1px solid #ccc;
-    padding: 5px;
-    text-align: center;
+.remedial-table th,
+.remedial-table td {
+  border: 1px solid #ccc;
+  padding: 5px;
+  text-align: center;
 }
 
+/* Arrows remain the same */
 .arrow {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: #8c2b2b;
-    color: white;
-    border: none;
-    font-size: 24px;
-    padding: 8px 12px;
-    cursor: pointer;
-    border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #8c2b2b;
+  color: white;
+  border: none;
+  font-size: 24px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 50%;
 }
 
 .arrow.prev { left: -40px; }
@@ -428,12 +570,33 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
 
 .arrow:hover { background: #b03a3a; }
 
+/* Arrows */
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #8c2b2b;
+  color: white;
+  border: none;
+  font-size: 24px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.arrow.prev { left: -40px; }
+.arrow.next { right: -40px; }
+
+.arrow:hover {
+  background: #b03a3a;
+}
 </style>
+
 </head>
 <body>
 <div class="d-flex align-items-center justify-content-between col-12 m-0 p-0 header-brand">
   <div class="d-flex align-items-center ps-4">
-    <img src="/<?= BASE_FR ?>/assets/image/logo2.png" alt="Logo">
+    <img src="<?= BASE_FR ?>/assets/image/logo2.png" alt="Logo">
     <h4>STA.MARIA WEB SYSTEM</h4>
   </div>
 </div>
@@ -441,7 +604,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
   <form method="post">
     <div class="row">
       <!-- Sidebar -->
-      <div class="col-md-4 col-sm-12">
+      <div class="col-lg-3 col-md-4">
         <div class="sidebar">
           <h5>Learner's Personal Information</h5>
           <label class="form-label">Last Name</label>
@@ -466,7 +629,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
       </div>
 
   
-      <div class="col-md-4 col-sm-12">
+      <div class="col-lg-9 col-md-8">
         <div class="eligibility-container">
           <h5>Elementary School Eligibility</h5>
           <div class="form-check">
@@ -512,7 +675,7 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
       </div>
 
      
-      <div class="col-md-4 col-sm-12">
+      <div class="col-lg-9 col-md-8">
         <div class="scholastic-container">
           <h5>Scholastic Records</h5>
           <ul class="nav nav-tabs mb-3" id="srTabs" role="tablist">
@@ -609,7 +772,57 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
 
                 <label class="form-label">General Average</label>
                 <input type="text" class="form-control form-control-sm" name="general_average_<?=$i?>" value="<?= htmlspecialchars($_POST['general_average_'.$i] ?? ($scholastic_data['general_average'][$i] ?? '')) ?>">
-              </div>
+      <h6 class="mt-3">Remedial Class <?=$i?></h6>
+<div class="table-responsive">
+  <table class="table table-bordered table-sm">
+    <thead>
+      <tr>
+        <th>Learning Areas</th>
+        <th>Final Rating</th>
+        <th>Remedial Class Mark</th>
+        <th>Recomputed Final Grade</th>
+        <th>Remarks</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php for ($c = 0; $c < 2; $c++): ?>
+
+      <tr>
+        <td>
+          <input type="text" class="form-control form-control-sm"
+                 name="rem<?=$i?>_area[]"
+                 value="<?= htmlspecialchars($remedial_loaded[$i]['area'][$c] ?? '') ?>">
+        </td>
+        <td>
+          <input type="text" class="form-control form-control-sm"
+                 name="rem<?=$i?>_final[]"
+                 value="<?= htmlspecialchars($remedial_loaded[$i]['final'][$c] ?? '') ?>">
+        </td>
+        <td>
+          <input type="text" class="form-control form-control-sm"
+                 name="rem<?=$i?>_class_mark[]"
+                 value="<?= htmlspecialchars($remedial_loaded[$i]['class_mark'][$c] ?? '') ?>">
+        </td>
+        <td>
+          <input type="text" class="form-control form-control-sm"
+                 name="rem<?=$i?>_recomputed[]"
+                 value="<?= htmlspecialchars($remedial_loaded[$i]['recomputed'][$c] ?? '') ?>">
+        </td>
+        <td>
+          <input type="text" class="form-control form-control-sm"
+                 name="rem<?=$i?>_remarks[]"
+                 value="<?= htmlspecialchars($remedial_loaded[$i]['remarks'][$c] ?? '') ?>">
+        </td>
+      </tr>
+      <?php endfor; ?>
+    </tbody>
+  </table>
+</div>
+
+
+  
+            
+            </div>
               
             <?php endfor; ?>
           </div>
@@ -619,7 +832,9 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
     </div>
   </form>
 </div>
- <!-- <div class="remedial-carousel-container">
+  
+
+<?php /*<div class="remedial-carousel-container">
     <button type="button" class="arrow prev" onclick="prevRemedial()">&#10094;</button>
     <div class="remedial-wrapper">
         <?php for ($i = 1; $i <= 8; $i++): ?>
@@ -669,9 +884,10 @@ body { font-family: 'Poppins', Arial, sans-serif; background:#f4f5f7; margin:0; 
             </table>
         </div>
         <?php endfor; ?>
-    </div>  -->
+    </div>  
     <button type="button" class="arrow next" onclick="nextRemedial()">&#10095;</button>
-</div>
+</div> */ ?>
+
 
 <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -742,3 +958,349 @@ function prevRemedial() { showSlide(currentSlide - 1); }
 </script>
 </body>
 </html>
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $last_name = $_POST['last_name'] ?? ($student['lname'] ?? '');
+    $first_name = $_POST['first_name'] ?? ($student['fname'] ?? '');
+    $middle_name = $_POST['middle_name'] ?? ($student['mname'] ?? '');
+    $suffix = $_POST['suffix'] ?? ($student['suffix'] ?? '');
+    $lrn = $_POST['lrn'] ?? ($student['lrn'] ?? '');
+    $birthdate = $_POST['birthdate'] ?? ($student['birthdate'] ?? '');
+    $sex = $_POST['sex'] ?? ($student['sex'] ?? '');
+    $school_name = $_POST['school_name'] ?? '';
+    $school_id = $_POST['school_id'] ?? '';
+    $school_address = $_POST['school_address'] ?? '';
+    $kinder_progress_report = !empty($_POST['kinder_progress_report']) ? 1 : 0;
+    $eccd_checklist = !empty($_POST['eccd_checklist']) ? 1 : 0;
+    $kinder_certificate = !empty($_POST['kinder_certificate']) ? 1 : 0;
+    $pept_passer = !empty($_POST['pept_passer']) ? 1 : 0;
+    $pept_text = $_POST['pept_text'] ?? '';
+    $exam_date = $_POST['exam_date'] ?? '';
+    $others_check = !empty($_POST['others_check']) ? 1 : 0;
+    $others_text = $_POST['others_text'] ?? '';
+    $testing_center_name = $_POST['testing_center_name'] ?? '';
+    $testing_center_address = $_POST['testing_center_address'] ?? '';
+    $remark = $_POST['remark'] ?? '';
+
+    $grades = $sections = $school_years = $advisers = [];
+    $learning_areas_all = $q1_all = $q2_all = $q3_all = $q4_all = [];
+    $final_ratings_all = $remarks_all = $general_averages = [];
+
+    for ($i = 1; $i <= $num_scholastic_records; $i++) {
+
+        $grades[$i] = $_POST['grade' . $i] ?? '';
+        $sections[$i] = $_POST['section' . $i] ?? '';
+        $school_years[$i] = $_POST['school_year' . $i] ?? '';
+        $advisers[$i] = $_POST['adviser_name' . $i] ?? '';
+        $learning_areas_all[$i] = $_POST['learning_area' . $i] ?? [];
+        $q1_all[$i] = $_POST['q1_' . $i] ?? [];
+        $q2_all[$i] = $_POST['q2_' . $i] ?? [];
+        $q3_all[$i] = $_POST['q3_' . $i] ?? [];
+        $q4_all[$i] = $_POST['q4_' . $i] ?? [];
+        $remarks_all[$i] = $_POST['remarks_table_' . $i] ?? [];
+
+        $final_ratings_all[$i] = [];
+        $total = 0; $count = 0;
+        for ($r = 0; $r < $num_subjects; $r++) {
+            $q1 = is_numeric($q1_all[$i][$r] ?? null) ? floatval($q1_all[$i][$r]) : 0;
+            $q2 = is_numeric($q2_all[$i][$r] ?? null) ? floatval($q2_all[$i][$r]) : 0;
+            $q3 = is_numeric($q3_all[$i][$r] ?? null) ? floatval($q3_all[$i][$r]) : 0;
+            $q4 = is_numeric($q4_all[$i][$r] ?? null) ? floatval($q4_all[$i][$r]) : 0;
+            if ($q1 || $q2 || $q3 || $q4) {
+                $final = round(($q1 + $q2 + $q3 + $q4) / 4, 2);
+                $final_ratings_all[$i][$r] = $final;
+                $total += $final; $count++;
+            } else {
+                $final_ratings_all[$i][$r] = '';
+            }
+        }
+        $general_averages[$i] = $count ? round($total / $count, 2) : '';
+    }
+
+    // Save main SF10 data
+    $personal_data = [
+        'student_id' => $student_id,
+        'last_name' => $last_name,
+        'first_name' => $first_name,
+        'middle_name' => $middle_name,
+        'suffix' => $suffix,
+        'lrn' => $lrn,
+        'birthdate' => $birthdate,
+        'sex' => $sex,
+        'school_name' => $school_name,
+        'school_id' => $school_id,
+        'school_address' => $school_address,
+        'kinder_progress_report' => $kinder_progress_report,
+        'eccd_checklist' => $eccd_checklist,
+        'kinder_certificate' => $kinder_certificate,
+        'pept_passer' => $pept_passer,
+        'pept_text' => $pept_text,
+        'exam_date' => $exam_date,
+        'others_check' => $others_check,
+        'others_text' => $others_text,
+        'testing_center_name' => $testing_center_name,
+        'testing_center_address' => $testing_center_address,
+        'remark' => $remark,
+        'days_present' => $_POST['days_present'] ?? 0,
+        'days_absent' => $_POST['days_absent'] ?? 0
+    ];
+
+    try {
+        $columns = implode(',', array_keys($personal_data));
+        $placeholders = implode(',', array_fill(0, count($personal_data), '?'));
+        $stmt = $pdo->prepare("INSERT INTO sf10_data ($columns) VALUES ($placeholders)");
+        $stmt->execute(array_values($personal_data));
+        $sf10_id = $pdo->lastInsertId();
+        
+        // Verify SF10 data was inserted
+        error_log("SF10 data inserted with ID: $sf10_id");
+        error_log("SF10 personal data: " . json_encode($personal_data));
+
+        // Save remedial class data using new tables - SIMPLIFIED AND WORKING
+        for ($i = 1; $i <= $num_scholastic_records; $i++) {
+            $areas = isset($_POST["rem{$i}_area"]) ? (array)$_POST["rem{$i}_area"] : [];
+            $finals = isset($_POST["rem{$i}_final"]) ? (array)$_POST["rem{$i}_final"] : [];
+            $class_marks = isset($_POST["rem{$i}_class_mark"]) ? (array)$_POST["rem{$i}_class_mark"] : [];
+            $recomputeds = isset($_POST["rem{$i}_recomputed"]) ? (array)$_POST["rem{$i}_recomputed"] : [];
+            $remarks_rem = isset($_POST["rem{$i}_remarks"]) ? (array)$_POST["rem{$i}_remarks"] : [];
+
+            // Count actual entries (non-empty areas)
+            $entry_count = 0;
+            foreach ($areas as $area) {
+                if (!empty($area)) {
+                    $entry_count++;
+                }
+            }
+
+            error_log("SF10 Scholastic {$i}: Found {$entry_count} remedial entries");
+
+            // Only create remedial records if there are entries
+            if ($entry_count > 0) {
+                // Create remedial class record linking to sf10_data
+                $stmt_rem = $pdo->prepare("INSERT INTO sf10_remedial_class (sf10_data_id) VALUES (?)");
+                $stmt_rem->execute([$sf10_id]);
+                $sf10_rem_id = $pdo->lastInsertId();
+                
+                error_log("Created sf10_remedial_class with ID: $sf10_rem_id for sf10_data_id: $sf10_id");
+
+                // Insert each remedial class entry
+                for ($c = 0; $c < count($areas); $c++) {
+                    if (!empty($areas[$c])) {
+                        $area = trim($areas[$c]);
+                        $final_rating = trim($finals[$c] ?? '');
+                        $class_mark = trim($class_marks[$c] ?? '');
+                        $recomputed_rating = trim($recomputeds[$c] ?? '');
+                        $remarks = trim($remarks_rem[$c] ?? '');
+
+                        // Insert into remedial_class table
+                        $stmt_remedial = $pdo->prepare("
+                            INSERT INTO remedial_class 
+                            (sf10_rem_id, area, final_rating, class_mark, recomputed_rating, remarks) 
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ");
+                        $stmt_remedial->execute([
+                            $sf10_rem_id,
+                            $area,
+                            $final_rating,
+                            $class_mark,
+                            $recomputed_rating,
+                            $remarks
+                        ]);
+                        
+                        error_log("✓ Inserted remedial: scholastic={$i}, area={$area}, final={$final_rating}, class_mark={$class_mark}, recomputed={$recomputed_rating}");
+                    }
+                }
+            }
+        }
+
+       
+        $template_path = BASE_PATH .  '/src/UI-Admin/contents/sf10/sf10.xlsx';
+        $spreadsheet = IOFactory::load($template_path);
+        $sheet = $spreadsheet->getSheet(0);
+        $sheet_back = $spreadsheet->getSheet(1);
+
+
+       
+        $sheet->setCellValue('E9', $last_name);
+        $sheet->setCellValue('R9', $first_name);
+        $sheet->setCellValue('AD9', $suffix);
+        $sheet->setCellValue('AQ9', $middle_name);
+        $sheet->setCellValueExplicit('J10', $lrn, DataType::TYPE_STRING);
+        $sheet->setCellValue('V10', $birthdate);
+        $sheet->setCellValue('AT10', $sex);
+
+       
+        $sheet->setCellValue('K14', $kinder_progress_report);
+        $sheet->setCellValue('U14', $eccd_checklist);
+        $sheet->setCellValue('AE14', $kinder_certificate);
+        $sheet->setCellValue('F15', $school_name);
+        $sheet->setCellValue('T15', $school_id);
+        $sheet->setCellValue('Z15', $school_address);
+        $sheet->setCellValue('B18', $pept_passer);
+        $sheet->setCellValue('J18', $pept_text);
+        $sheet->setCellValue('W18', $exam_date);
+        $sheet->setCellValue('AC18', $others_check);
+        $sheet->setCellValue('AQ18', $others_text);
+        $sheet->setCellValue('L19', $testing_center_name);
+        $sheet->setCellValue('M19', $testing_center_address);
+        $sheet->setCellValue('AJ19', $remark);
+
+       
+        $scholastic_positions = [
+            1 => ['grade'=>'F25','section'=>'J25','sy'=>'S25','adviser'=>'H26','start_row'=>30,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S','gen_avg'=>'S45'],
+            2 => ['grade'=>'Z25','section'=>'AE25','sy'=>'AU25','adviser'=>'AC26','start_row'=>30,'start_col'=>'V','q1'=>'AJ','q2'=>'AM','q3'=>'AO','q4'=>'AR','final'=>'AT','remarks'=>'AW','gen_avg'=>'AW45'],
+            3 => ['grade'=>'F54','section'=>'J54','sy'=>'S54','adviser'=>'H55','start_row'=>60,'start_col'=>'B','q1'=>'K','q2'=>'L','q3'=>'N','q4'=>'O','final'=>'P','remarks'=>'S','gen_avg'=>'S75'],
+            4 => ['grade'=>'Z54','section'=>'AE54','sy'=>'AU54','adviser'=>'AC55','start_row'=>60,'start_col'=>'V','q1'=>'AJ','q2'=>'AM','q3'=>'AO','q4'=>'AR','final'=>'AT','remarks'=>'AW','gen_avg'=>'AW75']
+        ];
+    $scholastic_positions_back = [
+    5 => ['grade'=>'D5','section'=>'H5','sy'=>'O5','adviser'=>'F6','start_row'=>10,'start_col'=>'B','q1'=>'H','q2'=>'I','q3'=>'J','q4'=>'K','final'=>'L','remarks'=>'O','gen_avg'=>'O25'],
+    6 => ['grade'=>'V5','section'=>'AB5','sy'=>'AG5','adviser'=>'V6','start_row'=>10,'start_col'=>'S','q1'=>'AB','q2'=>'AD','q3'=>'AE','q4'=>'AF','final'=>'AG','remarks'=>'AH','gen_avg'=>'AH25'],
+    7 => ['grade'=>'E34','section'=>'H34','sy'=>'O34','adviser'=>'F35','start_row'=>39,'start_col'=>'B','q1'=>'H','q2'=>'I','q3'=>'J','q4'=>'K','final'=>'L','remarks'=>'O','gen_avg'=>'O54'],
+    8 => ['grade'=>'V34','section'=>'AA34','sy'=>'V35','adviser'=>'AC40','start_row'=>39,'start_col'=>'S','q1'=>'AB','q2'=>'AD','q3'=>'AE','q4'=>'AF','final'=>'AG','remarks'=>'AH','gen_avg'=>'AH54']
+];
+
+
+
+        for ($i = 1; $i <= 4; $i++) {
+            $pos = $scholastic_positions[$i];
+            $sheet->setCellValue($pos['grade'], $grades[$i]);
+            $sheet->setCellValue($pos['section'], $sections[$i]);
+            $sheet->setCellValue($pos['sy'], $school_years[$i]);
+            $sheet->setCellValue($pos['adviser'], $advisers[$i]);
+            for ($r = 0; $r < $num_subjects; $r++) {
+                $row = $pos['start_row'] + $r;
+                $sheet->setCellValue($pos['start_col'] . $row, $learning_areas_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['q1'] . $row, $q1_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['q2'] . $row, $q2_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['q3'] . $row, $q3_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['q4'] . $row, $q4_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['final'] . $row, $final_ratings_all[$i][$r] ?? '');
+                $sheet->setCellValue($pos['remarks'] . $row, $remarks_all[$i][$r] ?? '');
+            }
+            $sheet->setCellValue($pos['gen_avg'], $general_averages[$i]);
+        }
+for ($i = 5; $i <= 8; $i++) {
+    $pos = $scholastic_positions_back[$i];
+    $sheet_back->setCellValue($pos['grade'], $grades[$i]);
+    $sheet_back->setCellValue($pos['section'], $sections[$i]);
+    $sheet_back->setCellValue($pos['sy'], $school_years[$i]);
+    $sheet_back->setCellValue($pos['adviser'], $advisers[$i]);
+    for ($r = 0; $r < $num_subjects; $r++) {
+        $row = $pos['start_row'] + $r;
+        $sheet_back->setCellValue($pos['start_col'] . $row, $learning_areas_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['q1'] . $row, $q1_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['q2'] . $row, $q2_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['q3'] . $row, $q3_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['q4'] . $row, $q4_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['final'] . $row, $final_ratings_all[$i][$r] ?? '');
+        $sheet_back->setCellValue($pos['remarks'] . $row, $remarks_all[$i][$r] ?? '');
+    }
+    $sheet_back->setCellValue($pos['gen_avg'], $general_averages[$i]);
+}
+
+$remedial_positions_front = [
+    1 => ['subject' => ['B49','G49','K49','O49','S49'], 'grade' => ['B50','G50','K50','O50','S50']],
+    2 => ['subject' => ['V49','AA49','AJ49','AQ49','AW49'], 'grade' => ['V50','AA50','AJ50','AQ50','AW50']],
+    3 => ['subject' => ['B79','G79','K79','O79','S79'], 'grade' => ['B80','G80','K80','O80','S80']],
+    4 => ['subject' => ['V79','AA79','AJ79','AQ79','AW79'], 'grade' => ['V80','AA80','AJ80','AQ80','AW80']]
+];
+
+
+$remedial_positions_back = [
+    5 => ['subject' => ['B29','F29','H29','K29','O29'], 'grade' => ['B30','F30','H30','K30','O30']],
+    6 => ['subject' => ['S29','W29','AC29','AF29','AH29'], 'grade' => ['S30','W30','AC30','AF30','AH30']],
+    7 => ['subject' => ['B58','F58','H58','K58','O58'], 'grade' => ['B59','F59','H59','K59','O59']],
+    8 => ['subject' => ['S58','W58','AC58','AF58','AH58'], 'grade' => ['S59','W59','AC59','AF59','AH59']]
+];
+
+
+for ($i = 1; $i <= 4; $i++) {
+    $pos = $remedial_positions_front[$i];
+    for ($c = 0; $c < 5; $c++) {
+        // First row
+        $sheet->setCellValue($pos['subject'][$c], $learning_areas_all[$i]['remedial_subject'][$c*2] ?? '');
+        $sheet->setCellValue($pos['grade'][$c], $final_ratings_all[$i]['remedial'][$c*2] ?? '');
+        // Second row: move 1 row down
+        $sheet->setCellValue(
+            preg_replace_callback('/\d+/', function($m){ return $m[0]+1; }, $pos['subject'][$c]),
+            $learning_areas_all[$i]['remedial_subject'][$c*2+1] ?? ''
+        );
+        $sheet->setCellValue(
+            preg_replace_callback('/\d+/', function($m){ return $m[0]+1; }, $pos['grade'][$c]),
+            $final_ratings_all[$i]['remedial'][$c*2+1] ?? ''
+        );
+    }
+}
+
+for ($i = 5; $i <= 8; $i++) {
+    $pos = $remedial_positions_back[$i];
+    for ($c = 0; $c < 5; $c++) {
+        // First row
+        $sheet_back->setCellValue($pos['subject'][$c], $learning_areas_all[$i]['remedial_subject'][$c*2] ?? '');
+        $sheet_back->setCellValue($pos['grade'][$c], $final_ratings_all[$i]['remedial'][$c*2] ?? '');
+        // Second row: move 1 row down
+        $sheet_back->setCellValue(
+            preg_replace_callback('/\d+/', function($m){ return $m[0]+1; }, $pos['subject'][$c]),
+            $learning_areas_all[$i]['remedial_subject'][$c*2+1] ?? ''
+        );
+        $sheet_back->setCellValue(
+            preg_replace_callback('/\d+/', function($m){ return $m[0]+1; }, $pos['grade'][$c]),
+            $final_ratings_all[$i]['remedial'][$c*2+1] ?? ''
+        );
+    }
+}
+
+
+$full_name = trim($last_name . ', ' . $first_name . ' ' . $middle_name . ' ' . $suffix);
+
+$certifications = [
+    ['name_cell' => 'H62', 'lrn_cell' => 'S62'],
+    ['name_cell' => 'H69', 'lrn_cell' => 'S69'],
+    ['name_cell' => 'H76', 'lrn_cell' => 'S76']
+];
+
+foreach ($certifications as $cert) {
+    $sheet_back->setCellValue($cert['name_cell'], $full_name);
+    $sheet_back->setCellValueExplicit($cert['lrn_cell'], $lrn, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+}   
+        $drawing = new Drawing();
+        $drawing->setName('DepEd Logo');
+        $drawing->setDescription('DepEd Logo');
+        $drawing->setPath($_SERVER['DOCUMENT_ROOT'] . BASE_FR . '/assets/image/deped.png');
+        $drawing->setCoordinates('A1');
+        $drawing->setWidth(80);
+        $drawing->setHeight(80);
+        $drawing->setWorksheet($sheet);
+
+      
+        $filename = build_sf10_filename($lrn, $first_name, $last_name);
+        $savePath = $saveDir . DIRECTORY_SEPARATOR . $filename;
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $writer->save($savePath);
+
+       
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . basename($filename) . '"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($savePath));
+        flush();
+        readfile($savePath);
+        $showSuccess = true;
+        $successMessage = "SF10 form saved successfully with remedial class data!";
+        exit;
+
+    } catch (Exception $e) {
+        $error_message = $e->getMessage();
+        // Log the error with POST data for debugging
+        error_log("SF10 Error: " . $error_message);
+        error_log("POST data received: " . json_encode($_POST));
+        
+        echo "<div class='alert alert-danger alert-dismissible fade show m-3' role='alert'>
+                <strong>Error:</strong> " . htmlspecialchars($error_message) . "
+                <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
+              </div>";
+    }
+}
