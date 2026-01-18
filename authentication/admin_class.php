@@ -1673,6 +1673,12 @@ class Action
             $tz = new DateTimeZone('Asia/Manila');
             $session = strtolower($session);
 
+            // Check if today is Sunday
+            $today = new DateTime($this->nao, $tz);
+            if ($today->format('w') == 0) {
+                return $this->jsonError("Attendance cannot be recorded on Sundays.");
+            }
+
             if (!in_array($session, ['morning', 'afternoon', 'confirm', 'cancel'])) {
                 return $this->jsonError("Invalid session.");
             }
@@ -1709,11 +1715,12 @@ class Action
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$row) {
-
-                $this->db->prepare("
-        INSERT INTO attendance (student_id, adviser_id, school_year_id, attendance_at)
-        VALUES (?, ?, ?, NOW())
-    ")->execute([$student_id, $adviser_id, $sy_id]);
+                if ($session === 'afternoon') {
+                    return $this->jsonError("Morning attendance not yet recorded.");
+                }
+                $this->db->prepare("INSERT INTO attendance (student_id, adviser_id, school_year_id, attendance_at)
+                    VALUES (?, ?, ?, NOW())
+                ")->execute([$student_id, $adviser_id, $sy_id]);
 
                 $attendance_id = $this->db->lastInsertId();
 
