@@ -19,7 +19,7 @@ if (isset($_POST['ajax'])) {
     $syStmt->execute();
     $syStatus = $syStmt->fetch(PDO::FETCH_ASSOC);
     $iddf = $syStatus['school_year_id'];
-    $where = "WHERE e.adviser_id = ? AND e.school_year_id = ?";
+    $where = "WHERE c.adviser_id = ? AND c.sy_id = ?";
     $params = [$adviser_id, $iddf];
 
     if ($search) {
@@ -29,11 +29,12 @@ if (isset($_POST['ajax'])) {
     }
 
     $base = "
-    FROM enrolment e
+    FROM classes c
+    INNER JOIN enrolment e ON e.section_name = c.section_name AND e.Grade_level = c.grade_level AND e.school_year_id = c.sy_id
     INNER JOIN student st ON st.student_id = e.student_id
     LEFT JOIN attendance a 
         ON a.student_id = st.student_id
-        AND DATE(a.morning_attendance) = CURDATE()
+        AND DATE(a.attendance_at) = CURDATE()
     $where
 ";
 
@@ -49,6 +50,7 @@ if (isset($_POST['ajax'])) {
         e.*,
         st.*,
         a.morning_attendance,
+        a.attendance_at,
         a.afternoon_attendance,
         a.attendance_type AS morning_type,
         a.A_attendance_type AS afternoon_type,
@@ -69,7 +71,7 @@ if (isset($_POST['ajax'])) {
             'Present' => '<span class="text-success">✔</span>',
             'Absent'  => '<span class="text-danger">✖</span>',
             'Late'    => '<span class="text-warning">🕒</span>',
-            default   => '<span class="text-secondary">-</span>',
+            default   => '<span class="text-secondary">----</span>',
         };
     }
 
@@ -86,44 +88,54 @@ if (isset($_POST['ajax'])) {
                 <strong><?= htmlspecialchars($user["lname"] . ", " . $user["fname"]) ?></strong><br>
                 <small><?= htmlspecialchars($user["mname"] ?? '') ?></small>
             </td>
-            <td><span class="badge bg-info"><?= $user["gradeLevel"] ?></span></td>
-            <td><span class="badge bg-secondary"><?= $user["section_name"] ?></span></td>
+            <td style="text-align: center;"><span class="badge bg-info"><?= $user["Grade_level"] ?></span></td>
+            <td style="text-align: center;"><span class="badge bg-secondary"><?= $user["section_name"] ?></span></td>
             <td class="text-center">
                 <?= attendanceIcon($user['morning_type'] ?? null) ?>
             </td>
             <td class="text-center">
                 <?= attendanceIcon($user['afternoon_type'] ?? null) ?>
             </td>
-            <td><?= date('M d, Y', strtotime($user["enrolled_date"])) ?></td>
-            <td class="text-center">
-                <?php if ($allRecordedSum): ?>
-                    <span class="text-success">✔</span>
-                    <div class="d-flex gap-1 justify-content-center">
-                    <?php elseif ($allRecorded): ?>
-                        <form title="Confirm" class="attendance-form" data-type="confirm">
-                            <input type="hidden" name="student_id" value="<?= $user["student_id"] ?>">
-                            <button type="submit" class="btn btn-sm btn-success">✔ Confirm</button>
-                        </form>
-                        <form title="Cancel" class="attendance-form" data-type="cancel">
-                            <input type="hidden" name="student_id" value="<?= $user["student_id"] ?>">
-                            <button type="submit" class="btn btn-sm btn-danger">✖ Cancel</button>
-                        </form>
-                    <?php else: ?>
-                        <form title="Present" class="attendance-form" data-type="P">
-                            <input type="hidden" name="student_id" value="<?= $user["student_id"] ?>">
-                            <button type="submit" class="btn btn-sm btn-success">✔</button>
-                        </form>
-                        <form title="Absent" class="attendance-form" data-type="A">
-                            <input type="hidden" name="student_id" value="<?= $user["student_id"] ?>">
-                            <button type="submit" class="btn btn-sm btn-danger">✖</button>
-                        </form>
-                        <form title="Late" class="attendance-form" data-type="L">
-                            <input type="hidden" name="student_id" value="<?= $user["student_id"] ?>">
-                            <button type="submit" class="btn btn-sm btn-warning">🕒</button>
-                        </form>
-                    </div>
-                <?php endif; ?>
-            </td>
+            <td style="text-align: center;"><?= $user["attendance_at"] ? date('M d, Y', strtotime($user["attendance_at"])) : '----' ?></td>
+            <?php
+            $today = new DateTime('now', new DateTimeZone('Asia/Manila'));
+            $isSunday = $today->format('w') == 0;
+            if ($isSunday):
+            ?>
+                <td class="text-center">
+                    <span class="text-black" style="height: 100%;">Closed (Sunday)</span>
+                </td>
+            <?php else: ?>
+                <td class="text-center d-flex gap-1 justify-content-center flex-wrap items-center">
+                    <?php if ($allRecordedSum): ?>
+                        <span class="text-success">✔</span>
+                        <div class="d-flex gap-1 justify-content-center">
+                        <?php elseif ($allRecorded): ?>
+                            <form title="Confirm" class="attendance-form" data-type="confirm">
+                                <input type="hidden" name="student_id" value="<?= $user["student_id"] ?>">
+                                <button type="submit" class="btn btn-sm btn-success">✔ Confirm</button>
+                            </form>
+                            <form title="Cancel" class="attendance-form" data-type="cancel">
+                                <input type="hidden" name="student_id" value="<?= $user["student_id"] ?>">
+                                <button type="submit" class="btn btn-sm btn-danger">✖ Cancel</button>
+                            </form>
+                        <?php else: ?>
+                            <form title="Present" class="attendance-form" data-type="P">
+                                <input type="hidden" name="student_id" value="<?= $user["student_id"] ?>">
+                                <button type="submit" class="btn btn-sm btn-success">✔</button>
+                            </form>
+                            <form title="Absent" class="attendance-form" data-type="A">
+                                <input type="hidden" name="student_id" value="<?= $user["student_id"] ?>">
+                                <button type="submit" class="btn btn-sm btn-danger">✖</button>
+                            </form>
+                            <form title="Late" class="attendance-form" data-type="L">
+                                <input type="hidden" name="student_id" value="<?= $user["student_id"] ?>">
+                                <button type="submit" class="btn btn-sm btn-warning">🕒</button>
+                            </form>
+                        </div>
+                    <?php endif; ?>
+                </td>
+            <?php endif; ?>
         </tr>
     <?php
     endforeach;
@@ -312,6 +324,7 @@ if (isset($_POST['ajax'])) {
         top: 0;
         z-index: 10;
     }
+
 
     .table tbody tr:hover {
         background-color: rgba(0, 123, 255, 0.05);
