@@ -27,7 +27,7 @@ function build_sf9_filename($lrn, $first, $last, $grade)
   $safe_last = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$last);
   $safe_grade = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$grade);
   $safe_syname = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$school_year_name);
-  $filename = trim($safe_lrn . '_' . $safe_first . '_' . $safe_last . '_' . $safe_grade . $safe_syname . '.xlsx', '_');
+  $filename = trim($safe_lrn . '_' . $safe_first . '_' . $safe_last . '_' . $safe_grade . '_' . $safe_syname . '.xlsx', '_');
   return $filename;
 }
 
@@ -137,6 +137,7 @@ if (isset($_GET['download']) && $_GET['download'] === '1') {
   }
   // file name saving as excel file based sa student info
   $fileName = build_sf9_filename($student['lrn'] ?? '', $student['fname'] ?? '', $student['lname'] ?? '', $student['gradeLevel'] ?? '');
+  // die(BASE_PATH);
   $filePath = BASE_PATH . '/sf9_files/' . $fileName;
 
   if (!file_exists($filePath)) {
@@ -915,7 +916,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="button" id="save-grades" class="btn btn-primary btn-lg">Save</button>
 
             <?php if ($student):
-              $downloadUrl = htmlspecialchars($_SERVER['PHP_SELF']) . '?student_id=' . urlencode($student_id) . '&download=1';
+              $downloadUrl = htmlspecialchars($_SERVER['PHP_SELF']) . '?student_id=' . urlencode($student_id) . '&download=1' . '&school_year_name=' . urlencode($school_year_name);
             ?>
               <a href="<?= $downloadUrl ?>" class="btn btn-success btn-lg">Download</a>
             <?php else: ?>
@@ -1186,6 +1187,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ?>
               </tbody>
             </table>
+          </div>
+          <div class="legend-box text-center mt-3 mt-md-4 mb-3 mb-md-4">
+            <strong>LEGEND:</strong>
+            <div class="legend-row">
+              <span class="legend-item"><strong>AO</strong> = Always Observed │</span>
+              <span class="legend-item"><strong>SO</strong> = Sometimes Observed │</span>
+              <span class="legend-item"><strong>RO</strong> = Rarely Observed │</span>
+              <span class="legend-item"><strong>NO</strong> = Not Observed</span>
+            </div>
           </div>
         </div>
 
