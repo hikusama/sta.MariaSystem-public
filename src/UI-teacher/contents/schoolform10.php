@@ -1,14 +1,5 @@
 <?php
 
-/**
- * SF10 Form - Scholastic Record Transfer
- * 
- * DEPENDENCY: This file depends on schoolform9.php structure
- * - The number of learning areas (subjects) matches SF9 schema
- * - Learning areas are queried from sf9_data table columns (subject_1 to subject_15)
- * - Scholastic records store grades for up to 8 school years
- * - Each scholastic record has $num_subjects learning areas with 4 quarterly grades
- */
 require_once __DIR__ . '/../../../tupperware.php';
 require_once __DIR__ . '/../../../authentication/config.php';
 
@@ -108,10 +99,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         throw new Exception('From year cannot be before 2000');
       }
 
-      $current_year = (int)date('Y');
-      if ($to_year > $current_year) {
-        throw new Exception("To year cannot be beyond the current year ($current_year)");
-      }
+      // $current_year = (int)date('Y');
+      // if ($to_year > $current_year) {
+      //   throw new Exception("To year cannot be beyond the current year ($current_year)");
+      // }
     } else {
       throw new Exception('School year format invalid. Use YYYY-YYYY format (e.g., 2024-2025)');
     }
@@ -129,10 +120,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
       $sf10_id = $sf10_record['id'];
     }
 
-    // Create remedial class group for this scholastic record
-    $stmt_group = $pdo->prepare("INSERT INTO sf10_remedial_class (sf10_data_id, school_year) VALUES (?, ?)");
-    $stmt_group->execute([$sf10_id, $school_year]);
-    $sf10_rem_id = $pdo->lastInsertId();
+    // Check if remedial class group already exists for this scholastic record
+    $stmt_check_group = $pdo->prepare("SELECT id FROM sf10_remedial_class WHERE sf10_data_id = ? AND school_year = ?");
+    $stmt_check_group->execute([$sf10_id, $school_year]);
+    $existing_group = $stmt_check_group->fetch(PDO::FETCH_ASSOC);
+
+    if ($existing_group) {
+      // Check how many entries already exist in this group
+      $stmt_count = $pdo->prepare("SELECT COUNT(*) as count FROM remedial_class WHERE sf10_rem_id = ?");
+      $stmt_count->execute([$existing_group['id']]);
+      $count_result = $stmt_count->fetch(PDO::FETCH_ASSOC);
+
+      if ($count_result['count'] >= 2) {
+        throw new Exception('Maximum 2 remedial entries allowed per scholastic record');
+      }
+
+      $sf10_rem_id = $existing_group['id'];
+    } else {
+      // Create remedial class group for this scholastic record
+      $stmt_group = $pdo->prepare("INSERT INTO sf10_remedial_class (sf10_data_id, school_year) VALUES (?, ?)");
+      $stmt_group->execute([$sf10_id, $school_year]);
+      $sf10_rem_id = $pdo->lastInsertId();
+    }
 
     // Insert remedial entry
     $stmt_remedial = $pdo->prepare(
@@ -268,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $student = $stmt_student->fetch(PDO::FETCH_ASSOC);
 
     // Get SF9 records to retrieve scholastic data
-    $stmt_sf9 = $pdo->prepare("SELECT * FROM sf9_data WHERE student_id = ? ORDER BY school_year");
+    $stmt_sf9 = $pdo->prepare("SELECT * FROM sf9_data WHERE student_id = ? ORDER BY CAST(SUBSTRING_INDEX(school_year, '-', 1) AS UNSIGNED) DESC");
     $stmt_sf9->execute([$student_id]);
     $sf9_records = $stmt_sf9->fetchAll(PDO::FETCH_ASSOC);
 
@@ -289,6 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         'sections' => $sf9_record['section'] ?? '',
         'school_years' => $sf9_record['school_year'] ?? '',
         'adviser_name' => $sf9_record['teacher'] ?? '',
+        'general_average' => $sf9_record['general_average'] ?? '',
         'learning_areas' => [],
         'q1' => [],
         'q2' => [],
@@ -370,12 +380,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
       if (isset($excel_cell_mappings[$field_key])) {
         $cell = strtoupper($excel_cell_mappings[$field_key]);
         $value = $sf10_data[$db_field] ?? '';
-        
+
         // Handle boolean fields
         if (in_array($db_field, ['kinder_progress_report', 'eccd_checklist', 'kinder_certificate', 'pept_passer', 'others_check'])) {
           $value = $value ? '✓' : 'ⅹ';
         }
-        
+
         // Force LRN to be string so it doesn't get compressed
         if ($db_field === 'lrn') {
           $sheet->setCellValueExplicit($cell, $value, DataType::TYPE_STRING);
@@ -414,23 +424,130 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         'adviser' => 'N27',
         'signature' => 'T27'       // 6-letter gap from N
       ]
+    ];    // Define scholastic patterns for all records
+    // Template sheet has 4 records (1-2 top, 3-4 back)
+    // Records > 4 go to cloned sheets
+    $scholastic_patterns_all = [
+      // Front sheet records 1-2 (rows 24-27)
+      1 => ['school' => 'C24', 'school_id' => 'J24', 'district' => 'C25', 'division' => 'E25', 'region' => 'J25', 'grade' => 'D26', 'section' => 'G26', 'school_year' => 'J26', 'adviser' => 'D27', 'signature' => 'J27', 'general_average' => 'E46', 'learning_start' => 31, 'learning_col' => 'B', 'remedial_start' => 50, 'remedial_col' => 'B'],
+      2 => ['school' => 'M24', 'school_id' => 'T24', 'district' => 'M25', 'division' => 'O25', 'region' => 'T25', 'grade' => 'N26', 'section' => 'Q26', 'school_year' => 'T26', 'adviser' => 'N27', 'signature' => 'T27', 'general_average' => 'O46', 'learning_start' => 31, 'learning_col' => 'L', 'remedial_start' => 50, 'remedial_col' => 'L'],
+
+      // Back sheet top position (rows 4-7) - records 3-4, 7-8, 11-12, etc.
+      3 => ['school' => 'C4', 'school_id' => 'J4', 'district' => 'C5', 'division' => 'E5', 'region' => 'J5', 'grade' => 'D6', 'section' => 'G6', 'school_year' => 'J6', 'adviser' => 'D7', 'signature' => 'J7', 'general_average' => 'E26', 'learning_start' => 11, 'learning_col' => 'B', 'remedial_start' => 30, 'remedial_col' => 'B'],
+      4 => ['school' => 'M4', 'school_id' => 'T4', 'district' => 'M5', 'division' => 'O5', 'region' => 'T5', 'grade' => 'N6', 'section' => 'Q6', 'school_year' => 'T6', 'adviser' => 'N7', 'signature' => 'T7', 'general_average' => 'O26', 'learning_start' => 11, 'learning_col' => 'L', 'remedial_start' => 30, 'remedial_col' => 'L'],
+
+      // Back sheet bottom position (rows 35-38) - records 5-6, 9-10, 13-14, etc.
+      5 => ['school' => 'C35', 'school_id' => 'J35', 'district' => 'C36', 'division' => 'E36', 'region' => 'J36', 'grade' => 'D37', 'section' => 'G37', 'school_year' => 'J37', 'adviser' => 'D38', 'signature' => 'J38', 'general_average' => 'E57', 'learning_start' => 42, 'learning_col' => 'B', 'remedial_start' => 61, 'remedial_col' => 'B'],
+      6 => ['school' => 'M35', 'school_id' => 'T35', 'district' => 'M36', 'division' => 'O36', 'region' => 'T36', 'grade' => 'N37', 'section' => 'Q37', 'school_year' => 'T37', 'adviser' => 'N38', 'signature' => 'T38', 'general_average' => 'O57', 'learning_start' => 42, 'learning_col' => 'L', 'remedial_start' => 61, 'remedial_col' => 'L']
     ];
 
-    // Fill the 2 scholastic records
-    for ($rec = 1; $rec <= 2; $rec++) {
-      if (isset($scholastic_data[$rec]) && isset($scholastic_patterns[$rec])) {
-        $pattern = $scholastic_patterns[$rec];
-        $data = $scholastic_data[$rec];
-        
-        $sheet->setCellValue($pattern['school'], $data['school'] ?? '');
-        $sheet->setCellValue($pattern['school_id'], $data['school_id'] ?? '');
-        $sheet->setCellValue($pattern['district'], $data['district'] ?? '');
-        $sheet->setCellValue($pattern['division'], $data['division'] ?? '');
-        $sheet->setCellValue($pattern['region'], $data['region'] ?? '');
-        $sheet->setCellValue($pattern['grade'], $data['grades'] ?? '');
-        $sheet->setCellValue($pattern['section'], $data['sections'] ?? '');
-        $sheet->setCellValue($pattern['school_year'], $data['school_years'] ?? '');
-        $sheet->setCellValue($pattern['adviser'], $data['adviser_name'] ?? '');
+    // Mapping for which sheet each record goes to
+    $sheet_mapping = [];
+    $front_sheet = $spreadsheet->getSheetByName('Front');
+    $sheet_mapping[1] = $front_sheet; // Front for record 1
+    $sheet_mapping[2] = $front_sheet; // Front for record 2
+
+    $template_sheet = $spreadsheet->getSheetByName('Template');
+
+    // Create cloned sheets starting from record 3
+    // Each Back sheet holds 4 records (2 on top at rows 4-7, 2 on bottom at rows 35-38)
+    for ($rec = 3; $rec <= $num_scholastic_records; $rec++) {
+      $sheet_index = intdiv($rec - 3, 4) + 1;
+      $back_sheet_name = 'Back ' . $sheet_index;
+
+      // Check if sheet already exists
+      if (!$spreadsheet->sheetNameExists($back_sheet_name)) {
+        // Clone Template sheet with all styles and merged cells
+        $cloned_sheet = $template_sheet->copy();
+        $cloned_sheet->setTitle($back_sheet_name);
+        $spreadsheet->addSheet($cloned_sheet);
+      }
+
+      $sheet_mapping[$rec] = $spreadsheet->getSheetByName($back_sheet_name);
+    }
+
+    // Fill all scholastic records
+    for ($rec = 1; $rec <= $num_scholastic_records; $rec++) {
+      if (!isset($scholastic_data[$rec])) continue;
+
+      // Get pattern
+      // Records 1-2: use patterns 1-2 (Front sheet)
+      // Records 3+: use patterns 3-6 cycling (4 records per Back sheet)
+      if ($rec <= 2) {
+        $pattern_key = $rec;
+      } else {
+        $pattern_key = (($rec - 3) % 4) + 3;
+      }
+      $pattern = $scholastic_patterns_all[$pattern_key];
+      $data = $scholastic_data[$rec];
+      $current_sheet = $sheet_mapping[$rec];
+
+      // Fill header info
+      $current_sheet->setCellValue($pattern['school'], $data['school'] ?? '');
+      $current_sheet->setCellValue($pattern['school_id'], $data['school_id'] ?? '');
+      $current_sheet->setCellValue($pattern['district'], $data['district'] ?? '');
+      $current_sheet->setCellValue($pattern['division'], $data['division'] ?? '');
+      $current_sheet->setCellValue($pattern['region'], $data['region'] ?? '');
+      $current_sheet->setCellValue($pattern['grade'], $data['grades'] ?? '');
+      $current_sheet->setCellValue($pattern['section'], $data['sections'] ?? '');
+      $current_sheet->setCellValue($pattern['school_year'], $data['school_years'] ?? '');
+      $current_sheet->setCellValue($pattern['adviser'], $data['adviser_name'] ?? '');
+      $current_sheet->setCellValue($pattern['general_average'], $data['general_average'] ?? '');
+
+      // Define subject columns for learning areas
+      $subject_columns = [
+        1 => ['q1' => 'E', 'q2' => 'F', 'q3' => 'G', 'q4' => 'H', 'final' => 'I', 'remarks' => 'J'],
+        2 => ['q1' => 'O', 'q2' => 'P', 'q3' => 'Q', 'q4' => 'R', 'final' => 'S', 'remarks' => 'T'],
+        3 => ['q1' => 'E', 'q2' => 'F', 'q3' => 'G', 'q4' => 'H', 'final' => 'I', 'remarks' => 'J'],
+        4 => ['q1' => 'O', 'q2' => 'P', 'q3' => 'Q', 'q4' => 'R', 'final' => 'S', 'remarks' => 'T'],
+        5 => ['q1' => 'E', 'q2' => 'F', 'q3' => 'G', 'q4' => 'H', 'final' => 'I', 'remarks' => 'J'],
+        6 => ['q1' => 'O', 'q2' => 'P', 'q3' => 'Q', 'q4' => 'R', 'final' => 'S', 'remarks' => 'T']
+      ];
+
+      $cols = $subject_columns[$pattern_key];
+      $learning_col = $pattern['learning_col'];
+      $learning_start = $pattern['learning_start'];
+
+      // Fill learning areas
+      for ($sub_idx = 0; $sub_idx < count($data['learning_areas']); $sub_idx++) {
+        $row = $learning_start + $sub_idx;
+        $subject = $data['learning_areas'][$sub_idx] ?? '';
+        if (!empty($subject)) {
+          $current_sheet->setCellValue($learning_col . $row, $subject);
+          $current_sheet->setCellValue($cols['q1'] . $row, $data['q1'][$sub_idx] ?? '');
+          $current_sheet->setCellValue($cols['q2'] . $row, $data['q2'][$sub_idx] ?? '');
+          $current_sheet->setCellValue($cols['q3'] . $row, $data['q3'][$sub_idx] ?? '');
+          $current_sheet->setCellValue($cols['q4'] . $row, $data['q4'][$sub_idx] ?? '');
+          $current_sheet->setCellValue($cols['final'] . $row, $data['final_ratings'][$sub_idx] ?? '');
+          $current_sheet->setCellValue($cols['remarks'] . $row, $data['remarks'][$sub_idx] ?? '');
+        }
+      }
+
+      // Fill remedial classes
+      if (!empty($data['school_years'])) {
+        $stmt_rem = $pdo->prepare("
+          SELECT rc.* FROM remedial_class rc
+          INNER JOIN sf10_remedial_class src ON rc.sf10_rem_id = src.sf10_rem_id
+          WHERE src.sf10_data_id = ? AND src.school_year = ?
+          ORDER BY src.school_year, rc.remedial_id
+        ");
+        $stmt_rem->execute([$sf10_data['id'], $data['school_years']]);
+        $remedial_records = $stmt_rem->fetchAll(PDO::FETCH_ASSOC);
+
+        $remedial_col = $pattern['remedial_col'];
+        $remedial_start = $pattern['remedial_start'];
+
+        foreach ($remedial_records as $rem_idx => $remedial) {
+          $rem_row = $remedial_start + $rem_idx;
+          $rem_area = $remedial['area'] ?? '';
+          if (!empty($rem_area)) {
+            $current_sheet->setCellValue($remedial_col . $rem_row, $rem_area);
+            $current_sheet->setCellValue(chr(ord($remedial_col) + 3) . $rem_row, $remedial['final_rating'] ?? ''); // E or O
+            $current_sheet->setCellValue(chr(ord($remedial_col) + 5) . $rem_row, $remedial['class_mark'] ?? ''); // G or Q
+            $current_sheet->setCellValue(chr(ord($remedial_col) + 7) . $rem_row, $remedial['recomputed_rating'] ?? ''); // I or S
+            $current_sheet->setCellValue(chr(ord($remedial_col) + 8) . $rem_row, $remedial['remarks'] ?? ''); // J or T (right after recomputed rating)
+          }
+        }
       }
     }
 
@@ -901,10 +1018,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
     }
 
     // Delete existing remedial data for this SF10
-    $pdo->prepare("DELETE FROM remedial_class WHERE sf10_rem_id IN (
-            SELECT sf10_rem_id FROM sf10_remedial_class WHERE sf10_data_id = ?
-        )")->execute([$sf10_id]);
-    $pdo->prepare("DELETE FROM sf10_remedial_class WHERE sf10_data_id = ?")->execute([$sf10_id]);
+    // $pdo->prepare("DELETE FROM remedial_class WHERE sf10_rem_id IN (
+    //         SELECT sf10_rem_id FROM sf10_remedial_class WHERE sf10_data_id = ?
+    //     )")->execute([$sf10_id]);
+    // $pdo->prepare("DELETE FROM sf10_remedial_class WHERE sf10_data_id = ?")->execute([$sf10_id]);
 
     // Process remedial data for each scholastic record
     for ($i = 1; $i <= $num_scholastic_records; $i++) {
@@ -1361,9 +1478,19 @@ if (isset($_GET['student_id'])) {
         <div class="col-12 mb-3">
           <div class="text-center d-flex justify-content-center gap-2 flex-wrap">
             <button type="submit" class="btn btn-primary btn-lg">Save</button>
-            <button type="button" class="btn btn-success btn-lg" id="downloadBtn" style="display: none;" onclick="downloadExcel()">
-              <i class="fas fa-download"></i> Download Excel
-            </button>
+            <?php
+            $safe_lrn = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($sf10_data['lrn'] ?? ''));
+            $safe_first = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($sf10_data['first_name'] ?? ''));
+            $safe_last = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($sf10_data['last_name'] ?? ''));
+            $filename = trim($safe_lrn . '_' . $safe_first . '_' . $safe_last . '_SF10.xlsx', '_');
+            $saveDir = sys_get_temp_dir();
+            $savePath = $saveDir . DIRECTORY_SEPARATOR . $filename;
+            if (file_exists($savePath)):
+            ?>
+              <button type="button" class="btn btn-success btn-lg" id="downloadBtn" onclick="downloadExcel()">
+                <i class="fas fa-download"></i> Download Excel
+              </button>
+            <?php endif; ?>
             <a onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf10'" class="btn btn-secondary btn-lg">Back</a>
           </div>
         </div>
@@ -1890,6 +2017,19 @@ if (isset($_GET['student_id'])) {
           icon: 'warning',
           title: 'Missing Field',
           text: 'Please enter a recomputed final grade'
+        });
+        return;
+      }
+
+      // Check remedial entries count
+      const remedialContainer = document.getElementById('remedial-records-container');
+      const existingEntries = remedialContainer ? remedialContainer.querySelectorAll('tr').length : 0;
+      
+      if (existingEntries >= 2) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Limit Reached',
+          text: 'Maximum 2 remedial entries allowed per scholastic record'
         });
         return;
       }
