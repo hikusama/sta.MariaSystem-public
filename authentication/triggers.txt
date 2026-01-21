@@ -218,10 +218,10 @@ BEGIN
               AND school_year = sy_name
         ) THEN
             INSERT INTO sf9_data (
-                student_id, student_name, lrn, grade, section, school_year, teacher
+                student_id, student_name, lrn, grade, section, school_year, teacher, school, district, division, school_id, region
             )
             VALUES (
-                NEW.student_id, student_full_name, student_lrn, NEW.Grade_level, NEW.section_name, sy_name, full_name
+                NEW.student_id, student_full_name, student_lrn, NEW.Grade_level, NEW.section_name, sy_name, full_name, 'Sta. Maria Central School' ,'Sta. Maria', 'Zamboanga City', '126220', 'IX'
             );
 
             -- Update sex, age, guardian
