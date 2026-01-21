@@ -11,6 +11,11 @@
  */
 require_once __DIR__ . '/../../../tupperware.php';
 require_once __DIR__ . '/../../../authentication/config.php';
+
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+
 $result = checkURI('teacher', 2);
 
 if ($result['res']) {
@@ -85,6 +90,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
       throw new Exception('Missing required fields');
     }
 
+    // Validate school year
+    if (empty($school_year)) {
+      throw new Exception('School year is required');
+    }
+
+    if (strpos($school_year, '-') !== false) {
+      list($from_year, $to_year) = explode('-', $school_year);
+      $from_year = (int)$from_year;
+      $to_year = (int)$to_year;
+
+      if ($to_year - $from_year !== 1) {
+        throw new Exception('School year must have exactly 1 year gap (e.g., 2024-2025)');
+      }
+
+      if ($from_year < 2000) {
+        throw new Exception('From year cannot be before 2000');
+      }
+
+      $current_year = (int)date('Y');
+      if ($to_year > $current_year) {
+        throw new Exception("To year cannot be beyond the current year ($current_year)");
+      }
+    } else {
+      throw new Exception('School year format invalid. Use YYYY-YYYY format (e.g., 2024-2025)');
+    }
+
     // Get or create SF10 record
     $stmt_check = $pdo->prepare("SELECT id FROM sf10_data WHERE student_id = ?");
     $stmt_check->execute([$student_id]);
@@ -133,9 +164,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $student_id = $_POST['student_id'] ?? null;
     $school_year = $_POST['school_year'] ?? '';
 
-    // Debug logging
-    error_log("DEBUG: show_remedial_records - student_id=$student_id, school_year=$school_year");
-
     if (!$student_id || !$school_year) {
       echo '<div class="alert alert-warning">Invalid parameters: student_id=' . htmlspecialchars($student_id) . ', school_year=' . htmlspecialchars($school_year) . '</div>';
       exit;
@@ -145,8 +173,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stmt_sf10 = $pdo->prepare("SELECT id FROM sf10_data WHERE student_id = ?");
     $stmt_sf10->execute([$student_id]);
     $sf10_data = $stmt_sf10->fetch(PDO::FETCH_ASSOC);
-
-    error_log("DEBUG: sf10_data lookup - Found: " . json_encode($sf10_data));
 
     if (!$sf10_data) {
       echo '<div class="alert alert-info"><small>No SF10 record found for this student. You may need to save the form first.</small></div>';
@@ -167,8 +193,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 
     // Build the table HTML
-    echo '<div class="table-responsive">
-      <table class="table table-bordered table-sm">
+    echo '<div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+      <table class="table table-bordered table-sm" style="min-width: 600px;">
         <thead>
           <tr>
             <th>Learning Area</th>
@@ -216,6 +242,268 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
   }
 }
 
+// AJAX Handler for downloading Excel file
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'download_excel') {
+  header('Content-Type: application/json');
+
+  try {
+    $student_id = $_POST['student_id'] ?? null;
+
+    if (!$student_id) {
+      throw new Exception('Missing student ID');
+    }
+
+    // Get SF10 data
+    $stmt = $pdo->prepare("SELECT * FROM sf10_data WHERE student_id = ? ORDER BY id DESC LIMIT 1");
+    $stmt->execute([$student_id]);
+    $sf10_data = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$sf10_data) {
+      throw new Exception('No SF10 data found for this student');
+    }
+
+    // Get student info
+    $stmt_student = $pdo->prepare("SELECT * FROM student WHERE student_id = ?");
+    $stmt_student->execute([$student_id]);
+    $student = $stmt_student->fetch(PDO::FETCH_ASSOC);
+
+    // Get SF9 records to retrieve scholastic data
+    $stmt_sf9 = $pdo->prepare("SELECT * FROM sf9_data WHERE student_id = ? ORDER BY school_year");
+    $stmt_sf9->execute([$student_id]);
+    $sf9_records = $stmt_sf9->fetchAll(PDO::FETCH_ASSOC);
+
+    $num_subjects = 15;
+    $num_scholastic_records = count($sf9_records) > 0 ? count($sf9_records) : 1;
+
+    // Build scholastic data arrays
+    $scholastic_data = [];
+    foreach ($sf9_records as $idx => $sf9_record) {
+      $scholastic_index = $idx + 1;
+      $scholastic_data[$scholastic_index] = [
+        'school' => $sf9_record['school'] ?? '',
+        'district' => $sf9_record['district'] ?? '',
+        'division' => $sf9_record['division'] ?? '',
+        'school_id' => $sf9_record['school_id'] ?? '',
+        'region' => $sf9_record['region'] ?? '',
+        'grades' => $sf9_record['grade'] ?? '',
+        'sections' => $sf9_record['section'] ?? '',
+        'school_years' => $sf9_record['school_year'] ?? '',
+        'adviser_name' => $sf9_record['teacher'] ?? '',
+        'learning_areas' => [],
+        'q1' => [],
+        'q2' => [],
+        'q3' => [],
+        'q4' => [],
+        'final_ratings' => [],
+        'remarks' => []
+      ];
+
+      for ($r = 1; $r <= $num_subjects; $r++) {
+        $scholastic_data[$scholastic_index]['learning_areas'][] = $sf9_record["subject_{$r}"] ?? '';
+        $scholastic_data[$scholastic_index]['q1'][] = $sf9_record["q1_{$r}"] ?? '';
+        $scholastic_data[$scholastic_index]['q2'][] = $sf9_record["q2_{$r}"] ?? '';
+        $scholastic_data[$scholastic_index]['q3'][] = $sf9_record["q3_{$r}"] ?? '';
+        $scholastic_data[$scholastic_index]['q4'][] = $sf9_record["q4_{$r}"] ?? '';
+        $scholastic_data[$scholastic_index]['final_ratings'][] = $sf9_record["final_{$r}"] ?? '';
+        $scholastic_data[$scholastic_index]['remarks'][] = $sf9_record["remarks_{$r}"] ?? '';
+      }
+    }
+
+    // Load Excel template
+    $template_path = BASE_PATH . '/src/UI-Admin/contents/sf10/sf10.xlsx';
+    if (!file_exists($template_path)) {
+      throw new Exception('SF10 template file not found at: ' . $template_path);
+    }
+
+    $spreadsheet = IOFactory::load($template_path);
+    $sheet = $spreadsheet->getSheet(0);
+    $sheet_back = $spreadsheet->getSheet(1);
+
+    // Excel cell mappings - only these cells will be written
+    $excel_cell_mappings = [
+      'lastname' => 'c9',
+      'firstname' => 'h9',
+      'suffix' => 'n9',
+      'mname' => 's9',
+      'lrn' => 'e10',
+      'bd' => 'l10',
+      'sx' => 't10',
+      'kinderprogress' => 'f14',
+      'eccd' => 'l14',
+      'kinder_cert' => 'q14',
+      'nos' => 'd15',
+      'schoolid' => 'k15',
+      'aos' => 'q15',
+      'pept_passer' => 'b19',
+      'doe' => 'k19',
+      'otherscheckbx' => 'p19',
+      'othersinput' => 't19',
+      'natC' => 'f20',
+      'remark' => 's20'
+    ];
+
+    // Map database fields to Excel cells
+    $field_db_mapping = [
+      'lastname' => 'last_name',
+      'firstname' => 'first_name',
+      'suffix' => 'suffix',
+      'mname' => 'middle_name',
+      'lrn' => 'lrn',
+      'bd' => 'birthdate',
+      'sx' => 'sex',
+      'kinderprogress' => 'kinder_progress_report',
+      'eccd' => 'eccd_checklist',
+      'kinder_cert' => 'kinder_certificate',
+      'nos' => 'school_name',
+      'schoolid' => 'school_id',
+      'aos' => 'school_address',
+      'pept_passer' => 'pept_passer',
+      'doe' => 'exam_date',
+      'otherscheckbx' => 'others_check',
+      'othersinput' => 'others_text',
+      'natC' => 'testing_center_name',
+      'remark' => 'remark'
+    ];
+
+    // Fill only the mapped cells
+    foreach ($field_db_mapping as $field_key => $db_field) {
+      if (isset($excel_cell_mappings[$field_key])) {
+        $cell = strtoupper($excel_cell_mappings[$field_key]);
+        $value = $sf10_data[$db_field] ?? '';
+        
+        // Handle boolean fields
+        if (in_array($db_field, ['kinder_progress_report', 'eccd_checklist', 'kinder_certificate', 'pept_passer', 'others_check'])) {
+          $value = $value ? '✓' : 'ⅹ';
+        }
+        
+        // Force LRN to be string so it doesn't get compressed
+        if ($db_field === 'lrn') {
+          $sheet->setCellValueExplicit($cell, $value, DataType::TYPE_STRING);
+        } else {
+          $sheet->setCellValue($cell, $value);
+        }
+      }
+    }
+
+
+
+    // Fill scholastic records - Pattern for 2 records
+    // Record 1: starts at C24 | Record 2: starts at M24 (C + 10 letters)
+    $scholastic_patterns = [
+      1 => [
+        'school' => 'C24',
+        'school_id' => 'J24',      // 7-letter gap
+        'district' => 'C25',
+        'division' => 'E25',       // 2-letter gap
+        'region' => 'J25',         // 7-letter gap from C
+        'grade' => 'D26',
+        'section' => 'G26',        // 3-letter gap
+        'school_year' => 'J26',    // 6-letter gap from D
+        'adviser' => 'D27',
+        'signature' => 'J27'       // 6-letter gap from D
+      ],
+      2 => [
+        'school' => 'M24',
+        'school_id' => 'T24',      // 7-letter gap
+        'district' => 'M25',
+        'division' => 'O25',       // 2-letter gap
+        'region' => 'T25',         // 7-letter gap from M
+        'grade' => 'N26',
+        'section' => 'Q26',        // 3-letter gap
+        'school_year' => 'T26',    // 6-letter gap from N
+        'adviser' => 'N27',
+        'signature' => 'T27'       // 6-letter gap from N
+      ]
+    ];
+
+    // Fill the 2 scholastic records
+    for ($rec = 1; $rec <= 2; $rec++) {
+      if (isset($scholastic_data[$rec]) && isset($scholastic_patterns[$rec])) {
+        $pattern = $scholastic_patterns[$rec];
+        $data = $scholastic_data[$rec];
+        
+        $sheet->setCellValue($pattern['school'], $data['school'] ?? '');
+        $sheet->setCellValue($pattern['school_id'], $data['school_id'] ?? '');
+        $sheet->setCellValue($pattern['district'], $data['district'] ?? '');
+        $sheet->setCellValue($pattern['division'], $data['division'] ?? '');
+        $sheet->setCellValue($pattern['region'], $data['region'] ?? '');
+        $sheet->setCellValue($pattern['grade'], $data['grades'] ?? '');
+        $sheet->setCellValue($pattern['section'], $data['sections'] ?? '');
+        $sheet->setCellValue($pattern['school_year'], $data['school_years'] ?? '');
+        $sheet->setCellValue($pattern['adviser'], $data['adviser_name'] ?? '');
+      }
+    }
+
+    // Add logo
+    $logo_path = $_SERVER['DOCUMENT_ROOT'] . BASE_FR . '/assets/image/deped.png';
+    if (file_exists($logo_path)) {
+      $drawing = new Drawing();
+      $drawing->setName('DepEd Logo');
+      $drawing->setDescription('DepEd Logo');
+      $drawing->setPath($logo_path);
+      $drawing->setCoordinates('A1');
+      $drawing->setWidth(80);
+      $drawing->setHeight(80);
+      $drawing->setWorksheet($sheet);
+    }
+
+    // Generate filename
+    $safe_lrn = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($sf10_data['lrn'] ?? ''));
+    $safe_first = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($sf10_data['first_name'] ?? ''));
+    $safe_last = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($sf10_data['last_name'] ?? ''));
+    $filename = trim($safe_lrn . '_' . $safe_first . '_' . $safe_last . '_SF10.xlsx', '_');
+
+    // Save to temp location and stream
+    $saveDir = sys_get_temp_dir();
+    $savePath = $saveDir . DIRECTORY_SEPARATOR . $filename;
+    $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+    $writer->save($savePath);
+
+    // Return file info for download
+    echo json_encode([
+      'success' => true,
+      'filename' => $filename,
+      'path' => $savePath,
+      'message' => 'Excel file generated successfully'
+    ]);
+    exit;
+  } catch (Exception $e) {
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    exit;
+  }
+}
+
+// Handler to actually download the file
+if (isset($_GET['download_sf10'])) {
+  try {
+    $filename = $_GET['download_sf10'] ?? null;
+    if (!$filename) throw new Exception('No filename provided');
+
+    // Sanitize filename
+    $filename = basename($filename);
+    $savePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $filename;
+
+    if (!file_exists($savePath)) {
+      throw new Exception('File not found');
+    }
+
+    header('Content-Description: File Transfer');
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Expires: 0');
+    header('Cache-Control: must-revalidate');
+    header('Pragma: public');
+    header('Content-Length: ' . filesize($savePath));
+    flush();
+    readfile($savePath);
+    exit;
+  } catch (Exception $e) {
+    die("Error: " . htmlspecialchars($e->getMessage()));
+  }
+}
+
+
+
 // This matches the learning areas in schoolform9.php
 $num_subjects = 15; // Maximum columns in SF9 schema (loop through all, skip empty ones)
 
@@ -239,7 +527,7 @@ if ($student_id) {
   $stmt_sf9->execute([$student_id]);
   $sf9_records = $stmt_sf9->fetchAll(PDO::FETCH_ASSOC);
   $num_scholastic_records = count($sf9_records);
-  // If no SF9 records exist, allow at least 1 scholastic record
+
   if ($num_scholastic_records == 0) {
     $num_scholastic_records = 1;
   }
@@ -249,6 +537,11 @@ if ($student_id) {
 $scholastic_data = [
   'grades' => [],
   'sections' => [],
+  'schools' => [],
+  'districts' => [],
+  'divisions' => [],
+  'school_ids' => [],
+  'regions' => [],
   'school_years' => [],
   'adviser_name' => [],
   'learning_areas' => [],
@@ -261,9 +554,297 @@ $scholastic_data = [
   'general_average' => []
 ];
 $remedial_data = [];
+
+// Helper function to validate school year
+function validateSchoolYearPHP($schoolYear)
+{
+  if (empty($schoolYear)) {
+    return ['valid' => false, 'error' => 'School year is required'];
+  }
+
+  if (strpos($schoolYear, '-') === false) {
+    return ['valid' => false, 'error' => 'School year format invalid. Use YYYY-YYYY format (e.g., 2024-2025)'];
+  }
+
+  $parts = explode('-', $schoolYear);
+  if (count($parts) !== 2) {
+    return ['valid' => false, 'error' => 'School year format invalid. Use YYYY-YYYY format (e.g., 2024-2025)'];
+  }
+
+  $from_year = (int)$parts[0];
+  $to_year = (int)$parts[1];
+
+  // Validate year gap
+  if ($to_year - $from_year !== 1) {
+    return ['valid' => false, 'error' => 'School year must have exactly 1 year gap (e.g., 2024-2025)'];
+  }
+
+  // Validate from year
+  if ($from_year < 2000) {
+    return ['valid' => false, 'error' => 'From year cannot be before 2000'];
+  }
+
+  // Validate to year against current year
+  $current_year = (int)date('Y');
+  if ($to_year > $current_year) {
+    return ['valid' => false, 'error' => "To year cannot be beyond the current year ($current_year)"];
+  }
+
+  return ['valid' => true];
+}
 $sf10_data = [];
 
-// POST Handler - Save SF10 and Remedial Data (skip if AJAX action)
+// POST Handler - Save New Scholastic Record (from submitrec form)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['is_new_scholastic_record']) && $_POST['is_new_scholastic_record'] === '1') {
+  try {
+    $student_id = $_GET['student_id'] ?? null;
+    if (!$student_id) {
+      throw new Exception('Student ID is required');
+    }
+
+    // Get scholastic index from the stored_grade_data
+    $scholastic_index = null;
+    foreach ($_POST as $key => $value) {
+      if (strpos($key, 'stored_grade_data_') === 0) {
+        $scholastic_index = (int)str_replace('stored_grade_data_', '', $key);
+        break;
+      }
+    }
+
+    if (!$scholastic_index) {
+      throw new Exception('Scholastic index not found');
+    }
+
+    error_log("DEBUG: New scholastic record submission detected. Index: $scholastic_index, StudentID: $student_id");
+    error_log("DEBUG: POST data keys: " . implode(", ", array_keys($_POST)));
+
+    // Get form data
+    $school = trim($_POST["school{$scholastic_index}"] ?? '');
+    $district = trim($_POST["district{$scholastic_index}"] ?? '');
+    $division = trim($_POST["division{$scholastic_index}"] ?? '');
+    $school_id = trim($_POST["school_id{$scholastic_index}"] ?? '');
+    $region = trim($_POST["region{$scholastic_index}"] ?? '');
+    $grade = trim($_POST["grade{$scholastic_index}"] ?? '');
+    $section = trim($_POST["section{$scholastic_index}"] ?? '');
+    $school_year_from = trim($_POST["school_year_from{$scholastic_index}"] ?? '');
+    $school_year_to = trim($_POST["school_year_to{$scholastic_index}"] ?? '');
+    $adviser_name = trim($_POST["adviser_name{$scholastic_index}"] ?? '');
+    $school_year = $school_year_from . '-' . $school_year_to;
+
+    error_log("DEBUG: Grade='$grade', Section='$section', SchoolYear='$school_year', Adviser='$adviser_name'");
+
+    // Validate required fields
+    if (empty($grade)) {
+      throw new Exception('Grade level is required');
+    }
+    if (empty($section)) {
+      throw new Exception('Section is required');
+    }
+    if (empty($school_year_from) || empty($school_year_to)) {
+      throw new Exception('School year is required');
+    }
+    if (empty($adviser_name)) {
+      throw new Exception('Adviser name is required');
+    }
+
+    error_log("DEBUG: Validation passed. Checking school year format.");
+
+    // Validate school year
+    $sy_validation = validateSchoolYearPHP($school_year);
+    if (!$sy_validation['valid']) {
+      throw new Exception($sy_validation['error']);
+    }
+
+    error_log("DEBUG: School year validation passed.");
+
+    // Get stored grade data - check both sources: stored JSON and form arrays
+    $stored_data_key = "stored_grade_data_{$scholastic_index}";
+    $stored_grades = [];
+
+    // First try to get data from stored_grade_data JSON
+    if (isset($_POST[$stored_data_key]) && !empty($_POST[$stored_data_key])) {
+      $stored_grades = json_decode($_POST[$stored_data_key], true);
+      error_log("DEBUG: Got stored grades from JSON: " . json_encode($stored_grades));
+      if (!is_array($stored_grades)) {
+        throw new Exception('Invalid grade data format in JSON');
+      }
+    } else {
+      // Fallback: Reconstruct from form array fields (learning_area_2[], q1_2[], etc.)
+      error_log("DEBUG: No JSON data found, reconstructing from form arrays");
+
+      $learning_areas = $_POST["learning_area_{$scholastic_index}"] ?? [];
+      $q1_array = $_POST["q1_{$scholastic_index}"] ?? [];
+      $q2_array = $_POST["q2_{$scholastic_index}"] ?? [];
+      $q3_array = $_POST["q3_{$scholastic_index}"] ?? [];
+      $q4_array = $_POST["q4_{$scholastic_index}"] ?? [];
+      $final_array = $_POST["final_rating_{$scholastic_index}"] ?? [];
+      $remarks_array = $_POST["remarks_{$scholastic_index}"] ?? [];
+
+      error_log("DEBUG: Learning areas array: " . json_encode($learning_areas));
+      error_log("DEBUG: Learning areas count: " . count($learning_areas));
+      error_log("DEBUG: Q1 count: " . count($q1_array));
+      error_log("DEBUG: Final ratings count: " . count($final_array));
+
+      // Filter out empty entries
+      $valid_entries = 0;
+      foreach ($learning_areas as $idx => $area) {
+        $area_trimmed = trim($area ?? '');
+        $q1_val = floatval($q1_array[$idx] ?? 0);
+        $q2_val = floatval($q2_array[$idx] ?? 0);
+        $q3_val = floatval($q3_array[$idx] ?? 0);
+        $q4_val = floatval($q4_array[$idx] ?? 0);
+        $final_val = floatval($final_array[$idx] ?? 0);
+
+        if (!empty($area_trimmed) && ($q1_val > 0 || $q2_val > 0 || $q3_val > 0 || $q4_val > 0)) {
+          $stored_grades[] = [
+            'learning_area' => $area_trimmed,
+            'q1' => $q1_val,
+            'q2' => $q2_val,
+            'q3' => $q3_val,
+            'q4' => $q4_val,
+            'final_rating' => $final_val,
+            'remarks' => trim($remarks_array[$idx] ?? '')
+          ];
+          $valid_entries++;
+          // Added valid grade entry
+        }
+      }
+    }
+
+    if (empty($stored_grades)) {
+      throw new Exception('No subjects added. Fill in at least one subject in the Grades Table and click the Add (+) button.');
+    }
+
+    // Get student info
+    $stmt_student = $pdo->prepare("SELECT * FROM student WHERE student_id = ?");
+    $stmt_student->execute([$student_id]);
+    $student_details = $stmt_student->fetch(PDO::FETCH_ASSOC);
+
+    if (!$student_details) {
+      throw new Exception('Student not found in database');
+    }
+
+    error_log("DEBUG: Student found: " . $student_details['fname'] . " " . $student_details['lname']);
+
+    // Check if SF9 record already exists for this student and school year
+    $stmt_check_sf9 = $pdo->prepare("SELECT id FROM sf9_data WHERE student_id = ? AND school_year = ?");
+    $stmt_check_sf9->execute([$student_id, $school_year]);
+    $existing_sf9 = $stmt_check_sf9->fetch(PDO::FETCH_ASSOC);
+
+    if ($existing_sf9) {
+      throw new Exception('A scholastic record for this school year already exists.');
+    }
+
+    error_log("DEBUG: No duplicate school year found. Proceeding with insert.");
+
+    // Prepare SF9 insert data
+    $sf9_insert = [
+      'school' => $school,
+      'district' => $district,
+      'division' => $division,
+      'school_id' => $school_id,
+      'region' => $region,
+      'student_id' => $student_id,
+      'student_name' => trim($student_details['fname'] . ' ' . $student_details['lname']),
+      'lrn' => $student_details['lrn'] ?? '',
+      'age' => null,
+      'sex' => $student_details['sex'] ?? '',
+      'school_year' => $school_year,
+      'teacher' => $adviser_name,
+      'section' => $section,
+      'grade' => $grade
+    ];
+
+    error_log("DEBUG: SF9 insert data prepared: " . json_encode($sf9_insert));
+
+    // Insert SF9 record
+    $cols = implode(', ', array_keys($sf9_insert));
+    $placeholders = implode(', ', array_fill(0, count($sf9_insert), '?'));
+    $insert_sql = "INSERT INTO sf9_data ($cols) VALUES ($placeholders)";
+
+    error_log("DEBUG: Executing SQL: $insert_sql");
+
+    $stmt_insert_sf9 = $pdo->prepare($insert_sql);
+    $stmt_insert_sf9->execute(array_values($sf9_insert));
+    $sf9_id = $pdo->lastInsertId();
+
+    if (!$sf9_id) {
+      throw new Exception('Failed to insert SF9 record');
+    }
+
+    error_log("DEBUG: SF9 record inserted with ID: $sf9_id");
+
+    // Insert grade data for each stored subject
+    $update_parts = [];
+    $update_values = [];
+    $final_grades = [];
+
+    foreach ($stored_grades as $idx => $grade_entry) {
+      $subject = trim($grade_entry['learning_area'] ?? '');
+      $q1 = floatval($grade_entry['q1'] ?? 0);
+      $q2 = floatval($grade_entry['q2'] ?? 0);
+      $q3 = floatval($grade_entry['q3'] ?? 0);
+      $q4 = floatval($grade_entry['q4'] ?? 0);
+      $final = floatval($grade_entry['final_rating'] ?? 0);
+      $remarks = trim($grade_entry['remarks'] ?? '');
+
+      // Column numbers start from 1 (subject_1, subject_2, etc.)
+      $col_num = $idx + 1;
+      if ($col_num <= 15) {
+        $update_parts[] = "subject_$col_num = ?, q1_$col_num = ?, q2_$col_num = ?, q3_$col_num = ?, q4_$col_num = ?, final_$col_num = ?, remarks_$col_num = ?";
+        array_push($update_values, $subject, $q1, $q2, $q3, $q4, $final, $remarks);
+
+        error_log("DEBUG: Subject $col_num: '$subject', Q1=$q1, Q2=$q2, Q3=$q3, Q4=$q4, Final=$final, Remarks='$remarks'");
+
+        if (!empty($final) && is_numeric($final) && $final > 0) {
+          $final_grades[] = (float)$final;
+        }
+      }
+    }
+
+    error_log("DEBUG: Total update parts: " . count($update_parts));
+    error_log("DEBUG: Total final grades collected: " . count($final_grades));
+
+    $general_avg = null;
+    if (!empty($final_grades)) {
+      $general_avg = round(array_sum($final_grades) / count($final_grades), 2);
+    }
+
+    error_log("DEBUG: Calculated general average: $general_avg");
+
+    if (!empty($update_parts)) {
+      $update_parts[] = "general_average = ?";
+      $update_values[] = $general_avg;
+      $update_values[] = $sf9_id;
+
+      $update_sql = "UPDATE sf9_data SET " . implode(', ', $update_parts) . " WHERE id = ?";
+
+      $stmt_update_grades = $pdo->prepare($update_sql);
+      if (!$stmt_update_grades) {
+        throw new Exception('SQL Prepare failed: ' . json_encode($pdo->errorInfo()));
+      }
+
+      $exec_result = $stmt_update_grades->execute($update_values);
+      if (!$exec_result) {
+        $error_info = $stmt_update_grades->errorInfo();
+        throw new Exception('SQL Execute failed: ' . $error_info[2]);
+      }
+    } else {
+      error_log("DEBUG: WARNING - No grade data to update!");
+    }
+
+
+    $showSuccess = true;
+    $successMessage = "New scholastic record for {$school_year} has been saved successfully!";
+
+    // Reload the page to show the new record in the tabs
+    header("Location: " . $_SERVER['REQUEST_URI']);
+    exit;
+  } catch (Exception $e) {
+    die('Error: ' . htmlspecialchars($e->getMessage()));
+  }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
   try {
     $student_id = $_GET['student_id'] ?? null;
@@ -306,7 +887,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
       // Update existing SF10 record
       $update_cols = implode(', ', array_map(fn($k) => "$k = ?", array_keys($sf10_insert)));
       $stmt_update = $pdo->prepare("UPDATE sf10_data SET $update_cols WHERE id = ?");
-      $stmt_update->execute([...$sf10_insert, $existing_sf10['id']]);
+      $values = array_values($sf10_insert);
+      $values[] = $existing_sf10['id'];
+      $stmt_update->execute($values);
       $sf10_id = $existing_sf10['id'];
     } else {
       // Insert new SF10 record
@@ -326,13 +909,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
     // Process remedial data for each scholastic record
     for ($i = 1; $i <= $num_scholastic_records; $i++) {
       $rem_areas = $_POST["rem{$i}_area"] ?? [];
+      $school_year = $_POST["school_year{$i}"] ?? '';
+
+      // Validate school year if remedial data exists
+      if (!empty($rem_areas) && is_array($rem_areas) && !empty($school_year)) {
+        $sy_validation = validateSchoolYearPHP($school_year);
+        if (!$sy_validation['valid']) {
+          throw new Exception($sy_validation['error']);
+        }
+      }
 
       if (!empty($rem_areas) && is_array($rem_areas)) {
         // Create a remedial class group for this scholastic record
         $stmt_rem_insert = $pdo->prepare(
-          "INSERT INTO sf10_remedial_class (sf10_data_id) VALUES (?)"
+          "INSERT INTO sf10_remedial_class (sf10_data_id, school_year) VALUES (?, ?)"
         );
-        $stmt_rem_insert->execute([$sf10_id]);
+        $stmt_rem_insert->execute([$sf10_id, $school_year]);
         $sf10_rem_id = $pdo->lastInsertId();
 
         // Insert remedial entries
@@ -373,6 +965,12 @@ if (isset($_GET['student_id'])) {
     $scholastic_index = $idx + 1; // Start from 1, not 0
 
     // Set basic info from SF9
+    $scholastic_data['schools'][$scholastic_index] = $sf9_record['school'] ?? '';
+    $scholastic_data['districts'][$scholastic_index] = $sf9_record['district'] ?? '';
+    $scholastic_data['divisions'][$scholastic_index] = $sf9_record['division'] ?? '';
+    $scholastic_data['school_ids'][$scholastic_index] = $sf9_record['school_id'] ?? '';
+    $scholastic_data['regions'][$scholastic_index] = $sf9_record['region'] ?? '';
+
     $scholastic_data['grades'][$scholastic_index] = $sf9_record['grade'] ?? '';
     $scholastic_data['sections'][$scholastic_index] = $sf9_record['section'] ?? '';
     $scholastic_data['school_years'][$scholastic_index] = $sf9_record['school_year'] ?? '';
@@ -524,9 +1122,7 @@ if (isset($_GET['student_id'])) {
       text-align: center;
     }
 
-    /* Sidebar behavior */
     .sidebar {
-      position: sticky;
       top: 90px;
       height: fit-content;
     }
@@ -717,37 +1313,64 @@ if (isset($_GET['student_id'])) {
       <h4>STA.MARIA WEB SYSTEM</h4>
     </div>
   </div>
-  <div class="container-fluid p-3">
-    <form method="post">
+  <div class="container-fluid" style="padding: 1rem 10%!important;">
+    <form method="post" onsubmit="populateGradeDataFromStore(); return validateFormBeforeSubmit()">
       <input type="hidden" id="form_student_id" value="<?= htmlspecialchars($student_id ?? '') ?>">
-      <div class="row">
-        <!-- Sidebar -->
-        <div class="col-lg-3 col-md-4">
-          <div class="sidebar">
-            <h5>Learner's Personal Information</h5>
-            <label class="form-label">Last Name</label>
-            <input readonly type="text" class="form-control form-control-sm" name="last_name" value="<?= htmlspecialchars($_POST['last_name'] ?? ($student['lname'] ?? ($sf10_data['last_name'] ?? ''))) ?>">
-            <label class="form-label">First Name</label>
-            <input readonly type="text" class="form-control form-control-sm" name="first_name" value="<?= htmlspecialchars($_POST['first_name'] ?? ($student['fname'] ?? ($sf10_data['first_name'] ?? ''))) ?>">
-            <label class="form-label">Middle Name</label>
-            <input readonly type="text" class="form-control form-control-sm" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? ($student['mname'] ?? ($sf10_data['middle_name'] ?? ''))) ?>">
-            <label class="form-label">Name suffix.</label>
-            <input readonly type="text" class="form-control form-control-sm" name="suffix" value="<?= htmlspecialchars($_POST['suffix'] ?? ($student['suffix'] ?? ($sf10_data['suffix'] ?? ''))) ?>">
-            <label class="form-label">LRN</label>
-            <input readonly type="text" class="form-control form-control-sm" name="lrn" value="<?= htmlspecialchars($_POST['lrn'] ?? ($student['lrn'] ?? ($sf10_data['lrn'] ?? ''))) ?>">
-            <label class="form-label">Birthdate (MM/DD/YY)</label>
-            <input readonly type="text" class="form-control form-control-sm" name="birthdate" value="<?= htmlspecialchars($_POST['birthdate'] ?? ($student['birthdate'] ?? ($sf10_data['birthdate'] ?? ''))) ?>">
-            <label class="form-label">Sex</label>
-            <input readonly type="text" class="form-control form-control-sm" name="sex" value="<?= htmlspecialchars($_POST['sex'] ?? ($student['sex'] ?? ($sf10_data['sex'] ?? ''))) ?>">
-            <div class="text-center mt-3 d-flex justify-content-center gap-2 flex-wrap">
-              <button type="submit" class="btn btn-primary btn-lg">Save</button>
-              <button type="button" class="btn btn-secondary btn-lg" onclick="window.history.back();">Back</button>
+
+      <!-- Learner's Personal Information Header -->
+      <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0">Learner's Personal Information</h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-12 col-sm-6 col-lg-2 mb-3">
+              <label class="form-label fw-bold">Last Name</label>
+              <input readonly type="text" class="form-control form-control-sm" name="last_name" value="<?= htmlspecialchars($_POST['last_name'] ?? ($student['lname'] ?? ($sf10_data['last_name'] ?? ''))) ?>">
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2 mb-3">
+              <label class="form-label fw-bold">First Name</label>
+              <input readonly type="text" class="form-control form-control-sm" name="first_name" value="<?= htmlspecialchars($_POST['first_name'] ?? ($student['fname'] ?? ($sf10_data['first_name'] ?? ''))) ?>">
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2 mb-3">
+              <label class="form-label fw-bold">Middle Name</label>
+              <input readonly type="text" class="form-control form-control-sm" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? ($student['mname'] ?? ($sf10_data['middle_name'] ?? ''))) ?>">
+            </div>
+            <div class="col-12 col-sm-6 col-lg-1 mb-3">
+              <label class="form-label fw-bold">Suffix</label>
+              <input readonly type="text" class="form-control form-control-sm" name="suffix" value="<?= htmlspecialchars($_POST['suffix'] ?? ($student['suffix'] ?? ($sf10_data['suffix'] ?? ''))) ?>">
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2 mb-3">
+              <label class="form-label fw-bold">LRN</label>
+              <input readonly type="text" class="form-control form-control-sm" name="lrn" value="<?= htmlspecialchars($_POST['lrn'] ?? ($student['lrn'] ?? ($sf10_data['lrn'] ?? ''))) ?>">
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2 mb-3">
+              <label class="form-label fw-bold">Birthdate</label>
+              <input readonly type="text" class="form-control form-control-sm" name="birthdate" value="<?= htmlspecialchars($_POST['birthdate'] ?? ($student['birthdate'] ?? ($sf10_data['birthdate'] ?? ''))) ?>">
+            </div>
+            <div class="col-12 col-sm-6 col-lg-1 mb-3">
+              <label class="form-label fw-bold">Sex</label>
+              <input readonly type="text" class="form-control form-control-sm" name="sex" value="<?= htmlspecialchars($_POST['sex'] ?? ($student['sex'] ?? ($sf10_data['sex'] ?? ''))) ?>">
             </div>
           </div>
         </div>
+      </div>
 
+      <div class="row">
+        <!-- Save/Back Buttons -->
+        <div class="col-12 mb-3">
+          <div class="text-center d-flex justify-content-center gap-2 flex-wrap">
+            <button type="submit" class="btn btn-primary btn-lg">Save</button>
+            <button type="button" class="btn btn-success btn-lg" id="downloadBtn" style="display: none;" onclick="downloadExcel()">
+              <i class="fas fa-download"></i> Download Excel
+            </button>
+            <a onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf10'" class="btn btn-secondary btn-lg">Back</a>
+          </div>
+        </div>
+      </div>
 
-        <div class="col-lg-9 col-md-8">
+      <div class="row">
+        <div class="col-12">
           <div class="eligibility-container">
             <h5>Elementary School Eligibility</h5>
             <div class="form-check">
@@ -793,9 +1416,14 @@ if (isset($_GET['student_id'])) {
         </div>
 
 
-        <div class="col-lg-9 col-md-8">
+        <div class="col-12">
           <div class="scholastic-container">
-            <h5>Scholastic Records</h5>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 15px;">
+              <h5 style="margin: 0; flex: 1;">Scholastic Records</h5>
+              <button type="button" class="btn btn-success btn-sm" id="addsr" onclick="addNewScholasticRecord()" title="Add new scholastic record" style="white-space: nowrap;">
+                <i class="fas fa-plus"></i> Add Record
+              </button>
+            </div>
             <ul class="nav nav-tabs mb-3" id="srTabs" role="tablist">
               <?php for ($i = 1; $i <= $num_scholastic_records; $i++): ?>
 
@@ -813,6 +1441,17 @@ if (isset($_GET['student_id'])) {
 
                 <div class="tab-pane fade <?= $i === $num_scholastic_records ? 'show active' : '' ?>" id="sr<?= $i ?>" role="tabpanel">
                   <div class="alert alert-info"><small>Scholastic records are read-only and cannot be edited.</small></div>
+                  <label class="form-label">School</label>
+                  <input type="text" class="form-control form-control-sm" disabled name="school<?= $i ?>" value="<?= htmlspecialchars($_POST['school' . $i] ?? ($scholastic_data['schools'][$i] ?? '')) ?>">
+                  <label class="form-label">District</label>
+                  <input type="text" class="form-control form-control-sm" disabled name="district<?= $i ?>" value="<?= htmlspecialchars($_POST['district' . $i] ?? ($scholastic_data['districts'][$i] ?? '')) ?>">
+                  <label class="form-label">Division</label>
+                  <input type="text" class="form-control form-control-sm" disabled name="division<?= $i ?>" value="<?= htmlspecialchars($_POST['division' . $i] ?? ($scholastic_data['divisions'][$i] ?? '')) ?>">
+                  <label class="form-label">Region</label>
+                  <input type="text" class="form-control form-control-sm" disabled name="region<?= $i ?>" value="<?= htmlspecialchars($_POST['region' . $i] ?? ($scholastic_data['regions'][$i] ?? '')) ?>">
+                  <label class="form-label">School ID</label>
+                  <input type="text" class="form-control form-control-sm" disabled name="school_id<?= $i ?>" value="<?= htmlspecialchars($_POST['school_id' . $i] ?? ($scholastic_data['school_ids'][$i] ?? '')) ?>">
+
                   <label class="form-label">Grade</label>
                   <input type="text" class="form-control form-control-sm" disabled name="grade<?= $i ?>"
                     value="<?= htmlspecialchars($_POST['grade' . $i] ?? ($scholastic_data['grades'][$i] ?? '')) ?>">
@@ -822,16 +1461,24 @@ if (isset($_GET['student_id'])) {
                     value="<?= htmlspecialchars($_POST['section' . $i] ?? ($scholastic_data['sections'][$i] ?? '')) ?>">
 
                   <label class="form-label">School Year</label>
-                  <input type="text" class="form-control form-control-sm" disabled name="school_year<?= $i ?>"
-                    value="<?= htmlspecialchars($_POST['school_year' . $i] ?? ($scholastic_data['school_years'][$i] ?? '')) ?>">
+                  <div class="row g-2 d-flex align-items-center mb-2">
+                    <div class="col-2">
+                      <input type="number" class="form-control form-control-sm" disabled name="school_year_from<?= $i ?>" placeholder="From" min="2000" max="2099" value="<?php $sy = explode('-', $_POST['school_year' . $i] ?? ($scholastic_data['school_years'][$i] ?? ''));
+                                                                                                                                                                          echo htmlspecialchars($sy[0] ?? ''); ?>">
+                    </div>
+                    <span class="col-1 d-flex align-items-center justify-content-center" style="width:fit-content;">-</span>
+                    <div class="col-2">
+                      <input type="number" class="form-control form-control-sm" disabled name="school_year_to<?= $i ?>" placeholder="To" min="2000" max="2099" value="<?php echo htmlspecialchars($sy[1] ?? ''); ?>">
+                    </div>
+                  </div>
 
                   <label class="form-label">Name of Adviser</label>
                   <input type="text" class="form-control form-control-sm" disabled name="adviser_name<?= $i ?>"
                     value="<?= htmlspecialchars($_POST['adviser_name' . $i] ?? ($scholastic_data['adviser_name'][$i] ?? '')) ?>">
 
                   <h6 class="mt-3">Grades Table</h6>
-                  <div class="table-responsive">
-                    <table class="table table-bordered table-sm">
+                  <div class="table-responsive" id="tobeform" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                    <table class="table table-bordered table-sm" style="min-width: 700px;">
                       <thead>
                         <tr>
                           <th>Learning Area</th>
@@ -844,7 +1491,7 @@ if (isset($_GET['student_id'])) {
                         </tr>
                       </thead>
                       <tbody>
-                        <?php 
+                        <?php
                         // Count non-empty subjects for this scholastic record
                         $subjects_count = 0;
                         if (!empty($scholastic_data['learning_areas'][$i])) {
@@ -854,50 +1501,50 @@ if (isset($_GET['student_id'])) {
                             }
                           }
                         }
-                        
+
                         // Loop through actual subjects only
                         $subj_idx = 0;
                         for ($r = 0; $r < 15; $r++):
                           if (!empty($scholastic_data['learning_areas'][$i][$r])):
                         ?>
-                          <tr>
-                            <td>
-                              <input type="text" class="form-control form-control-sm" disabled
-                                name="learning_area<?= $i ?>[]"
-                                value="<?= htmlspecialchars($_POST['learning_area' . $i][$subj_idx] ?? ($scholastic_data['learning_areas'][$i][$r] ?? '')) ?>">
-                            </td>
-                            <td>
-                              <input type="text" class="form-control form-control-sm" disabled
-                                name="q1_<?= $i ?>[]"
-                                value="<?= htmlspecialchars($_POST['q1_' . $i][$subj_idx] ?? ($scholastic_data['q1'][$i][$r] ?? '')) ?>">
-                            </td>
-                            <td>
-                              <input type="text" class="form-control form-control-sm" disabled
-                                name="q2_<?= $i ?>[]"
-                                value="<?= htmlspecialchars($_POST['q2_' . $i][$subj_idx] ?? ($scholastic_data['q2'][$i][$r] ?? '')) ?>">
-                            </td>
-                            <td>
-                              <input type="text" class="form-control form-control-sm" disabled
-                                name="q3_<?= $i ?>[]"
-                                value="<?= htmlspecialchars($_POST['q3_' . $i][$subj_idx] ?? ($scholastic_data['q3'][$i][$r] ?? '')) ?>">
-                            </td>
-                            <td>
-                              <input type="text" class="form-control form-control-sm" disabled
-                                name="q4_<?= $i ?>[]"
-                                value="<?= htmlspecialchars($_POST['q4_' . $i][$subj_idx] ?? ($scholastic_data['q4'][$i][$r] ?? '')) ?>">
-                            </td>
-                            <td>
-                              <input type="text" class="form-control form-control-sm" disabled
-                                name="final_rating_<?= $i ?>[]"
-                                value="<?= htmlspecialchars($_POST['final_rating_' . $i][$subj_idx] ?? ($scholastic_data['final_ratings'][$i][$r] ?? '')) ?>">
-                            </td>
-                            <td>
-                              <input type="text" class="form-control form-control-sm" disabled
-                                name="remarks_table_<?= $i ?>[]"
-                                value="<?= htmlspecialchars($_POST['remarks_table_' . $i][$subj_idx] ?? ($scholastic_data['remarks_table'][$i][$r] ?? '')) ?>">
-                            </td>
-                          </tr>
-                        <?php 
+                            <tr>
+                              <td>
+                                <input type="text" class="form-control form-control-sm" disabled
+                                  name="learning_area<?= $i ?>[]"
+                                  value="<?= htmlspecialchars($_POST['learning_area' . $i][$subj_idx] ?? ($scholastic_data['learning_areas'][$i][$r] ?? '')) ?>">
+                              </td>
+                              <td>
+                                <input type="text" class="form-control form-control-sm" disabled
+                                  name="q1_<?= $i ?>[]"
+                                  value="<?= htmlspecialchars($_POST['q1_' . $i][$subj_idx] ?? ($scholastic_data['q1'][$i][$r] ?? '')) ?>">
+                              </td>
+                              <td>
+                                <input type="text" class="form-control form-control-sm" disabled
+                                  name="q2_<?= $i ?>[]"
+                                  value="<?= htmlspecialchars($_POST['q2_' . $i][$subj_idx] ?? ($scholastic_data['q2'][$i][$r] ?? '')) ?>">
+                              </td>
+                              <td>
+                                <input type="text" class="form-control form-control-sm" disabled
+                                  name="q3_<?= $i ?>[]"
+                                  value="<?= htmlspecialchars($_POST['q3_' . $i][$subj_idx] ?? ($scholastic_data['q3'][$i][$r] ?? '')) ?>">
+                              </td>
+                              <td>
+                                <input type="text" class="form-control form-control-sm" disabled
+                                  name="q4_<?= $i ?>[]"
+                                  value="<?= htmlspecialchars($_POST['q4_' . $i][$subj_idx] ?? ($scholastic_data['q4'][$i][$r] ?? '')) ?>">
+                              </td>
+                              <td>
+                                <input type="text" class="form-control form-control-sm" disabled
+                                  name="final_rating_<?= $i ?>[]"
+                                  value="<?= htmlspecialchars($_POST['final_rating_' . $i][$subj_idx] ?? ($scholastic_data['final_ratings'][$i][$r] ?? '')) ?>">
+                              </td>
+                              <td>
+                                <input type="text" class="form-control form-control-sm" disabled
+                                  name="remarks_table_<?= $i ?>[]"
+                                  value="<?= htmlspecialchars($_POST['remarks_table_' . $i][$subj_idx] ?? ($scholastic_data['remarks_table'][$i][$r] ?? '')) ?>">
+                              </td>
+                            </tr>
+                        <?php
                             $subj_idx++;
                           endif;
                         endfor;
@@ -965,11 +1612,12 @@ if (isset($_GET['student_id'])) {
 
                 </div>
 
+
               <?php endfor; ?>
             </div>
 
             <!-- Remedial Records Display Section (Updated dynamically by tab) -->
-            <div class="card mt-4">
+            <div class="card mt-4" id="remedial-records-card">
               <div class="card-header bg-primary text-white">
                 <h5 style="color: white !important;" class="mb-0">Remedial Records for <span id="active-scholastic-label">Scholastic Record <?= $num_scholastic_records ?></span></h5>
               </div>
@@ -985,8 +1633,6 @@ if (isset($_GET['student_id'])) {
     </form>
   </div>
 
-
-
   <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-success">
@@ -1001,8 +1647,10 @@ if (isset($_GET['student_id'])) {
   <script src="<?= BASE_FR ?>/assets/libs/sweetalert2/sweetalert2.min.js"></script>
   <?php if ($showSuccess): ?>
     <script>
+      // Show success modal and display download button
       const successModal = new bootstrap.Modal(document.getElementById('successModal'));
       successModal.show();
+      document.getElementById('downloadBtn').style.display = 'inline-block';
       setTimeout(() => {
         successModal.hide();
       }, 2000);
@@ -1010,11 +1658,80 @@ if (isset($_GET['student_id'])) {
   <?php endif; ?>
 
   <script>
+    // Global object to store grade entries for each scholastic record
+    const gradeDataStore = {};
+
+    function downloadExcel() {
+      const studentIdInput = document.getElementById('form_student_id');
+      const studentId = studentIdInput ? studentIdInput.value : '<?= $student_id ?>';
+
+      if (!studentId) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Student ID is required'
+        });
+        return;
+      }
+
+      // Show loading message
+      Swal.fire({
+        title: 'Generating Excel File',
+        text: 'Please wait...',
+        icon: 'info',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const formData = new FormData();
+      formData.append('action', 'download_excel');
+      formData.append('student_id', studentId);
+
+      fetch(window.location.href, {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          Swal.close();
+          if (data.success) {
+            // Trigger download
+            const downloadUrl = '<?= $_SERVER['REQUEST_URI'] ?>' + (window.location.search ? '&' : '?') + 'download_sf10=' + encodeURIComponent(data.filename);
+            window.location.href = downloadUrl;
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Downloaded',
+              text: 'Excel file downloaded successfully!',
+              timer: 1500,
+              showConfirmButton: false
+            });
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.message || 'Failed to generate Excel file'
+            });
+          }
+        })
+        .catch(error => {
+          Swal.close();
+          console.error('Error:', error);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'An error occurred while generating the Excel file'
+          });
+        });
+    }
+
     function updateFinalRating(i) {
       const dropdown = document.getElementById(`rem_area_${i}`);
       const finalRatingInput = document.getElementById(`rem_final_${i}`);
       const selectedSubject = dropdown.value;
-      
+
       if (selectedSubject) {
         // Find the subject in the grades table within the same tab pane
         const tabPane = document.getElementById(`sr${i}`);
@@ -1033,12 +1750,12 @@ if (isset($_GET['student_id'])) {
                   const q2Input = tds[2].querySelector('input');
                   const q3Input = tds[3].querySelector('input');
                   const q4Input = tds[4].querySelector('input');
-                  
+
                   const q1 = parseFloat(q1Input?.value) || 0;
                   const q2 = parseFloat(q2Input?.value) || 0;
                   const q3 = parseFloat(q3Input?.value) || 0;
                   const q4 = parseFloat(q4Input?.value) || 0;
-                  
+
                   // Calculate average from quarters
                   const average = ((q1 + q2 + q3 + q4) / 4).toFixed(2);
                   finalRatingInput.value = average;
@@ -1059,14 +1776,14 @@ if (isset($_GET['student_id'])) {
     function fetchRemedial(sy) {
       const studentIdInput = document.getElementById('form_student_id');
       const studentId = studentIdInput ? studentIdInput.value : '<?= $student_id ?>';
-      
+
       const formData = new FormData();
       formData.append('action', 'show_remedial_records');
       formData.append('student_id', studentId);
       formData.append('school_year', sy);
-      
+
       console.log('fetchRemedial called with sy:', sy, 'studentId:', studentId);
-      
+
       fetch(window.location.href, {
           method: 'POST',
           body: formData
@@ -1105,40 +1822,40 @@ if (isset($_GET['student_id'])) {
           const formData = new FormData();
           formData.append('action', 'delete_remedial');
           formData.append('remedial_id', remedialId);
-          
+
           fetch(window.location.href, {
-            method: 'POST',
-            body: formData
-          })
-          .then(response => response.json())
-          .then(data => {
-            if (data.success) {
-              Swal.fire({
-                icon: 'success',
-                title: 'Deleted',
-                text: 'Remedial entry has been deleted successfully',
-                timer: 1500,
-                showConfirmButton: false
-              }).then(() => {
-                // Reload remedial records for this school year
-                fetchRemedial(schoolYear);
-              });
-            } else {
+              method: 'POST',
+              body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Deleted',
+                  text: 'Remedial entry has been deleted successfully',
+                  timer: 1500,
+                  showConfirmButton: false
+                }).then(() => {
+                  // Reload remedial records for this school year
+                  fetchRemedial(schoolYear);
+                });
+              } else {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Error',
+                  text: data.message || 'Failed to delete remedial entry'
+                });
+              }
+            })
+            .catch(error => {
+              console.error('Error:', error);
               Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: data.message || 'Failed to delete remedial entry'
+                text: 'An error occurred while deleting the entry'
               });
-            }
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            Swal.fire({
-              icon: 'error',
-              title: 'Error',
-              text: 'An error occurred while deleting the entry'
             });
-          });
         }
       });
     }
@@ -1233,11 +1950,11 @@ if (isset($_GET['student_id'])) {
     function filterDropdownDuplicates(i) {
       const dropdown = document.getElementById(`rem_area_${i}`);
       const allOptions = dropdown.querySelectorAll('option');
-      
+
       // Get all currently used areas from the remedial records table in the AJAX container
       const usedAreas = new Set();
       const remedialContainer = document.getElementById('remedial-records-container');
-      
+
       if (remedialContainer) {
         const table = remedialContainer.querySelector('table tbody');
         if (table) {
@@ -1253,7 +1970,7 @@ if (isset($_GET['student_id'])) {
           });
         }
       }
-      
+
       // Show/hide options based on whether they're already selected for this school year
       allOptions.forEach(option => {
         if (option.value === '' || option.value === undefined) {
@@ -1290,13 +2007,13 @@ if (isset($_GET['student_id'])) {
       const q3Input = document.querySelector(`input[name="rem_q3_${i}"]`);
       const q4Input = document.querySelector(`input[name="rem_q4_${i}"]`);
       const finalRatingInput = document.getElementById(`rem_final_${i}`);
-      
+
       if (q1Input && q2Input && q3Input && q4Input && finalRatingInput) {
         const q1 = parseFloat(q1Input.value) || 0;
         const q2 = parseFloat(q2Input.value) || 0;
         const q3 = parseFloat(q3Input.value) || 0;
         const q4 = parseFloat(q4Input.value) || 0;
-        
+
         if (q1 || q2 || q3 || q4) {
           const average = ((q1 + q2 + q3 + q4) / 4).toFixed(2);
           finalRatingInput.value = average;
@@ -1314,11 +2031,11 @@ if (isset($_GET['student_id'])) {
       let q3s = document.querySelectorAll(`[name='q3_${i}[]']`);
       let q4s = document.querySelectorAll(`[name='q4_${i}[]']`);
       let finals = document.querySelectorAll(`[name='final_rating_${i}[]']`);
-      
+
       // Loop through actual number of subjects (not hardcoded 15)
       for (let r = 0; r < q1s.length; r++) {
         if (!q1s[r] || !q2s[r] || !q3s[r] || !q4s[r] || !finals[r]) break;
-        
+
         let q1 = parseFloat(q1s[r].value) || 0;
         let q2 = parseFloat(q2s[r].value) || 0;
         let q3 = parseFloat(q3s[r].value) || 0;
@@ -1335,7 +2052,7 @@ if (isset($_GET['student_id'])) {
     }
 
     // Initialize event listeners for all scholastic records
-    const numScholasticRecords = <?= $num_scholastic_records; ?>;
+    let numScholasticRecords = <?= $num_scholastic_records; ?>;
     const numSubjects = <?= $num_subjects; ?>;
 
     for (let i = 1; i <= numScholasticRecords; i++) {
@@ -1346,11 +2063,11 @@ if (isset($_GET['student_id'])) {
       qInputs.forEach(input => {
         input.addEventListener('input', () => recalc(i));
       });
-      
+
       // Initialize calculations for each scholastic record
       recalc(i);
     }
-    
+
     // Initialize tab click listeners
     document.addEventListener('DOMContentLoaded', function() {
       // Load initial remedial records - try to find any school year input
@@ -1358,16 +2075,11 @@ if (isset($_GET['student_id'])) {
       for (let i = 1; i <= numScholasticRecords; i++) {
         schoolYearInput = document.getElementById(`school_year_${i}`);
         if (schoolYearInput) {
-          console.log(`Found school_year_${i} with value:`, schoolYearInput.value);
           fetchRemedial(schoolYearInput.value);
           break;
         }
       }
-      
-      if (!schoolYearInput) {
-        console.warn('No school year input found. numScholasticRecords:', numScholasticRecords);
-      }
-      
+
       // Add event listeners to all scholastic tabs
       const tabButtons = document.querySelectorAll('[data-bs-toggle="tab"]');
       tabButtons.forEach(button => {
@@ -1375,7 +2087,18 @@ if (isset($_GET['student_id'])) {
           // Extract scholastic index from button ID (e.g., 'tab1' -> 1)
           const tabId = this.getAttribute('id');
           const scholasticIndex = parseInt(tabId.replace('tab', ''));
-          
+
+          // Check if this is a new record by checking if button text contains "(New)"
+          const isNewRecord = this.textContent.includes('(New)');
+          console.log('Tab clicked:', tabId, 'isNewRecord:', isNewRecord, 'text:', this.textContent);
+
+          // Hide remedial section if this is a new record, show otherwise
+          const remedialCard = document.getElementById('remedial-records-card');
+          if (remedialCard) {
+            remedialCard.style.display = isNewRecord ? 'none' : 'block';
+            console.log('Remedial card display:', remedialCard.style.display);
+          }
+
           // Get the school year for this scholastic record
           const schoolYearElement = document.getElementById(`school_year_${scholasticIndex}`);
           if (schoolYearElement) {
@@ -1385,7 +2108,834 @@ if (isset($_GET['student_id'])) {
           }
         });
       });
-    })
+    });
+    let ntab = 0;
+
+    function addNewScholasticRecord() {
+      // Prevent spam clicking - get the button reference
+      const addButton = document.getElementById('addsr');
+      if (addButton.disabled) {
+        return;
+      }
+      addButton.disabled = true;
+      // const remedialSection = document.getElementById(`remedial_section_${scholasticIndex}`);
+      // if (remedialSection) {
+      //   remedialSection.style.display = 'block';
+      // }
+
+      const remedialCard = document.getElementById('remedial-records-card');
+      if (remedialCard) {
+        remedialCard.style.display = 'none';
+      }
+
+      // Get current max tab number
+      const existingTabs = document.querySelectorAll('[id^="tab"]');
+      const maxTabNum = Math.max(...Array.from(existingTabs).map(t => {
+        const match = t.id.match(/\d+$/);
+        return match ? parseInt(match[0]) : 0;
+      }));
+
+      const newTabNum = maxTabNum + 1;
+
+      // Remove active class from all existing tab buttons
+      document.querySelectorAll('#srTabs .nav-link').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      // Remove show active class from all existing tab panes
+      document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('show', 'active');
+      });
+
+      // Create new tab button
+      const tabList = document.getElementById('srTabs');
+      const newTabButton = document.createElement('li');
+      newTabButton.className = 'nav-item';
+      newTabButton.setAttribute('role', 'presentation');
+      newTabButton.innerHTML = `
+        <button class="nav-link active" id="tab${newTabNum}" data-bs-toggle="tab" data-bs-target="#sr${newTabNum}" type="button" role="tab">
+          Scholastic ${newTabNum} (New)
+        </button>
+      `;
+      tabList.appendChild(newTabButton);
+
+      // Attach event listener to the new tab button
+      const newTabBtn = newTabButton.querySelector('button');
+      newTabBtn.addEventListener('shown.bs.tab', function(e) {
+        const isNewRecord = this.textContent.includes('(New)');
+        console.log('New tab clicked, isNewRecord:', isNewRecord, 'text:', this.textContent);
+        const remedialCard = document.getElementById('remedial-records-card');
+        if (remedialCard) {
+          remedialCard.style.display = isNewRecord ? 'none' : 'block';
+          console.log('Remedial card display:', remedialCard.style.display);
+        }
+      });
+
+      // Create new tab content
+      const tabContent = document.querySelector('.tab-content');
+      const newTabPane = document.createElement('div');
+      newTabPane.className = 'tab-pane fade show active';
+      newTabPane.id = `sr${newTabNum}`;
+      newTabPane.setAttribute('role', 'tabpanel');
+      newTabPane.innerHTML = `
+      <form id="submitrec" method="post" action="">
+        <input type="hidden" name="is_new_scholastic_record" value="1">
+        <div class="alert alert-warning"><small>This is a new scholastic record. Fill in the details below.</small></div>
+        <label class="form-label">School</label>
+        <input type="text" class="form-control form-control-sm" name="school${newTabNum}" value="">
+        <label class="form-label">District</label>
+        <input type="text" class="form-control form-control-sm" name="district${newTabNum}" value="">
+        <label class="form-label">Division</label>
+        <input type="text" class="form-control form-control-sm" name="division${newTabNum}" value="">
+        <label class="form-label">Region</label>
+        <input type="text" class="form-control form-control-sm" name="region${newTabNum}" value="">
+        <label class="form-label">School ID</label>
+        <input type="text" class="form-control form-control-sm" name="school_id${newTabNum}" value="">
+        
+        <label class="form-label">Grade</label>
+        <input type="text" class="form-control form-control-sm" name="grade${newTabNum}" value="">
+
+        <label class="form-label">Section</label>
+        <input type="text" class="form-control form-control-sm" name="section${newTabNum}" value="">
+
+        <label class="form-label">School Year</label>
+        <div class="row g-2 d-flex align-items-center mb-2">
+          <div class="col-2">
+            <input type="number" class="form-control form-control-sm sy-from" id="school_year_from_${newTabNum}" name="school_year_from${newTabNum}" placeholder="From" min="2000" max="2099" value="" oninput="updateSchoolYearDisplay(${newTabNum})">
+          </div>
+          <span class="col-1 d-flex align-items-center justify-content-center" style="width:fit-content;">-</span>
+          <div class="col-2">
+            <input type="number" class="form-control form-control-sm sy-to" id="school_year_to_${newTabNum}" name="school_year_to${newTabNum}" placeholder="To" min="2000" max="2099" value="" onchange="validateSchoolYear(${newTabNum})" oninput="updateSchoolYearDisplay(${newTabNum})">
+          </div>
+        </div>
+        <input type="hidden" id="school_year_concat_${newTabNum}" name="school_year${newTabNum}" value="">
+
+        <label class="form-label">Name of Adviser</label>
+        <input type="text" class="form-control form-control-sm" name="adviser_name${newTabNum}" value="">
+
+        <h6 class="mt-3">Grades Table</h6>
+        <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+          <table class="table table-bordered table-sm grades-table-${newTabNum}" style="min-width: 700px;">
+            <thead>
+              <tr>
+                <th>Learning Area</th>
+                <th>Q1</th>
+                <th>Q2</th>
+                <th>Q3</th>
+                <th>Q4</th>
+                <th>Final Rating</th>
+                <th>Remarks</th>
+                <th style="width: 50px; text-align: center;">Action</th>
+              </tr>
+            </thead>
+            <tbody class="grades-tbody-${newTabNum}">
+              <tr class="grades-row" data-row-index="1">
+                <td><input type="text" class="form-control form-control-sm learning-area" name="learning_area_${newTabNum}[]" placeholder="Subject" oninput="checkGradeRowFilled(this)"></td>
+                <td><input type="number" class="form-control form-control-sm q1-input" name="q1_${newTabNum}[]" placeholder="Q1" step="0.01" oninput="checkGradeRowFilled(this)"></td>
+                <td><input type="number" class="form-control form-control-sm q2-input" name="q2_${newTabNum}[]" placeholder="Q2" step="0.01" oninput="checkGradeRowFilled(this)"></td>
+                <td><input type="number" class="form-control form-control-sm q3-input" name="q3_${newTabNum}[]" placeholder="Q3" step="0.01" oninput="checkGradeRowFilled(this)"></td>
+                <td><input type="number" class="form-control form-control-sm q4-input" name="q4_${newTabNum}[]" placeholder="Q4" step="0.01" onkeyup="calculateFinalRating(this.closest('tr'))" oninput="calculateFinalRating(this.closest('tr'))"></td>
+                <td><input type="number" readonly class="form-control form-control-sm final-rating" name="final_rating_${newTabNum}[]" step="0.01" oninput="checkGradeRowFilled(this); updateRemarksAndGenAve(this)" onkeyup="updateRemarksAndGenAve(this)"></td>
+                <td><input type="text" class="form-control form-control-sm remarks" name="remarks_${newTabNum}[]" readonly></td>
+                <td style="text-align: center;">
+                  <button type="button" class="btn btn-sm btn-success add-grade-btn" style="display: none;" onclick="addGradeEntry(this)" title="Add this row" >
+                    <i class="fas fa-plus"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <label class="form-label">General Average</label>
+        <input type="text" class="form-control form-control-sm" name="general_average_${newTabNum}" readonly value="">
+        <div class="d-flex justify-content-center">
+          <button type="button" class="btn btn-sm btn-primary mt-2" style="padding:.8rem 2rem;" onclick="addnewrecordbtn()">
+          <i class="fas fa-plus"></i> SUBMIT NEW RECORD
+          </button>
+        </div>
+      </form>
+      `;
+      tabContent.appendChild(newTabPane);
+
+      numScholasticRecords = newTabNum;
+      ntab = newTabNum;
+
+      const firstRow = newTabPane.querySelector('.grades-row');
+      const inputs = firstRow.querySelectorAll('input[type="number"]');
+      inputs.forEach(input => {
+        input.addEventListener('keyup', () => calculateFinalRating(firstRow));
+        input.addEventListener('input', () => checkRowsFilledAndShowAddButton(newTabNum));
+      });
+      firstRow.querySelector('.learning-area').addEventListener('input', () => checkRowsFilledAndShowAddButton(newTabNum));
+
+      // Swal.fire({
+      //   icon: 'success',
+      //   title: 'New Record Added',
+      //   text: `Scholastic Record ${newTabNum} has been created. Fill in the details and save.`,
+      //   timer: 2000,
+      //   showConfirmButton: false
+      // });
+
+    }
+
+    function addnewrecordbtn() {
+      const form = document.getElementById('submitrec');
+      if (!form) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Form Not Found',
+          text: 'Unable to locate the form. Please refresh and try again.'
+        });
+        return;
+      }
+
+      // Get the scholastic index from the active tab
+      const activeTab = document.querySelector('[id^="sr"][role="tabpanel"].show');
+      if (!activeTab) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Tab Error',
+          text: 'Unable to determine scholastic record. Please try again.'
+        });
+        return;
+      }
+
+      const scholasticIndex = activeTab.id.replace('sr', '');
+
+      // Validate school year
+      const fromInput = document.getElementById(`school_year_from_${scholasticIndex}`);
+      const toInput = document.getElementById(`school_year_to_${scholasticIndex}`);
+      const gradeInput = document.querySelector(`[name="grade${scholasticIndex}"]`);
+      const sectionInput = document.querySelector(`[name="section${scholasticIndex}"]`);
+      const adviserInput = document.querySelector(`[name="adviser_name${scholasticIndex}"]`);
+
+      // Validate required fields
+      if (!gradeInput || !gradeInput.value.trim()) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Missing Grade',
+          text: 'Please enter the grade level.'
+        });
+        return;
+      }
+
+      if (!sectionInput || !sectionInput.value.trim()) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Missing Section',
+          text: 'Please enter the section.'
+        });
+        return;
+      }
+
+      if (!fromInput || !fromInput.value || !toInput || !toInput.value) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Missing School Year',
+          text: 'Please enter both From and To years.'
+        });
+        return;
+      }
+
+      if (!adviserInput || !adviserInput.value.trim()) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Missing Adviser Name',
+          text: 'Please enter the adviser name.'
+        });
+        return;
+      }
+
+      // Validate school year values
+      const from = parseInt(fromInput.value);
+      const to = parseInt(toInput.value);
+
+      if (isNaN(from) || isNaN(to)) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid Year Format',
+          text: 'Years must be numeric values.'
+        });
+        return;
+      }
+
+      if (to - from !== 1) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid School Year Gap',
+          text: 'School year must have exactly 1 year gap (e.g., 2024-2025).'
+        });
+        return;
+      }
+
+      if (from < 2000) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Year Too Old',
+          text: 'From year cannot be before 2000.'
+        });
+        return;
+      }
+
+      const currentYear = new Date().getFullYear();
+      if (to > currentYear) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Year Too Far',
+          text: `To year cannot be beyond the current year (${currentYear}).`
+        });
+        return;
+      }
+
+      // Validate that at least one grade has been entered
+      if (!gradeDataStore[scholasticIndex] || gradeDataStore[scholasticIndex].length === 0) {
+        console.error('DEBUG: No grades in store for index', scholasticIndex);
+        console.error('DEBUG: gradeDataStore content:', JSON.stringify(gradeDataStore));
+        Swal.fire({
+          icon: 'warning',
+          title: 'No Grades Added',
+          text: 'Please add at least one learning area with grades using the Add button in the Grades Table.'
+        });
+        return;
+      }
+
+      // Check if any grade entry has invalid values
+      const hasInvalidGrades = gradeDataStore[scholasticIndex].some(entry => {
+        return entry.q1 < 50 || entry.q1 > 100 ||
+          entry.q2 < 50 || entry.q2 > 100 ||
+          entry.q3 < 50 || entry.q3 > 100 ||
+          entry.q4 < 50 || entry.q4 > 100 ||
+          entry.final_rating < 50 || entry.final_rating > 100;
+      });
+
+      if (hasInvalidGrades) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid Grades',
+          text: 'All grades must be between 50-100. Please check your entries.'
+        });
+        return;
+      }
+
+      // All validations passed - show loading and submit
+      Swal.fire({
+        title: 'Submitting New Record',
+        text: 'Please wait while your data is being saved...',
+        icon: 'info',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // Populate hidden inputs with stored data before submit
+      populateGradeDataFromStore();
+
+      // Submit the form
+      try {
+        form.submit();
+        // Note: Page will reload on successful submission from PHP handler
+      } catch (error) {
+        console.error('Form submission error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Submission Error',
+          text: 'An error occurred while submitting the form: ' + error.message
+        });
+      }
+    }
+
+    function addGradeRow(scholasticIndex) {
+
+      const tbody = document.querySelector(`.grades-tbody-${scholasticIndex}`);
+      const rowCount = tbody.querySelectorAll('tr').length + 1;
+
+      const newRow = document.createElement('tr');
+      newRow.className = 'grades-row';
+      newRow.dataset.rowIndex = rowCount;
+      newRow.innerHTML = `
+        <td><input type="text" class="form-control form-control-sm learning-area" name="learning_area_${scholasticIndex}[]" placeholder="Subject" oninput="checkGradeRowFilled(this)"></td>
+        <td><input type="number" class="form-control form-control-sm q1-input" name="q1_${scholasticIndex}[]" placeholder="Q1" step="0.01" oninput="checkGradeRowFilled(this)"></td>
+        <td><input type="number" class="form-control form-control-sm q2-input" name="q2_${scholasticIndex}[]" placeholder="Q2" step="0.01" oninput="checkGradeRowFilled(this)"></td>
+        <td><input type="number" class="form-control form-control-sm q3-input" name="q3_${scholasticIndex}[]" placeholder="Q3" step="0.01" oninput="checkGradeRowFilled(this)"></td>
+        <td><input type="number" class="form-control form-control-sm q4-input" name="q4_${scholasticIndex}[]" placeholder="Q4" step="0.01" onkeyup="calculateFinalRating(this.closest('tr'))" oninput="calculateFinalRating(this.closest('tr'))"></td>
+        <td><input type="number" readonly class="form-control form-control-sm final-rating" name="final_rating_${scholasticIndex}[]" step="0.01" oninput="checkGradeRowFilled(this); updateRemarksAndGenAve(this)" onkeyup="updateRemarksAndGenAve(this)"></td>
+        <td><input type="text" class="form-control form-control-sm remarks" name="remarks_${scholasticIndex}[]" readonly></td>
+        <td style="text-align: center;">
+          <button type="button" class="btn btn-sm btn-success add-grade-btn" style="display: none;" onclick="addGradeEntry(this)" title="Add this row">
+            <i class="fas fa-plus"></i>
+          </button>
+        </td>
+      `;
+
+      tbody.appendChild(newRow);
+
+      // Add input listeners for the new row
+      const inputs = newRow.querySelectorAll('input[type="number"]');
+      inputs.forEach(input => {
+        input.addEventListener('keyup', () => calculateFinalRating(newRow));
+        input.addEventListener('input', () => checkRowsFilledAndShowAddButton(scholasticIndex));
+      });
+      newRow.querySelector('.learning-area').addEventListener('input', () => checkRowsFilledAndShowAddButton(scholasticIndex));
+
+      // Hide add button initially
+      document.getElementById(`addRowBtn${scholasticIndex}`).style.display = 'none';
+    }
+
+    function deleteGradeRow(button) {
+      const row = button.closest('tr');
+      const tbody = row.closest('tbody');
+      const match = tbody.className.match(/grades-tbody-(\d+)/);
+      if (!match || !match[1]) {
+        console.error('Could not extract scholastic index from tbody class:', tbody.className);
+        return;
+      }
+      const scholasticIndex = match[1];
+
+      row.remove();
+      checkRowsFilledAndShowAddButton(scholasticIndex);
+    }
+
+
+    // Form validation before submit
+    function validateFormBeforeSubmit() {
+      const tabElements = document.querySelectorAll('[id^="sr"]');
+
+      for (let elem of tabElements) {
+        // Get the tab number from the element ID
+        const tabNum = elem.id.replace('sr', '');
+
+        // Check if this is a new record tab (not from SF9)
+        const fromInput = document.getElementById(`school_year_from_${tabNum}`);
+        if (fromInput && !fromInput.disabled) {
+          // This is a new record, validate school year
+          const toInput = document.getElementById(`school_year_to_${tabNum}`);
+          const from = fromInput.value;
+          const to = toInput.value;
+
+          // Skip if both are empty (optional)
+          if (!from && !to) {
+            continue;
+          }
+
+          // If one is filled, both must be filled
+          if ((from && !to) || (!from && to)) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Invalid School Year',
+              text: 'Both From and To years must be filled in Scholastic Record ' + tabNum
+            });
+            return false;
+          }
+
+          // If both are filled, validate
+          if (from && to) {
+            const fromInt = parseInt(from);
+            const toInt = parseInt(to);
+
+            if (toInt - fromInt !== 1) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Invalid School Year Gap',
+                text: 'School year in Scholastic Record ' + tabNum + ' must have exactly 1 year gap (e.g., 2024-2025).'
+              });
+              return false;
+            }
+
+            if (fromInt < 2000) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Year Too Old',
+                text: 'From year in Scholastic Record ' + tabNum + ' cannot be before 2000.'
+              });
+              return false;
+            }
+
+            const currentYear = new Date().getFullYear();
+            if (toInt > currentYear) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Year Too Far',
+                text: 'To year in Scholastic Record ' + tabNum + ' cannot be beyond the current year (' + currentYear + ').'
+              });
+              return false;
+            }
+          }
+        }
+      }
+
+      return true;
+    }
+
+    function populateGradeDataFromStore() {
+      // Create hidden inputs for stored grade data
+      const form = document.getElementById('submitrec');
+      if (!form) return;
+
+      // Remove any existing grade data inputs
+      form.querySelectorAll('[name^="stored_grade_data_"]').forEach(el => el.remove());
+
+      // Add stored grade data as hidden inputs
+      for (const scholasticIndex in gradeDataStore) {
+        if (gradeDataStore[scholasticIndex].length > 0) {
+          const hiddenInput = document.createElement('input');
+          hiddenInput.type = 'hidden';
+          hiddenInput.name = `stored_grade_data_${scholasticIndex}`;
+          hiddenInput.value = JSON.stringify(gradeDataStore[scholasticIndex]);
+          form.appendChild(hiddenInput);
+        }
+      }
+    }
+
+    function calculateFinalRating(row) {
+      const q1 = parseFloat(row.querySelector('.q1-input').value) || 0;
+      const q2 = parseFloat(row.querySelector('.q2-input').value) || 0;
+      const q3 = parseFloat(row.querySelector('.q3-input').value) || 0;
+      const q4 = parseFloat(row.querySelector('.q4-input').value) || 0;
+
+      if (q1 || q2 || q3 || q4) {
+        const final = ((q1 + q2 + q3 + q4) / 4).toFixed(2);
+        row.querySelector('.final-rating').value = final;
+        updateRemarksAndGenAve(row.querySelector('.final-rating'));
+      } else {
+        row.querySelector('.final-rating').value = '';
+        row.querySelector('.remarks').value = '';
+      }
+    }
+
+    function updateRemarksAndGenAve(finalRatingInput) {
+      const row = finalRatingInput.closest('tr');
+      const finalRating = parseFloat(finalRatingInput.value);
+      const remarksField = row.querySelector('.remarks');
+
+      // Update remarks based on final rating
+      if (finalRatingInput.value) {
+        if (finalRating >= 75) {
+          remarksField.value = 'PASSED';
+        } else {
+          remarksField.value = 'RETAINED';
+        }
+      } else {
+        remarksField.value = '';
+      }
+
+      // Calculate and update general average
+      const tbody = row.closest('tbody');
+      const match = tbody.className.match(/grades-tbody-(\d+)/);
+      if (!match || !match[1]) {
+        console.error('Could not extract scholastic index from tbody class:', tbody.className);
+        return;
+      }
+      const scholasticIndex = match[1];
+      calculateGeneralAverage(scholasticIndex);
+
+      // Check if button should be shown
+      checkGradeRowFilled(finalRatingInput);
+    }
+
+    function calculateGeneralAverage(scholasticIndex) {
+      let totalFinal = 0;
+      let countFinal = 0;
+
+      // Add all grades from the stored array
+      if (gradeDataStore[scholasticIndex] && gradeDataStore[scholasticIndex].length > 0) {
+        gradeDataStore[scholasticIndex].forEach(entry => {
+          totalFinal += entry.final_rating;
+          countFinal++;
+        });
+      }
+
+      // Also add the current input row if it has a final rating
+      const tbody = document.querySelector(`.grades-tbody-${scholasticIndex}`);
+      const inputRow = tbody.querySelector('.grades-row');
+      if (inputRow) {
+        const finalRating = parseFloat(inputRow.querySelector('.final-rating').value);
+        if (!isNaN(finalRating) && finalRating) {
+          totalFinal += finalRating;
+          countFinal++;
+        }
+      }
+
+      const genAveInput = document.querySelector(`[name="general_average_${scholasticIndex}"]`);
+      if (genAveInput && countFinal > 0) {
+        const genAve = (totalFinal / countFinal).toFixed(2);
+        genAveInput.value = genAve;
+      } else if (genAveInput) {
+        genAveInput.value = '';
+      }
+    }
+
+    function checkGradeRowFilled(input) {
+      const row = input.closest('tr');
+      const learningArea = row.querySelector('.learning-area').value.trim();
+      const q1 = row.querySelector('.q1-input').value;
+      const q2 = row.querySelector('.q2-input').value;
+      const q3 = row.querySelector('.q3-input').value;
+      const q4 = row.querySelector('.q4-input').value;
+      const finalRating = row.querySelector('.final-rating').value;
+
+      // Check if all fields are filled (learning area must not be empty, all quarters must have values, final rating must have value)
+      const allFilled = learningArea && q1 && q2 && q3 && q4 && finalRating !== '';
+
+      const addBtn = row.querySelector('.add-grade-btn');
+      if (addBtn) {
+        console.log(`Checking row: Learning Area="${learningArea}", Q1=${q1}, Q2=${q2}, Q3=${q3}, Q4=${q4}, FinalRating="${finalRating}", allFilled=${allFilled}`);
+        addBtn.style.display = allFilled ? 'inline-block' : 'none';
+      }
+    }
+
+    function addGradeEntry(button) {
+      const row = button.closest('tr');
+      const tbody = row.closest('tbody');
+      const match = tbody.className.match(/grades-tbody-(\d+)/);
+      if (!match || !match[1]) {
+        console.error('Could not extract scholastic index from tbody class:', tbody.className);
+        return;
+      }
+      const scholasticIndex = match[1];
+
+      // Get row data
+      const learningArea = row.querySelector('.learning-area').value;
+      const q1 = parseFloat(row.querySelector('.q1-input').value);
+      const q2 = parseFloat(row.querySelector('.q2-input').value);
+      const q3 = parseFloat(row.querySelector('.q3-input').value);
+      const q4 = parseFloat(row.querySelector('.q4-input').value);
+      const finalRating = parseFloat(row.querySelector('.final-rating').value);
+      const remarks = row.querySelector('.remarks').value;
+
+      // Validate all grades are between 50-100
+      if (q1 < 50 || q1 > 100 || q2 < 50 || q2 > 100 || q3 < 50 || q3 > 100 || q4 < 50 || q4 > 100 || finalRating < 50 || finalRating > 100) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid Grades',
+          text: 'All grades (Q1, Q2, Q3, Q4, and Final Rating) must be between 50-100'
+        });
+        return;
+      }
+
+      // Initialize array for this scholastic record if not exists
+      if (!gradeDataStore[scholasticIndex]) {
+        gradeDataStore[scholasticIndex] = [];
+      }
+
+      // Check if learning area already exists in array (must be unique)
+      const learningAreaExists = gradeDataStore[scholasticIndex].some(entry => entry.learning_area.toLowerCase().trim() === learningArea.toLowerCase().trim());
+      if (learningAreaExists) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Duplicate Learning Area',
+          text: `"${learningArea}" has already been added. Each learning area must be unique.`
+        });
+        return;
+      }
+
+      // Store entry in array
+      gradeDataStore[scholasticIndex].push({
+        learning_area: learningArea,
+        q1: q1,
+        q2: q2,
+        q3: q3,
+        q4: q4,
+        final_rating: finalRating,
+        remarks: remarks
+      });
+
+      // Clear current row for new entry
+      row.querySelector('.learning-area').value = '';
+      row.querySelector('.q1-input').value = '';
+      row.querySelector('.q2-input').value = '';
+      row.querySelector('.q3-input').value = '';
+      row.querySelector('.q4-input').value = '';
+      row.querySelector('.final-rating').value = '';
+      row.querySelector('.remarks').value = '';
+      button.style.display = 'none';
+
+      // Display added entries summary
+      displayGradeEntriesSummary(scholasticIndex);
+
+
+      calculateGeneralAverage(scholasticIndex);
+    }
+
+    function displayGradeEntriesSummary(scholasticIndex) {
+      const tbody = document.querySelector(`.grades-tbody-${scholasticIndex}`);
+
+      // Remove any previously added summary rows (but keep the input row at the end)
+      const existingSummaryRows = tbody.querySelectorAll('tr.grade-entry-row');
+      existingSummaryRows.forEach(row => row.remove());
+
+      // Get the input row (first/only row)
+      const inputRow = tbody.querySelector('tr.grades-row');
+
+      // Insert stored entries as rows before the input row
+      gradeDataStore[scholasticIndex].forEach((entry, index) => {
+        const summaryRow = document.createElement('tr');
+        summaryRow.className = 'grade-entry-row';
+        summaryRow.innerHTML = `
+          <td><input type="text" class="form-control form-control-sm" value="${entry.learning_area}" readonly></td>
+          <td><input type="number" class="form-control form-control-sm" value="${entry.q1}" readonly></td>
+          <td><input type="number" class="form-control form-control-sm" value="${entry.q2}" readonly></td>
+          <td><input type="number" class="form-control form-control-sm" value="${entry.q3}" readonly></td>
+          <td><input type="number" class="form-control form-control-sm" value="${entry.q4}" readonly></td>
+          <td><input type="number" class="form-control form-control-sm" value="${entry.final_rating}" readonly></td>
+          <td><input type="text" class="form-control form-control-sm" value="${entry.remarks}" readonly></td>
+          <td style="text-align: center;">
+            <button type="button" class="btn btn-sm btn-danger" onclick="removeGradeEntry(${scholasticIndex}, ${index})" title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
+          </td>
+        `;
+        // Insert before the input row
+        tbody.insertBefore(summaryRow, inputRow);
+      });
+    }
+
+    function removeGradeEntry(scholasticIndex, index) {
+      if (gradeDataStore[scholasticIndex]) {
+        gradeDataStore[scholasticIndex].splice(index, 1);
+        displayGradeEntriesSummary(scholasticIndex);
+        calculateGeneralAverage(scholasticIndex);
+      }
+    }
+
+    function checkRowsFilledAndShowAddButton(scholasticIndex) {
+      const tbody = document.querySelector(`.grades-tbody-${scholasticIndex}`);
+      if (!tbody) return; // Exit if tbody doesn't exist
+
+      const rows = tbody.querySelectorAll('.grades-row');
+      const addBtn = document.getElementById(`addRowBtn${scholasticIndex}`);
+
+      if (!addBtn) return; // Exit if add button doesn't exist
+
+      let lastRowFilled = false;
+
+      if (rows.length > 0) {
+        const lastRow = rows[rows.length - 1];
+        const learningArea = lastRow.querySelector('.learning-area').value.trim();
+        const q1 = lastRow.querySelector('.q1-input').value;
+        const q2 = lastRow.querySelector('.q2-input').value;
+        const q3 = lastRow.querySelector('.q3-input').value;
+        const q4 = lastRow.querySelector('.q4-input').value;
+
+        // Show button if last row has learning area OR any quarter filled
+        lastRowFilled = !!(learningArea || q1 || q2 || q3 || q4);
+      }
+
+      addBtn.style.display = lastRowFilled ? 'inline-block' : 'none';
+    }
+
+    // School Year validation and concatenation
+    function updateSchoolYearDisplay(tabNum) {
+      const fromInput = document.getElementById(`school_year_from_${tabNum}`);
+      const toInput = document.getElementById(`school_year_to_${tabNum}`);
+      const concatInput = document.getElementById(`school_year_concat_${tabNum}`);
+
+      if (fromInput && toInput && concatInput) {
+        const from = fromInput.value;
+        const to = toInput.value;
+        if (from && to) {
+          concatInput.value = `${from}-${to}`;
+        } else {
+          concatInput.value = '';
+        }
+      }
+    }
+
+    function validateSchoolYear(tabNum) {
+      const fromInput = document.getElementById(`school_year_from_${tabNum}`);
+      const toInput = document.getElementById(`school_year_to_${tabNum}`);
+
+      if (!fromInput || !toInput) return true;
+
+      const from = parseInt(fromInput.value);
+      const to = parseInt(toInput.value);
+
+      // If empty, skip validation (optional field)
+      if (!fromInput.value && !toInput.value) {
+        return true;
+      }
+
+      // Both must be filled if one is filled
+      if ((fromInput.value && !toInput.value) || (!fromInput.value && toInput.value)) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid School Year',
+          text: 'Both From and To years must be filled.'
+        });
+        return false;
+      }
+
+      // Year gap must be exactly 1
+      if (to - from !== 1) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid School Year Gap',
+          text: 'School year must have exactly 1 year gap (e.g., 2024-2025).'
+        });
+        fromInput.value = '';
+        toInput.value = '';
+        return false;
+      }
+
+      // From year cannot be before 2000
+      if (from < 2000) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Year Too Old',
+          text: 'From year cannot be before 2000.'
+        });
+        fromInput.value = '';
+        toInput.value = '';
+        return false;
+      }
+
+      // To year cannot be beyond current year (2026)
+      const currentYear = new Date().getFullYear();
+      if (to > currentYear) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Year Too Far',
+          text: `To year cannot be beyond the current year (${currentYear}).`
+        });
+        fromInput.value = '';
+        toInput.value = '';
+        return false;
+      }
+
+      updateSchoolYearDisplay(tabNum);
+      return true;
+    }
+
+    // Debounce function for preventing spam clicks
+    function debounce(func, delay) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), delay);
+      };
+    }
+
+    // Modify addGradeRow to prevent spam
+    const originalAddGradeRow = addGradeRow;
+    const debouncedAddGradeRow = {};
+
+    function addGradeRowDebounced(scholasticIndex) {
+      if (!debouncedAddGradeRow[scholasticIndex]) {
+        debouncedAddGradeRow[scholasticIndex] = debounce(() => {
+          originalAddGradeRow(scholasticIndex);
+          const addBtn = document.getElementById(`addRowBtn${scholasticIndex}`);
+          if (addBtn) {
+            addBtn.disabled = false;
+          }
+        }, 300);
+      }
+
+      const addBtn = document.getElementById(`addRowBtn${scholasticIndex}`);
+      if (addBtn && !addBtn.disabled) {
+        addBtn.disabled = true;
+        debouncedAddGradeRow[scholasticIndex]();
+      }
+    }
   </script>
 </body>
 
