@@ -169,7 +169,6 @@ if (isset($_POST['ajax'])) {
 }
 ?>
 
-?>
 
 <!DOCTYPE html>
 <html lang="en">
