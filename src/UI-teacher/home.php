@@ -266,7 +266,7 @@ WHERE e.adviser_id = ?
 
 // Add SY filter if selected
 if ($selectedSyId !== null) {
-    $sql .= "AND e.school_year_id = ?";
+    $sql .= " AND e.school_year_id = ?";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$user_id, $user_id, $user_id, $selectedSyId]);
 } else {
@@ -429,7 +429,7 @@ $parentCount = $stmt->fetchColumn();
                                 <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format(round($PresentCounts / 2)) ?></div>
                                 <div class="attendance-progress bg-light mt-2">
                                     <?php if ($studentCount > 0): ?>
-                                        <div class="bg-success" style="width: <?= min(100, round(($PresentCounts / 2) / $studentCount * 100)) ?>%; height: 100%;"></div>
+                                        <div class="bg-success" style="width: <?= (int)min(100, round(($PresentCounts / 2) / $studentCount * 100)) ?>%; height: 100%;"></div>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -455,7 +455,7 @@ $parentCount = $stmt->fetchColumn();
                                 <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format(round($AbsentCounts / 2)) ?></div>
                                 <div class="attendance-progress bg-light mt-2">
                                     <?php if ($studentCount > 0): ?>
-                                        <div class="bg-danger" style="width: <?= min(100, round(($AbsentCounts / 2) / $studentCount * 100)) ?>%; height: 100%;"></div>
+                                        <div class="bg-danger" style="width: <?= (int)min(100, round(($AbsentCounts / 2) / $studentCount * 100)) ?>%; height: 100%;"></div>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -481,7 +481,7 @@ $parentCount = $stmt->fetchColumn();
                                 <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format(round($LateCounts / 2)) ?></div>
                                 <div class="attendance-progress bg-light mt-2">
                                     <?php if ($studentCount > 0): ?>
-                                        <div class="bg-warning" style="width: <?= min(100, round(($LateCounts / 2) / $studentCount * 100)) ?>%; height: 100%;"></div>
+                                        <div class="bg-warning" style="width: <?= (int)min(100, round(($LateCounts / 2) / $studentCount * 100)) ?>%; height: 100%;"></div>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -653,8 +653,8 @@ $parentCount = $stmt->fetchColumn();
         <div class="row mt-4">
             <div class="col-12">
                 <div class="text-center text-muted">
-                    <small>Last updated: <?= date('F j, Y, g:i a') ?></small>
-                    <p class="mt-2 mb-0">Teacher Dashboard • School Management System</p>
+                    <small class="last-updated">Last updated: <?= date('F j, Y, g:i a') ?></small>
+                    <p class="mt-2 mb-0 today-date">Teacher Dashboard • School Management System</p>
                 </div>
             </div>
         </div>
@@ -688,13 +688,20 @@ $parentCount = $stmt->fetchColumn();
                     minute: '2-digit'
                 });
 
-                document.querySelector('.last-updated')?.textContent = `Last updated: ${timeString}`;
-                document.querySelector('.today-date')?.textContent = now.toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
+                const lastUpdatedEl = document.querySelector('.last-updated');
+                if (lastUpdatedEl) {
+                    lastUpdatedEl.textContent = `Last updated: ${timeString}`;
+                }
+
+                const todayDateEl = document.querySelector('.today-date');
+                if (todayDateEl) {
+                    todayDateEl.textContent = now.toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                }
             }
 
             // Update time every minute

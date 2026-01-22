@@ -194,23 +194,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $sheet = $spreadsheet->getSheetByName('Sheet1');
   if (!$sheet) $sheet = $spreadsheet->getSheet(0);
 
-  $dataStyle = [
-    'font' => ['underline' => true, 'name' => 'Arial', 'size' => 11],
-    'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER]
-  ];
 
   // dito naka lagay yung mga cells saan papasok mga data like q22 for name input
-  $sheet->setCellValue('Q22', $name_input)->getStyle('Q22')->applyFromArray($dataStyle);
-  $sheet->setCellValueExplicit('S24', $lrn_input, DataType::TYPE_STRING)
-    ->getStyle('S24')->applyFromArray(['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]]);
-  $sheet->setCellValue('Q26', $age_input)->getStyle('Q26')->applyFromArray($dataStyle);
-  $sheet->setCellValue('T26', $sex_input)->getStyle('T26')->applyFromArray($dataStyle);
-  $sheet->setCellValue('Q28', $grade_input)->getStyle('Q28')->applyFromArray($dataStyle);
-  $sheet->setCellValue('T28', $section_input)->getStyle('T28')->applyFromArray($dataStyle);
-  $sheet->setCellValue('R30', $sy_input)->getStyle('R30')->applyFromArray($dataStyle);
-  $sheet->setCellValue('S40', $teacher_input)->getStyle('S40')
-
-    ->applyFromArray(['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]]);
+  $sheet->setCellValue('Q22', $name_input)->getStyle('Q22');
+  $sheet->setCellValueExplicit('T24', $lrn_input, DataType::TYPE_STRING);
+  $sheet->setCellValue('Q26', $age_input)->getStyle('Q26');
+  $sheet->setCellValue('T26', $sex_input)->getStyle('T26');
+  $sheet->setCellValue('Q28', $grade_input)->getStyle('Q28');
+  $sheet->setCellValue('U28', $section_input)->getStyle('U28');
+  $sheet->setCellValue('R29', $sy_input)->getStyle('R29');
+  $sheet->setCellValue('T39', $teacher_input)->getStyle('T39');
 
   $startRow = 34;
   $subjectColumn = 'B';
@@ -221,23 +214,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
 
-  $targetCells = ['Q22', 'T26', 'T28'];
+  // $targetCells = ['Q22', 'T26', 'T28'];
 
-  foreach ($targetCells as $cell) {
+  // foreach ($targetCells as $cell) {
 
-    $sheet->getStyle($cell)->applyFromArray([
-      'font' => [
-        'name' => 'Times New Roman',
-        'size' => 10,
-        'bold' => false,
-        'underline' => \PhpOffice\PhpSpreadsheet\Style\Font::UNDERLINE_SINGLE,
-      ],
-      'alignment' => [
-        'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
-        'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
-      ],
-    ]);
-  }
+  //   $sheet->getStyle($cell)->applyFromArray([
+  //     'font' => [
+  //       'name' => 'Times New Roman',
+  //       'size' => 10,
+  //       'bold' => false,
+  //       'underline' => \PhpOffice\PhpSpreadsheet\Style\Font::UNDERLINE_SINGLE,
+  //     ],
+  //     'alignment' => [
+  //       'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
+  //       'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+  //     ],
+  //   ]);
+  // }
 
 
 
@@ -252,14 +245,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $sheet->setCellValue('M9', '=SUM(B9:L9)');
   $sheet->setCellValue('M12', '=SUM(B12:L12)');
 
-  $drawing = new Drawing();
-  $drawing->setName('DepEd Logo');
-  $drawing->setDescription('DepEd Logo');
-  $drawing->setPath($_SERVER['DOCUMENT_ROOT'] . BASE_FR . '/assets/image/deped.png');
-  $drawing->setCoordinates('P5');
-  $drawing->setWidth(80);
-  $drawing->setHeight(80);
-  $drawing->setWorksheet($sheet);
 
 
   $backSheet = $spreadsheet->getSheetByName('back');
