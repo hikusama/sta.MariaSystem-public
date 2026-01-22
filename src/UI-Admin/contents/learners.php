@@ -51,13 +51,16 @@ if (isset($_POST['ajax'])) {
         array_push($params, $s, $s, $s, $s, $s);
     }
 
-    // Base query
-    $sql = "SELECT student.*, 
+    // Base query - include school_year to get the name
+    $sql = "SELECT DISTINCT student.*, 
                    users.firstname AS parentFirstname, 
                    users.lastname AS parentLastname, 
-                   users.middlename AS parentMiddle
+                   users.middlename AS parentMiddle,
+                   school_year.school_year_name
             FROM student
-            JOIN users ON users.user_id = student.guardian_id";
+            JOIN users ON users.user_id = student.guardian_id
+            LEFT JOIN enrolment ON student.student_id = enrolment.student_id
+            LEFT JOIN school_year ON enrolment.school_year_id = school_year.school_year_id";
 
     if ($where) {
         $sql .= " WHERE " . implode(" AND ", $where);
@@ -126,7 +129,7 @@ if (isset($_POST['ajax'])) {
                 <td style="text-align: center;" width="10%"><span style="width: 1.34rem;" class="badge bg-<?= $badgeClass ?>"><i class="fa-solid fa-circle fa-xs me-1"></i></span></td>
                 <td width="15%">
                     <div class="d-flex gap-1 justify-content-center flex-wrap">
-                        <a href="index.php?page=contents/profile&student_id=<?= htmlspecialchars($user["student_id"]) ?>" class="btn btn-sm btn-info" title="View Profile"><i class="fa-solid fa-user me-1"></i> Profile</a>
+                        <a href="index.php?page=contents/profile&student_id=<?= htmlspecialchars($user["student_id"]) ?>&school_year_name=<?= htmlspecialchars($user['school_year_name'] ?? '') ?>" class="btn btn-sm btn-info" title="View Profile"><i class="fa-solid fa-user me-1"></i> Profile</a>
                         <form class="status-enrolment-form">
                             <select name="status" class="status-enrolment-select form-select">
                                 <option value="">Change Status</option>

@@ -32,14 +32,80 @@ if (!empty($student_info["birthdate"])) {
     $age = $birthDate->diff($today)->y;
 }
 
-// Initialize attendance summary
-$attendanceSummary = [
-    'present' => 0,
-    'late' => 0,
-    'absent' => 0,
-];
+// Get selected year from GET parameter (for filtering attendance)
+$selectedYear = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
 
-// Fetch totals directly from sf9_data
+// Initialize attendance variables
+$attendanceData = [];      // Array of date => attendance record
+$attendanceSummary = [     // Summary stats for sidebar
+    'present' => 0,
+    'absent' => 0,
+    'late' => 0
+];
+$attendanceList = [];      // List of all attendance records
+
+// Fetch attendance records from database
+if ($student_id) {
+    // Filter attendance records by selected year (June to March of next year based on attendance_at)
+    $attendanceQuery = "
+        SELECT 
+            DATE(morning_attendance) AS date,
+            YEAR(attendance_at) AS att_year,
+            MONTH(attendance_at) AS att_month,
+            attendance_type AS morning,
+            A_attendance_type AS afternoon,
+            attendance_summary AS summary,
+            attendance_at AS recorded_at
+        FROM attendance
+        WHERE student_id = :student_id
+        AND (
+            (YEAR(attendance_at) = :year AND MONTH(attendance_at) >= 6)
+            OR (YEAR(attendance_at) = :year_plus_one AND MONTH(attendance_at) <= 3)
+        )
+        ORDER BY morning_attendance DESC
+    ";
+    $stmt = $pdo->prepare($attendanceQuery);
+    $stmt->execute([
+        ':student_id' => $student_id,
+        ':year' => $selectedYear,
+        ':year_plus_one' => $selectedYear + 1
+    ]);
+    $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Build $attendanceData for calendar (keyed by date)
+    // Build $attendanceList for table view
+    foreach ($records as $record) {
+        $date = $record['date'];
+        
+        // For calendar view
+        $attendanceData[$date] = [
+            'morning' => $record['morning'] ?: null,
+            'afternoon' => $record['afternoon'] ?: null,
+            'summary' => strtolower(str_replace('-', '-', $record['summary'] ?? 'absent'))
+        ];
+        
+        // For list view
+        $attendanceList[] = [
+            'date' => $date,
+            'morning' => $record['morning'],
+            'afternoon' => $record['afternoon'],
+            'summary' => $record['summary'],
+            'recorded_at' => $record['recorded_at']
+        ];
+        
+        // Update summary counts
+        $summary = strtolower($record['summary'] ?? '');
+        if ($summary === 'present') {
+            $attendanceSummary['present']++;
+        } elseif ($summary === 'absent') {
+            $attendanceSummary['absent']++;
+        } elseif ($summary === 'late') {
+            $attendanceSummary['late']++;
+        }
+    }
+}
+
+// Fetch totals directly from sf9_data (alternative source)
 if ($student_id && $school_year_name) {
     $totalsQuery = "
         SELECT days_present, days_late, days_absent
@@ -583,8 +649,9 @@ $gradesData = [];
                                 <div class="card-body p-4">
                                     <div id="calendarView">
                                         <?php
-                                        // Calendar from July of selected year to January of next year
+                                        // Calendar from June of selected year to March of next year
                                         $months = [
+                                            ['month' => 6,  'year' => $selectedYear],
                                             ['month' => 7,  'year' => $selectedYear],
                                             ['month' => 8,  'year' => $selectedYear],
                                             ['month' => 9,  'year' => $selectedYear],
@@ -592,6 +659,8 @@ $gradesData = [];
                                             ['month' => 11, 'year' => $selectedYear],
                                             ['month' => 12, 'year' => $selectedYear],
                                             ['month' => 1,  'year' => $selectedYear + 1],
+                                            ['month' => 2,  'year' => $selectedYear + 1],
+                                            ['month' => 3,  'year' => $selectedYear + 1],
                                         ];
 
                                         foreach ($months as $m):
@@ -633,6 +702,7 @@ $gradesData = [];
                                                         <?php for ($day = 1; $day <= $daysInMonth; $day++):
                                                             $dateStr = sprintf('%04d-%02d-%02d', $year, $monthIndex, $day);
                                                             $dayOfWeek = ($firstDay + $day - 1) % 7;
+                                                            $isToday = ($dateStr === date('Y-m-d'));
 
                                                             $cellClass = 'day-cell';
                                                             $tooltip = '';
@@ -667,7 +737,7 @@ $gradesData = [];
                                                                 }
                                                             } else {
                                                                 $cellDate = new DateTime($dateStr);
-                                                                $today = new DateTime();
+                                                                $today = new DateTime(date('Y-m-d'));
                                                                 if ($cellDate > $today) {
                                                                     $cellClass .= " future";
                                                                     $tooltip = "Future date";
@@ -678,7 +748,7 @@ $gradesData = [];
                                                             }
 
                                                             if ($dayOfWeek === 0 || $dayOfWeek === 6) $cellClass .= " weekend";
-                                                            if ($dateStr === date('Y-m-d')) $cellClass .= " today";
+                                                            if ($isToday) $cellClass .= " today";
                                                         ?>
                                                             <div class="<?= $cellClass ?>" style="width:14.28%" title="<?= $tooltip ?>">
                                                                 <?= $day ?>
@@ -1782,6 +1852,12 @@ $gradesData = [];
                 calculateBMI();
             }
 
+            // Auto-activate attendance tab if requested
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('tab') === 'attendance') {
+                document.getElementById('attendance-tab').click();
+            }
+
             // Personal Information Form
             const personalForm = document.getElementById('displayStudentInfo');
             if (personalForm) {
@@ -1903,16 +1979,13 @@ $gradesData = [];
             const syFilter = document.getElementById('syFilter');
             const calendarView = document.getElementById('calendarView');
 
-
             document.getElementById('syFilter').addEventListener('change', function() {
-                fetch(`<?= BASE_FR ?>/src/fetch_calendar.php?year=${this.value}&student_id=<?= $student_id ?>`)
-                    .then(res => res.text())
-                    .then(html => {
-                        calendarView.innerHTML = html;
-                    })
-                    .catch(err => console.error(err));
+                // Reload page with selected year parameter and keep attendance tab active
+                const params = new URLSearchParams(window.location.search);
+                params.set('year', this.value);
+                params.set('tab', 'attendance');
+                window.location.search = params.toString();
             });
-
 
         });
     </script>

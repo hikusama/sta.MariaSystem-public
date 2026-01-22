@@ -10,15 +10,16 @@ BEGIN
     DECLARE old_summary VARCHAR(20);
     DECLARE new_summary VARCHAR(20);
     DECLARE attend_month INT;
-
-    -- Determine which attendance date to use
-    IF OLD.attendance_at IS NOT NULL THEN
-        SET old_date = OLD.attendance_at;
-    END IF;
+    DECLARE sy_name VARCHAR(50);
 
     IF NEW.attendance_at IS NOT NULL THEN
         SET new_date = NEW.attendance_at;
     END IF;
+
+    SELECT school_year_name INTO sy_name
+    FROM school_year
+    WHERE school_year_id = NEW.school_year_id
+      AND school_year_status = 'Active';
 
     SET old_summary = OLD.attendance_summary;
     SET new_summary = NEW.attendance_summary;
@@ -118,6 +119,7 @@ BEGIN
     DECLARE new_date DATE;
     DECLARE new_summary VARCHAR(20);
     DECLARE attend_month INT;
+    DECLARE sy_name VARCHAR(50);
 
     IF NEW.attendance_at IS NOT NULL THEN
         SET new_date = NEW.attendance_at;
@@ -125,6 +127,10 @@ BEGIN
 
     SET new_summary = NEW.attendance_summary;
 
+    SELECT school_year_name INTO sy_name
+    FROM school_year
+    WHERE school_year_id = NEW.school_year_id
+      AND school_year_status = 'Active';
 
     -- Add new attendance
     IF new_date IS NOT NULL AND DAYOFWEEK(new_date) <> 1 THEN

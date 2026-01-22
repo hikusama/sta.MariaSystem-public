@@ -205,15 +205,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $sheet->setCellValue('R29', $sy_input)->getStyle('R29');
   $sheet->setCellValue('T39', $teacher_input)->getStyle('T39');
 
-  $startRow = 34;
-  $subjectColumn = 'B';
-
-  for ($i = 0; $i < 15; $i++) {
-    $cell = $subjectColumn . ($startRow + $i);
-    $sheet->setCellValue($cell, $subjects[$i] ?? '');
-  }
-
-
   // $targetCells = ['Q22', 'T26', 'T28'];
 
   // foreach ($targetCells as $cell) {
@@ -250,17 +241,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $backSheet = $spreadsheet->getSheetByName('back');
   if ($backSheet) {
 
-    $backSheet->setCellValue('A6', 'Learning Areas');
-    $backSheet->setCellValue('N6', '1st Quarter');
-    $backSheet->setCellValue('O6', '2nd Quarter');
-    $backSheet->setCellValue('P6', '3rd Quarter');
-    $backSheet->setCellValue('Q6', '4th Quarter');
-    $backSheet->setCellValue('R6', 'Final Rating');
-    $backSheet->setCellValue('S6', 'Remarks');
 
-    for ($row = 7; $row <= 21; $row++) {
+
+    for ($row = 7; $row <= 22; $row++) {
       $i = $row - 7;
-      $subject_name = $subjects_for_grade[$i] ?? '';
+      if ($i >= 15) break; // Only process 15 subjects
       $backSheet->setCellValue("A{$row}", $subjects[$i] ?? '');
 
       $backSheet->setCellValue("N{$row}", $_POST['q1'][$i] ?? '');

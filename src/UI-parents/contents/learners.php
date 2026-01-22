@@ -129,9 +129,11 @@ $studentsStmt = $pdo->prepare("
         e.enrolment_id,
         e.school_year_id,
         e.section_name,
-        e.adviser_id
+        e.adviser_id,
+        sy.school_year_name
     FROM student s
     LEFT JOIN enrolment e ON s.student_id = e.student_id
+    LEFT JOIN school_year sy ON e.school_year_id = sy.school_year_id
     WHERE $whereSQL
     ORDER BY s.student_id DESC
     LIMIT :offset, :perpage
@@ -240,12 +242,14 @@ if (isset($_POST['ajax'])) {
 
                                 <!-- Action Buttons -->
                                 <div class="d-flex gap-2 mt-3 pt-3 border-top fltr">
-                                    <a href="index.php?page=contents/profile&student_id=<?= htmlspecialchars($student["student_id"]) ?>"
+                                    <?php if ($student['enrolment_id']): ?>
+                                    <a href="index.php?page=contents/profile&student_id=<?= htmlspecialchars($student["student_id"]) ?>&school_year_name=<?= htmlspecialchars($student['school_year_name'] ?? '') ?>"
                                         class="flex-fill">
                                         <button class="btn btn-action btn-profile w-100">
                                             <i class="fa-solid fa-user me-1"></i> Profile
                                         </button>
                                     </a>
+                                    <?php endif; ?>
                                     <a href="index.php?page=contents/form&student_id=<?= htmlspecialchars($student["student_id"]) ?>"
                                         class="flex-fill">
                                         <button class="btn btn-action btn-form w-100">

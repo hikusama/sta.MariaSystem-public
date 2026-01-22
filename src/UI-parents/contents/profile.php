@@ -5,8 +5,178 @@ if ($result['res']) {
     header($result['uri']);
     exit;
 }
-// Use prepared statement with parameter binding
+
+// Handle AJAX attendance data request
+if (isset($_POST['ajax_attendance'])) {
+    header('Content-Type: application/json');
+    
+    $student_id = (int)($_POST['student_id'] ?? 0);
+    $selectedYear = (int)($_POST['year'] ?? date('Y'));
+    $school_year_name = $_POST['school_year_name'] ?? '';
+    
+    $attendanceData = [];
+    $attendanceSummary = ['present' => 0, 'absent' => 0, 'late' => 0, 'half_day' => 0, 'half_day_late' => 0];
+    
+    if ($student_id) {
+        // Fetch attendance records filtered by attendance_at dates (June to March)
+        $attendanceQuery = "
+            SELECT 
+                DATE(morning_attendance) AS date,
+                YEAR(attendance_at) AS att_year,
+                MONTH(attendance_at) AS att_month,
+                attendance_type AS morning,
+                A_attendance_type AS afternoon,
+                attendance_summary AS summary,
+                attendance_at AS recorded_at
+            FROM attendance
+            WHERE student_id = :student_id
+            AND (
+                (YEAR(attendance_at) = :year AND MONTH(attendance_at) >= 6)
+                OR (YEAR(attendance_at) = :year_plus_one AND MONTH(attendance_at) <= 3)
+            )
+            ORDER BY morning_attendance DESC
+        ";
+        $stmt = $pdo->prepare($attendanceQuery);
+        $stmt->execute([
+            ':student_id' => $student_id,
+            ':year' => $selectedYear,
+            ':year_plus_one' => $selectedYear + 1
+        ]);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Build attendance data for calendar and count summary
+        foreach ($records as $record) {
+            $date = $record['date'];
+            $attendanceData[$date] = [
+                'morning' => $record['morning'] ?: null,
+                'afternoon' => $record['afternoon'] ?: null,
+                'summary' => strtolower(str_replace('-', '-', $record['summary'] ?? 'absent'))
+            ];
+            
+            // Update summary counts
+            $summary = strtolower($record['summary'] ?? '');
+            if ($summary === 'present') {
+                $attendanceSummary['present']++;
+            } elseif ($summary === 'absent') {
+                $attendanceSummary['absent']++;
+            } elseif ($summary === 'late') {
+                $attendanceSummary['late']++;
+            } elseif ($summary === 'half-day') {
+                $attendanceSummary['half_day']++;
+            } elseif ($summary === 'half-day-late') {
+                $attendanceSummary['half_day_late']++;
+            }
+        }
+    }
+    
+    // Generate calendar HTML (June to March 10-month calendar)
+    $months = [
+        ['month' => 6,  'year' => $selectedYear],
+        ['month' => 7,  'year' => $selectedYear],
+        ['month' => 8,  'year' => $selectedYear],
+        ['month' => 9,  'year' => $selectedYear],
+        ['month' => 10, 'year' => $selectedYear],
+        ['month' => 11, 'year' => $selectedYear],
+        ['month' => 12, 'year' => $selectedYear],
+        ['month' => 1,  'year' => $selectedYear + 1],
+        ['month' => 2,  'year' => $selectedYear + 1],
+        ['month' => 3,  'year' => $selectedYear + 1],
+    ];
+    
+    $calendarHtml = '';
+    foreach ($months as $m) {
+        $monthIndex = $m['month'];
+        $year = $m['year'];
+        $monthName = date("F", mktime(0, 0, 0, $monthIndex, 1));
+        $daysInMonth = date("t", mktime(0, 0, 0, $monthIndex, 1, $year));
+        $firstDay = date("w", mktime(0, 0, 0, $monthIndex, 1, $year));
+        
+        // Count days recorded in this month
+        $daysRecorded = 0;
+        foreach ($attendanceData as $date => $record) {
+            if (date('Y-m', strtotime($date)) == sprintf("%04d-%02d", $year, $monthIndex)) {
+                $daysRecorded++;
+            }
+        }
+        
+        $calendarHtml .= '<div class="month-card mb-5">';
+        $calendarHtml .= '<h6 class="fw-semibold mb-3 d-flex justify-content-between align-items-center">';
+        $calendarHtml .= '<span>' . $monthName . ' ' . $year . '</span>';
+        $calendarHtml .= '<small class="text-muted fw-normal">' . $daysRecorded . ' days recorded</small>';
+        $calendarHtml .= '</h6>';
+        
+        // Day headers
+        $calendarHtml .= '<div class="days-header mb-2"><div class="d-flex">';
+        foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $day) {
+            $calendarHtml .= '<div class="day-header text-center" style="width: 14.28%;">' . $day . '</div>';
+        }
+        $calendarHtml .= '</div></div>';
+        
+        // Calendar grid
+        $calendarHtml .= '<div class="calendar-grid mb-3"><div class="d-flex flex-wrap">';
+        
+        // Empty days for first week
+        for ($i = 0; $i < $firstDay; $i++) {
+            $calendarHtml .= '<div class="day-cell empty" style="width: 14.28%;"></div>';
+        }
+        
+        // Days of the month
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $dateStr = sprintf("%04d-%02d-%02d", $year, $monthIndex, $day);
+            $cellClass = "day-cell";
+            $attendanceStatus = $attendanceData[$dateStr] ?? null;
+            $tooltip = "";
+            
+            if ($attendanceStatus) {
+                $summary = strtolower($attendanceStatus['summary'] ?? '');
+                switch ($summary) {
+                    case 'present':
+                        $cellClass .= " present";
+                        $tooltip = "Present - All Day";
+                        break;
+                    case 'absent':
+                        $cellClass .= " absent";
+                        $tooltip = "Absent - All Day";
+                        break;
+                    case 'late':
+                        $cellClass .= " late";
+                        $tooltip = "Late - All Day";
+                        break;
+                    case 'half-day':
+                        $cellClass .= " half-day";
+                        $tooltip = "Half Day - " . ($attendanceStatus['morning'] == 'Present' ? 'Morning Only' : 'Afternoon Only');
+                        break;
+                    case 'half-day-late':
+                        $cellClass .= " half-day-late";
+                        $tooltip = "Half Day Late - " . ($attendanceStatus['morning'] == 'Late' ? 'Morning Only' : 'Afternoon Only');
+                        break;
+                    default:
+                        $cellClass .= " unknown";
+                        $tooltip = "Attendance recorded";
+                }
+            } else {
+                $todayStr = date('Y-m-d');
+                if ($dateStr == $todayStr) {
+                    $cellClass .= " today";
+                    $tooltip = "Today - No attendance record";
+                }
+            }
+            
+            $calendarHtml .= '<div class="' . $cellClass . '" style="width: 14.28%;" title="' . htmlspecialchars($tooltip) . '">' . $day . '</div>';
+        }
+        
+        $calendarHtml .= '</div></div>'; // Close d-flex and calendar-grid
+        $calendarHtml .= '</div>'; // Close month-card
+    }
+    
+    echo json_encode(['success' => true, 'calendar' => $calendarHtml]);
+    exit;
+}
+
+// Get student ID and school year name from GET
 $student_id = $_GET["student_id"] ?? '';
+$school_year_name = $_GET["school_year_name"] ?? '';
+
 $query = "SELECT student.*, 
             student.student_profile AS student_profile_img,
             users.*, stuenrolmentinfo.*, parents_info.* 
@@ -19,74 +189,120 @@ $stmt = $pdo->prepare($query);
 $stmt->execute([':student_id' => $student_id]);
 $student_info = $stmt->fetch(PDO::FETCH_ASSOC);
 
+if (!$student_info) {
+    http_response_code(404);
+    exit('Student not found');
+}
+
 // Calculate age if birthdate exists
 $age = '';
 if (!empty($student_info["birthdate"])) {
-    $birthDate = new DateTime($student_info["birthdate"]);
-    $today = new DateTime();
-    $age = $birthDate->diff($today)->y;
+    try {
+        $birthDate = new DateTime($student_info["birthdate"]);
+        $today = new DateTime();
+        $age = $birthDate->diff($today)->y;
+    } catch (Exception $e) {
+        $age = '';
+    }
 }
 
-// Fetch attendance data with accurate summary
-$attendanceData = [];
-$attendanceSummary = ['present' => 0, 'absent' => 0, 'late' => 0, 'half_day' => 0, 'half_day_late' => 0];
-$attendanceList = []; // For list view
+// Initialize attendance variables
+$attendanceData = [];      // Array of date => attendance record
+$attendanceSummary = [     // Summary stats for sidebar
+    'present' => 0,
+    'absent' => 0,
+    'late' => 0,
+    'half_day' => 0,
+    'half_day_late' => 0
+];
+$attendanceList = [];      // List of all attendance records
 
+// Extract year from school_year_name (e.g., "2023-2024" -> 2023)
+$selectedYear = !empty($school_year_name) ? (int)substr($school_year_name, 0, 4) : (int)date('Y');
+
+// Fetch attendance records from database
 if ($student_id) {
-    $stmt = $pdo->prepare("SELECT * FROM attendance WHERE student_id = :student_id ORDER BY morning_attendance DESC");
-    $stmt->execute([':student_id' => $student_id]);
-    $attendanceRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Filter attendance records by selected year (June to March of next year based on attendance_at)
+    $attendanceQuery = "
+        SELECT 
+            DATE(morning_attendance) AS date,
+            YEAR(attendance_at) AS att_year,
+            MONTH(attendance_at) AS att_month,
+            attendance_type AS morning,
+            A_attendance_type AS afternoon,
+            attendance_summary AS summary,
+            attendance_at AS recorded_at
+        FROM attendance
+        WHERE student_id = :student_id
+        AND (
+            (YEAR(attendance_at) = :year AND MONTH(attendance_at) >= 6)
+            OR (YEAR(attendance_at) = :year_plus_one AND MONTH(attendance_at) <= 3)
+        )
+        ORDER BY morning_attendance DESC
+    ";
+    $stmt = $pdo->prepare($attendanceQuery);
+    $stmt->execute([
+        ':student_id' => $student_id,
+        ':year' => $selectedYear,
+        ':year_plus_one' => $selectedYear + 1
+    ]);
+    $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Organize attendance by date
-    foreach ($attendanceRecords as $record) {
-        $date = date('Y-m-d', strtotime($record['morning_attendance']));
+    // Build $attendanceData for calendar (keyed by date)
+    // Build $attendanceList for table view
+    foreach ($records as $record) {
+        $date = $record['date'];
         
-        // Determine daily status based on morning and afternoon
-        $morning_status = $record['attendance_type'] ?? null;
-        $afternoon_status = $record['A_attendance_type'] ?? null;
-        $summary = $record['attendance_summary'] ?? null;
-        
+        // For calendar view
         $attendanceData[$date] = [
-            'morning' => $morning_status,
-            'afternoon' => $afternoon_status,
-            'summary' => $summary,
-            'recorded_at' => $record['attendance_at'] ?? null
+            'morning' => $record['morning'] ?: null,
+            'afternoon' => $record['afternoon'] ?: null,
+            'summary' => strtolower(str_replace('-', '-', $record['summary'] ?? 'absent'))
         ];
         
         // For list view
         $attendanceList[] = [
             'date' => $date,
-            'morning' => $morning_status,
-            'afternoon' => $afternoon_status,
-            'summary' => $summary,
-            'recorded_at' => $record['attendance_at'] ?? null
+            'morning' => $record['morning'],
+            'afternoon' => $record['afternoon'],
+            'summary' => $record['summary'],
+            'recorded_at' => $record['recorded_at']
         ];
         
         // Update summary counts
-        if ($summary) {
-            switch(strtolower($summary)) {
-                case 'present':
-                    $attendanceSummary['present']++;
-                    break;
-                case 'absent':
-                    $attendanceSummary['absent']++;
-                    break;
-                case 'late':
-                    $attendanceSummary['late']++;
-                    break;
-                case 'half-day':
-                    $attendanceSummary['half_day']++;
-                    break;
-                case 'half-day-late':
-                    $attendanceSummary['half_day_late']++;
-                    break;
-            }
+        $summary = strtolower($record['summary'] ?? '');
+        if ($summary === 'present') {
+            $attendanceSummary['present']++;
+        } elseif ($summary === 'absent') {
+            $attendanceSummary['absent']++;
+        } elseif ($summary === 'late') {
+            $attendanceSummary['late']++;
         }
     }
 }
 
-// Fetch grades data
-$gradesData = [];
+// Fetch totals directly from sf9_data (alternative source)
+if ($student_id && $school_year_name) {
+    $totalsQuery = "
+        SELECT days_present, days_late, days_absent
+        FROM sf9_data
+        WHERE student_id = :student_id
+          AND school_year = :school_year
+        LIMIT 1
+    ";
+    $stmt = $pdo->prepare($totalsQuery);
+    $stmt->execute([
+        ':student_id' => $student_id,
+        ':school_year' => $school_year_name
+    ]);
+    $totals = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($totals) {
+        $attendanceSummary['present'] = (int)$totals['days_present'];
+        $attendanceSummary['late'] = (int)$totals['days_late'];
+        $attendanceSummary['absent'] = (int)$totals['days_absent'];
+    }
+}
 ?>
 <!-- Main Container -->
 <div class="student-profile-container">
@@ -109,7 +325,7 @@ $gradesData = [];
                 </nav>
             </div>
             <div>
-                <a href="index.php?page=contents/student" 
+                <a href="index.php?page=contents/learners" 
                    class="btn btn-outline-secondary d-flex align-items-center">
                     <i class="fas fa-arrow-left me-2"></i>Back
                 </a>
@@ -547,35 +763,50 @@ $gradesData = [];
                                 <h5 class="mb-0 fw-semibold">
                                     <i class="fas fa-calendar-check me-2 text-primary"></i>Attendance Record
                                 </h5>
-                                <button type="button" class="btn btn-outline-primary btn-sm" id="toggleView">
-                                    <i class="fas fa-calendar-alt me-1"></i> Switch to List View
-                                </button>
+                                <div style="text-align: center; margin-bottom: .5rem;">
+                                    <label for="yearFilter">Select Year</label>
+                                    <select id="yearFilter" name="school_year" class="form-select" style="width:200px;">
+                                        <?php
+                                        $startYear = 2020;
+                                        $currentYear = (int)date('Y');
+                                        for ($year = $currentYear; $year >= $startYear; $year--):
+                                        ?>
+                                            <option value="<?= $year ?>" <?= $year === $selectedYear ? 'selected' : '' ?>>
+                                                <?= $year ?>
+                                            </option>
+                                        <?php endfor; ?>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                         <div class="card-body p-4">
                             <!-- Calendar View -->
                             <div id="calendarView">
-                                <?php 
-                                $currentYear = date("Y");
-                                $currentMonth = date("n");
-                                $monthsToShow = 6; // Show last 6 months including current
-                                $startYear = 2020;
-                                for ($m = $currentMonth - ($monthsToShow - 1); $m <= $currentMonth; $m++):
-                                    $monthIndex = $m;
-                                    $year = $currentYear;
-                                    
-                                    // Handle year wrap-around
-                                    if ($monthIndex < 1) {
-                                        $monthIndex += 12;
-                                        $year -= 1;
-                                    }
-                                    
+                                <?php
+                                // Calendar from June of selected year to March of next year
+                                $months = [
+                                    ['month' => 6,  'year' => $selectedYear],
+                                    ['month' => 7,  'year' => $selectedYear],
+                                    ['month' => 8,  'year' => $selectedYear],
+                                    ['month' => 9,  'year' => $selectedYear],
+                                    ['month' => 10, 'year' => $selectedYear],
+                                    ['month' => 11, 'year' => $selectedYear],
+                                    ['month' => 12, 'year' => $selectedYear],
+                                    ['month' => 1,  'year' => $selectedYear + 1],
+                                    ['month' => 2,  'year' => $selectedYear + 1],
+                                    ['month' => 3,  'year' => $selectedYear + 1],
+                                ];
+
+                                foreach ($months as $m):
+                                    $monthIndex = $m['month'];
+                                    $year = $m['year'];
+
                                     $monthName = date("F", mktime(0, 0, 0, $monthIndex, 1));
                                     $daysInMonth = date("t", mktime(0, 0, 0, $monthIndex, 1, $year));
-                                    
+
                                     // Get first day of the month (0=Sunday, 1=Monday, etc.)
                                     $firstDay = date("w", mktime(0, 0, 0, $monthIndex, 1, $year));
-                                    
+
                                     // Count days recorded in this month
                                     $daysRecorded = 0;
                                     foreach ($attendanceData as $date => $record) {
@@ -583,14 +814,14 @@ $gradesData = [];
                                             $daysRecorded++;
                                         }
                                     }
-                                    ?>
-                                    
+                                ?>
+
                                     <div class="month-card mb-5">
                                         <h6 class="fw-semibold mb-3 d-flex justify-content-between align-items-center">
                                             <span><?= $monthName ?> <?= $year ?></span>
                                             <small class="text-muted fw-normal"><?= $daysRecorded ?> days recorded</small>
                                         </h6>
-                                        
+
                                         <!-- Day Headers -->
                                         <div class="days-header mb-2">
                                             <div class="d-flex">
@@ -603,28 +834,28 @@ $gradesData = [];
                                                 <div class="day-header text-center" style="width: 14.28%;">Sat</div>
                                             </div>
                                         </div>
-                                        
+
                                         <!-- Calendar Grid -->
                                         <div class="calendar-grid mb-3">
                                             <div class="d-flex flex-wrap">
                                                 <!-- Empty days for first week -->
                                                 <?php for ($i = 0; $i < $firstDay; $i++): ?>
-                                                <div class="day-cell empty" style="width: 14.28%;"></div>
+                                                    <div class="day-cell empty" style="width: 14.28%;"></div>
                                                 <?php endfor; ?>
-                                                
+
                                                 <!-- Days of the month -->
-                                                <?php for ($day = 1; $day <= $daysInMonth; $day++): 
+                                                <?php for ($day = 1; $day <= $daysInMonth; $day++):
                                                     $dateStr = sprintf("%04d-%02d-%02d", $year, $monthIndex, $day);
                                                     $dayOfWeek = ($firstDay + $day - 1) % 7;
-                                                    
+
                                                     // Determine cell class based on attendance
                                                     $cellClass = "day-cell";
                                                     $attendanceStatus = $attendanceData[$dateStr] ?? null;
                                                     $tooltip = "";
-                                                    
+
                                                     if ($attendanceStatus) {
                                                         $summary = strtolower($attendanceStatus['summary'] ?? '');
-                                                        switch($summary) {
+                                                        switch ($summary) {
                                                             case 'present':
                                                                 $cellClass .= " present";
                                                                 $tooltip = "Present - All Day";
@@ -639,77 +870,81 @@ $gradesData = [];
                                                                 break;
                                                             case 'half-day':
                                                                 $cellClass .= " half-day";
-                                                                $tooltip = "Half Day - " . 
-                                                                          ($attendanceStatus['morning'] == 'Present' ? 'Morning Only' : 'Afternoon Only');
+                                                                $tooltip = "Half Day - " .
+                                                                    ($attendanceStatus['morning'] == 'Present' ? 'Morning Only' : 'Afternoon Only');
                                                                 break;
                                                             case 'half-day-late':
                                                                 $cellClass .= " half-day-late";
-                                                                $tooltip = "Half Day Late - " . 
-                                                                          ($attendanceStatus['morning'] == 'Late' ? 'Morning Only' : 'Afternoon Only');
+                                                                $tooltip = "Half Day Late - " .
+                                                                    ($attendanceStatus['morning'] == 'Late' ? 'Morning Only' : 'Afternoon Only');
                                                                 break;
                                                             default:
                                                                 $cellClass .= " unknown";
                                                                 $tooltip = "Attendance recorded";
                                                         }
                                                     } else {
-                                                        // Future dates
-                                                        $cellDate = new DateTime($dateStr);
-                                                        $today = new DateTime();
-                                                        if ($cellDate > $today) {
-                                                            $cellClass .= " future";
-                                                            $tooltip = "Future date";
+                                                        // Check if today
+                                                        $todayStr = date('Y-m-d');
+                                                        if ($dateStr == $todayStr) {
+                                                            $cellClass .= " today";
+                                                            $tooltip = "Today - No attendance record";
                                                         } else {
-                                                            $cellClass .= " no-record";
-                                                            $tooltip = "No attendance record";
+                                                            // Future dates
+                                                            $cellDate = new DateTime($dateStr);
+                                                            $today = new DateTime($todayStr);
+                                                            if ($cellDate > $today) {
+                                                                $cellClass .= " future";
+                                                                $tooltip = "Future date";
+                                                            } else {
+                                                                $cellClass .= " no-record";
+                                                                $tooltip = "No attendance record";
+                                                            }
                                                         }
                                                     }
-                                                    
+
                                                     // Weekend styling
                                                     if ($dayOfWeek == 0 || $dayOfWeek == 6) {
                                                         $cellClass .= " weekend";
                                                     }
-                                                    
-                                                    // Today highlighting
-                                                    if ($dateStr == date('Y-m-d')) {
-                                                        $cellClass .= " today";
-                                                    }
-                                                    ?>
-                                                    
-                                                    <div class="<?= $cellClass ?>" style="width: 14.28%;" 
-                                                         data-bs-toggle="tooltip" data-bs-placement="top" 
-                                                         title="<?= $tooltip ?>">
+                                                ?>
+
+                                                    <div class="<?= $cellClass ?>" style="width: 14.28%;"
+                                                        data-bs-toggle="tooltip" data-bs-placement="top"
+                                                        title="<?= $tooltip ?>">
                                                         <?= $day ?>
                                                         <?php if ($attendanceStatus): ?>
-                                                        <div class="day-indicators">
-                                                            <?php if ($attendanceStatus['morning']): ?>
-                                                            <span class="indicator <?= strtolower($attendanceStatus['morning']) ?>" 
-                                                                  title="Morning: <?= $attendanceStatus['morning'] ?>"></span>
-                                                            <?php endif; ?>
-                                                            <?php if ($attendanceStatus['afternoon']): ?>
-                                                            <span class="indicator <?= strtolower($attendanceStatus['afternoon']) ?>" 
-                                                                  title="Afternoon: <?= $attendanceStatus['afternoon'] ?>"></span>
-                                                            <?php endif; ?>
-                                                        </div>
+                                                            <div class="day-indicators">
+                                                                <?php if ($attendanceStatus['morning']): ?>
+                                                                    <span class="indicator <?= strtolower($attendanceStatus['morning']) ?>"
+                                                                        title="Morning: <?= $attendanceStatus['morning'] ?>"></span>
+                                                                <?php endif; ?>
+                                                                <?php if ($attendanceStatus['afternoon']): ?>
+                                                                    <span class="indicator <?= strtolower($attendanceStatus['afternoon']) ?>"
+                                                                        title="Afternoon: <?= $attendanceStatus['afternoon'] ?>"></span>
+                                                                <?php endif; ?>
+                                                            </div>
                                                         <?php endif; ?>
                                                     </div>
-                                                    
+
                                                     <?php if (($firstDay + $day) % 7 == 0 && $day != $daysInMonth): ?>
-                                            </div><div class="d-flex flex-wrap">
-                                                    <?php endif; ?>
-                                                <?php endfor; ?>
-                                                
-                                                <!-- Empty days for last week -->
-                                                <?php 
-                                                $remainingDays = 7 - (($firstDay + $daysInMonth) % 7);
-                                                if ($remainingDays < 7) {
-                                                    for ($i = 0; $i < $remainingDays; $i++):
-                                                ?>
+                                            </div>
+                                            <div class="d-flex flex-wrap">
+                                            <?php endif; ?>
+                                        <?php endfor; ?>
+
+                                        <!-- Empty days for last week -->
+                                        <?php
+                                        $remainingDays = 7 - (($firstDay + $daysInMonth) % 7);
+                                        if ($remainingDays < 7) {
+                                            for ($i = 0; $i < $remainingDays; $i++):
+                                        ?>
                                                 <div class="day-cell empty" style="width: 14.28%;"></div>
-                                                <?php endfor; } ?>
+                                        <?php endfor;
+                                        } ?>
                                             </div>
                                         </div>
                                     </div>
-                                <?php endfor; ?>
+                                <?php endforeach; ?>
                             </div>
                             
                             <!-- List View (Hidden by default) -->
@@ -1708,6 +1943,33 @@ document.addEventListener('DOMContentLoaded', function() {
             event.preventDefault();
             tabTrigger.show();
         });
+    });
+    
+    // Year filter handler for attendance - AJAX version
+    document.getElementById('yearFilter')?.addEventListener('change', function(e) {
+        const selectedYear = e.target.value;
+        const formData = new FormData();
+        formData.append('ajax_attendance', true);
+        formData.append('student_id', '<?= $student_id ?>');
+        formData.append('year', selectedYear);
+        formData.append('school_year_name', e.target.options[e.target.selectedIndex].text.trim());
+        
+        fetch('<?= BASE_FR ?>/src/UI-parents/contents/profile.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update only the calendar view
+                document.getElementById('calendarView').innerHTML = data.calendar;
+                
+                // Reinitialize Bootstrap tooltips
+                const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                tooltipTriggerList.map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+            }
+        })
+        .catch(error => console.error('Error loading attendance data:', error));
     });
 });
 </script>
