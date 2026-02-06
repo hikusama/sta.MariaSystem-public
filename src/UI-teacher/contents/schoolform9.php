@@ -141,7 +141,13 @@ if (isset($_GET['download']) && $_GET['download'] === '1') {
   $filePath = BASE_PATH . '/sf9_files/' . $fileName;
 
   if (!file_exists($filePath)) {
-    die("Error: File not found on server. Path: " . htmlspecialchars($filePath));
+?>
+    <script>
+      alert("File not found: <?php echo htmlspecialchars($fileName); ?>");
+      window.history.back();
+    </script>
+<?php
+    exit;
   }
   header('Content-Description: File Transfer');
   header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -293,9 +299,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $q4 = $_POST['q4'] ?? [];
   $finals = $_POST['final'] ?? [];
   $remarks = $_POST['remarks'] ?? [];
+  $rowCount = max(
+  count($q1),
+  count($q2),
+  count($q3),
+  count($q4),
+  count($finals),
+  count($remarks)
+);
   $data['general_average'] = isset($_POST['general_average']) && $_POST['general_average'] !== '' ? (float)$_POST['general_average'] : null;
   $emptyfinal = 0;
-  for ($i = 0; $i < 15; $i++) {
+  for ($i = 0; $i < $rowCount; $i++) {
     $idx = $i + 1;
     $data["q1_{$idx}"] = isset($q1[$i]) && $q1[$i] !== '' ? (float)$q1[$i] : null;
     $data["q2_{$idx}"] = isset($q2[$i]) && $q2[$i] !== '' ? (float)$q2[$i] : null;
@@ -307,7 +321,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $emptyfinal++;
     }
   }
-
+  ?>
+<script>
+  alert("Debug: general_average = <?php echo isset($data['general_average']) ? $data['general_average'] : 'null'; ?>, emptyfinal = <?php echo $emptyfinal; ?>");
+</script>
+  <?php
 
   if ($data["general_average"] !== null && $emptyfinal === 0) {
     $passed = false;
@@ -1300,11 +1318,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         document.getElementById("general_average").value = count > 0 ? (total / count).toFixed(2) : "";
       }
 
-      document.querySelectorAll(".table-grades input.q").forEach(i => i.addEventListener("keyup", computeAllGrades));
+      // document.querySelectorAll(".table-grades input.q").forEach(i => i.addEventListener("keyup", computeAllGrades));
       document.querySelectorAll(".table-grades input.q").forEach(i => i.addEventListener("change", computeAllGrades));
       document.querySelectorAll(".table-grades input.q").forEach(i => i.addEventListener("input", computeAllGrades));
 
       document.addEventListener('DOMContentLoaded', computeAllGrades);
+      document.getElementById('save-grades').addEventListener('click', () => {
+        const lockConf = document.getElementById('saveModal');
+        const svm = new bootstrap.Modal(lockConf);
+        computeAllGrades();
+        checkGradesAndShowWarning();
+        svm.show()
+      });
     })();
 
 
@@ -1388,12 +1413,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           })
           .catch(err => console.error(err));
       });
-      document.getElementById('save-grades').addEventListener('click', () => {
-        const lockConf = document.getElementById('saveModal');
-        const svm = new bootstrap.Modal(lockConf);
-        svm.show()
-        checkGradesAndShowWarning();
-      });
+
 
       // Handle the Save button in the modal - submit the main form
       document.getElementById('saveBtn').addEventListener('click', function(e) {

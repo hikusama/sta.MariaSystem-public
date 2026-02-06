@@ -708,6 +708,17 @@ class Action
                 'message' => 'Student is already enrolled for the active school year: ' . $activeSy['school_year_name']
             ]);
         }
+        $stmt = $this->db->prepare("
+                SELECT * 
+                FROM student 
+                WHERE student_id = ?
+            ");
+        $stmt->execute([$student_id]);
+        $std = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($std['gradeLevel'] == 'Grade 6') {
+            return json_encode(['status' => 0, 'message' => 'Student grade level on this system limit reached.']);
+        }
 
         try {
             $query = "UPDATE student SET enrolment_status = 'pending', isMovingUP = NULL, gradeLevel = ? WHERE student_id = ?";

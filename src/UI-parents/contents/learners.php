@@ -17,27 +17,27 @@ if (!$user_id) {
 if (isset($_POST['check_sf9'])) {
     $student_id = (int)($_POST['student_id'] ?? 0);
     $school_year_name = trim($_POST['school_year_name'] ?? '');
-    
+
     // Get student info
     $stmtStudent = $pdo->prepare("SELECT lrn, fname, lname, gradeLevel FROM student WHERE student_id = :student_id LIMIT 1");
     $stmtStudent->execute([':student_id' => $student_id]);
     $student = $stmtStudent->fetch(PDO::FETCH_ASSOC);
-    
+
     if ($student) {
         $lrn = $student['lrn'];
         $fname = preg_replace("/[^A-Za-z0-9]/", "", strtolower($student['fname']));
         $lname = preg_replace("/[^A-Za-z0-9]/", "", strtolower($student['lname']));
         $grade = str_replace(" ", "", strtolower($student['gradeLevel']));
         $safeSy = preg_replace('/[^A-Za-z0-9_-]/', '', $school_year_name);
-        
+
         $reportFile = BASE_PATH . "/sf9_files/{$lrn}_{$fname}_{$lname}_{$grade}_{$safeSy}.xlsx";
         $file_exists = file_exists($reportFile);
-        
+
         header('Content-Type: application/json');
         echo json_encode(['file_exists' => $file_exists]);
         exit;
     }
-    
+
     header('Content-Type: application/json');
     echo json_encode(['file_exists' => false]);
     exit;
@@ -130,7 +130,18 @@ $studentsStmt = $pdo->prepare("
         e.school_year_id,
         e.section_name,
         e.adviser_id,
-        sy.school_year_name
+        sy.school_year_name,
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM enrolment e2
+            JOIN school_year sy2
+            ON sy2.school_year_id = e2.school_year_id
+            WHERE e2.student_id = s.student_id
+            AND sy2.school_year_status = 'Active'
+        )
+        THEN 1
+        ELSE 0
+    END AS is_enrolled_active_cycle
     FROM student s
     LEFT JOIN enrolment e ON s.student_id = e.student_id
     LEFT JOIN school_year sy ON e.school_year_id = sy.school_year_id
@@ -173,8 +184,13 @@ if (isset($_POST['ajax'])) {
             // Calculate animation delay
             static $delay = 0.1;
             $nxtlvl = filter_var($student['gradeLevel'], FILTER_SANITIZE_NUMBER_INT);
+            // $student['gradeLevel'] = 'Grade 6';
             $isup = $student['isMovingUP'];
+            $isopen = $student['is_enrolled_active_cycle'];
             // $isup = true;
+            if ($isopen === 0) {
+                $student["enrolment_status"] = 'Not active';
+            }
         ?>
             <div class="col-xl-4 col-lg-6 col-md-6 mb-4 student-card s55" style="animation-delay: <?= $delay ?>s">
                 <div class="card border-0 shadow h-100">
@@ -197,12 +213,16 @@ if (isset($_POST['ajax'])) {
                                     </div>
                                 </div>
                                 <div class="rsyr">
-                                    <?php if ($isup === 1 && $isup !== null) { ?>
+                                    <?php if ($isup === 1 && $isup !== null && $student["gradeLevel"] == 'Grade 6' && $isopen === 0) { ?>
+                                        <div id="passed">
+                                            <p style="margin-top: .5rem;">Your student has completed <?= $student['gradeLevel'] ?> and is eligible to graduate.</p>
+                                        </div>
+                                    <?php } elseif ($isup === 1 && $isup !== null && $isopen === 0) { ?>
                                         <div id="passed">
                                             <button onclick="enroll('enrollstud',<?= $student['student_id'] ?>,<?= $nxtlvl ?>)">Enroll</button>
                                             <p>Your student passed <?= $student['gradeLevel'] ?> and is eligible to enroll for Grade <?= $nxtlvl + 1 ?>.</p>
                                         </div>
-                                    <?php } elseif ($isup === 0 && $isup !== null) { ?>
+                                    <?php } elseif ($isup === 0 && $isup !== null && $isopen === 0) { ?>
                                         <div id="fail">
                                             <button onclick="enroll('reenrollstud',<?= $student['student_id'] ?>)">Re-Enroll</button>
                                             <p>Your student failed <?= $student['gradeLevel'] ?> and must re-enroll again.</p>
@@ -243,12 +263,12 @@ if (isset($_POST['ajax'])) {
                                 <!-- Action Buttons -->
                                 <div class="d-flex gap-2 mt-3 pt-3 border-top fltr">
                                     <?php if ($student['enrolment_id']): ?>
-                                    <a href="index.php?page=contents/profile&student_id=<?= htmlspecialchars($student["student_id"]) ?>&school_year_name=<?= htmlspecialchars($student['school_year_name'] ?? '') ?>"
-                                        class="flex-fill">
-                                        <button class="btn btn-action btn-profile w-100">
-                                            <i class="fa-solid fa-user me-1"></i> Profile
-                                        </button>
-                                    </a>
+                                        <a href="index.php?page=contents/profile&student_id=<?= htmlspecialchars($student["student_id"]) ?>&school_year_name=<?= htmlspecialchars($student['school_year_name'] ?? '') ?>"
+                                            class="flex-fill">
+                                            <button class="btn btn-action btn-profile w-100">
+                                                <i class="fa-solid fa-user me-1"></i> Profile
+                                            </button>
+                                        </a>
                                     <?php endif; ?>
                                     <a href="index.php?page=contents/form&student_id=<?= htmlspecialchars($student["student_id"]) ?>"
                                         class="flex-fill">
@@ -263,145 +283,144 @@ if (isset($_POST['ajax'])) {
                                     $fname = preg_replace("/[^A-Za-z0-9]/", "", strtolower($student["fname"]));
                                     $lname = preg_replace("/[^A-Za-z0-9]/", "", strtolower($student["lname"]));
                                     $grade = str_replace(" ", "", strtolower($student["gradeLevel"]));
-                                    
+
                                     // Get active school year for initial check
                                     $activeSyStmt = $pdo->prepare("SELECT school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
                                     $activeSyStmt->execute();
                                     $activeSyName = $activeSyStmt->fetchColumn();
                                     $safeSy = preg_replace('/[^A-Za-z0-9_-]/', '', $activeSyName);
-                                    
+
                                     $reportFile = BASE_PATH . "/sf9_files/{$lrn}_{$fname}_{$lname}_{$grade}_{$safeSy}.xlsx";
 
                                     if (file_exists($reportFile)) {
                                         $webPath = BASE_PATH . "/sf9_files/{$lrn}_{$fname}_{$lname}_{$grade}_{$safeSy}.xlsx";
                                     ?>
-                                    <style>
-                                        .report-button-container {
-                                            display: flex;
-                                            gap: 0;
-                                            width: 100%;
-                                            border-radius: 8px;
-                                            overflow: hidden;
-                                        }
+                                        <style>
+                                            .report-button-container {
+                                                display: flex;
+                                                gap: 0;
+                                                width: 100%;
+                                                border-radius: 8px;
+                                                overflow: hidden;
+                                            }
 
-                                        #syFilteree,
-                                        [id^="syFilteree_"] {
-                                            flex: 1;
-                                            padding: 10px 14px;
-                                            border: none;
-                                            background: linear-gradient(135deg, rgba(28, 200, 138, 0.9), rgba(19, 133, 92, 0.9));
-                                            color: white;
-                                            font-size: 13px;
-                                            font-weight: 500;
-                                            cursor: pointer;
-                                            outline: none;
-                                            transition: all 0.3s ease;
-                                        }
+                                            #syFilteree,
+                                            [id^="syFilteree_"] {
+                                                flex: 1;
+                                                padding: 10px 14px;
+                                                border: none;
+                                                background: linear-gradient(135deg, rgba(28, 200, 138, 0.9), rgba(19, 133, 92, 0.9));
+                                                color: white;
+                                                font-size: 13px;
+                                                font-weight: 500;
+                                                cursor: pointer;
+                                                outline: none;
+                                                transition: all 0.3s ease;
+                                            }
 
-                                        #syFilteree option,
-                                        [id^="syFilteree_"] option {
-                                            background: #1cc88a;
-                                            color: white;
-                                            font-weight: 500;
-                                        }
+                                            #syFilteree option,
+                                            [id^="syFilteree_"] option {
+                                                background: #1cc88a;
+                                                color: white;
+                                                font-weight: 500;
+                                            }
 
-                                        #syFilteree:hover,
-                                        [id^="syFilteree_"]:hover {
-                                            background: linear-gradient(135deg, #1fb597, #179b80);
-                                            box-shadow: 0 2px 8px rgba(28, 200, 138, 0.3);
-                                        }
+                                            #syFilteree:hover,
+                                            [id^="syFilteree_"]:hover {
+                                                background: linear-gradient(135deg, #1fb597, #179b80);
+                                                box-shadow: 0 2px 8px rgba(28, 200, 138, 0.3);
+                                            }
 
-                                        #syFilteree:focus,
-                                        [id^="syFilteree_"]:focus {
-                                            background: linear-gradient(135deg, #1fb597, #179b80);
-                                            box-shadow: 0 0 0 3px rgba(28, 200, 138, 0.2);
-                                        }
+                                            #syFilteree:focus,
+                                            [id^="syFilteree_"]:focus {
+                                                background: linear-gradient(135deg, #1fb597, #179b80);
+                                                box-shadow: 0 0 0 3px rgba(28, 200, 138, 0.2);
+                                            }
 
-                                        .report-link-wrapper {
-                                            display: none;
-                                            flex: 0.8;
-                                            padding: 10px 14px;
-                                            background: linear-gradient(135deg, rgba(28, 200, 138, 0.9), rgba(19, 133, 92, 0.9));
-                                            color: white;
-                                            text-decoration: none;
-                                            border-left: 1px solid rgba(255, 255, 255, 0.2);
-                                            display: flex;
-                                            align-items: center;
-                                            justify-content: center;
-                                            font-size: 13px;
-                                            font-weight: 500;
-                                            transition: all 0.3s ease;
-                                        }
+                                            .report-link-wrapper {
+                                                display: none;
+                                                flex: 0.8;
+                                                padding: 10px 14px;
+                                                background: linear-gradient(135deg, rgba(28, 200, 138, 0.9), rgba(19, 133, 92, 0.9));
+                                                color: white;
+                                                text-decoration: none;
+                                                border-left: 1px solid rgba(255, 255, 255, 0.2);
+                                                display: flex;
+                                                align-items: center;
+                                                justify-content: center;
+                                                font-size: 13px;
+                                                font-weight: 500;
+                                                transition: all 0.3s ease;
+                                            }
 
-                                        .report-link-wrapper.show {
-                                            display: flex;
-                                        }
+                                            .report-link-wrapper.show {
+                                                display: flex;
+                                            }
 
-                                        .report-link-wrapper:hover {
-                                            background: linear-gradient(135deg, #1fb597, #179b80);
-                                            text-decoration: none;
-                                            color: white;
-                                            box-shadow: 0 2px 8px rgba(28, 200, 138, 0.3);
-                                        }
+                                            .report-link-wrapper:hover {
+                                                background: linear-gradient(135deg, #1fb597, #179b80);
+                                                text-decoration: none;
+                                                color: white;
+                                                box-shadow: 0 2px 8px rgba(28, 200, 138, 0.3);
+                                            }
 
-                                        .report-link-wrapper i {
-                                            transition: transform 0.3s ease;
-                                        }
+                                            .report-link-wrapper i {
+                                                transition: transform 0.3s ease;
+                                            }
 
-                                        .report-link-wrapper:hover i {
-                                            transform: scale(1.1);
-                                        }
+                                            .report-link-wrapper:hover i {
+                                                transform: scale(1.1);
+                                            }
 
-                                        .btn-report {
-                                            padding: 0 !important;
-                                            display: flex !important;
-                                            gap: 0 !important;
-                                            font-size: 0.9rem !important;
-                                            align-items: center;
-                                            height: 38px;
-                                            background: linear-gradient(135deg, #1cc88a, #13855c) !important;
-                                            border: none !important;
-                                            overflow: hidden;
-                                            transition: all 0.3s ease;
-                                        }
+                                            .btn-report {
+                                                padding: 0 !important;
+                                                display: flex !important;
+                                                gap: 0 !important;
+                                                font-size: 0.9rem !important;
+                                                align-items: center;
+                                                height: 38px;
+                                                background: linear-gradient(135deg, #1cc88a, #13855c) !important;
+                                                border: none !important;
+                                                overflow: hidden;
+                                                transition: all 0.3s ease;
+                                            }
 
-                                        .btn-report:hover {
-                                            box-shadow: 0 4px 12px rgba(28, 200, 138, 0.3) !important;
-                                            transform: translateY(-2px);
-                                        }
-
-                                    </style>
-                                    <div class="btn btn-action btn-report w-100">
-                                        <select id="syFilteree_<?= $student['student_id'] ?>" name="school_yearee" onchange="updateReportLink(this, <?= $student['student_id'] ?>)">
-                                            <?php
-                                            $catStmt11 = $pdo->query("
+                                            .btn-report:hover {
+                                                box-shadow: 0 4px 12px rgba(28, 200, 138, 0.3) !important;
+                                                transform: translateY(-2px);
+                                            }
+                                        </style>
+                                        <div class="btn btn-action btn-report w-100">
+                                            <select id="syFilteree_<?= $student['student_id'] ?>" name="school_yearee" onchange="updateReportLink(this, <?= $student['student_id'] ?>)">
+                                                <?php
+                                                $catStmt11 = $pdo->query("
                                                 SELECT school_year_id, school_year_name, school_year_status
                                                 FROM school_year
                                                 ORDER BY 
                                                     CASE WHEN school_year_status = 'Active' THEN 0 ELSE 1 END,
                                                     school_year_name ASC
                                             ");
-                                            $schoolYears11 = [];
-                                            $activeSyName = null;
-                                            while ($cat = $catStmt11->fetch(PDO::FETCH_ASSOC)) {
-                                                if ($cat['school_year_status'] === 'Active' && $activeSyName === null) {
-                                                    $activeSyName = $cat['school_year_name'];
+                                                $schoolYears11 = [];
+                                                $activeSyName = null;
+                                                while ($cat = $catStmt11->fetch(PDO::FETCH_ASSOC)) {
+                                                    if ($cat['school_year_status'] === 'Active' && $activeSyName === null) {
+                                                        $activeSyName = $cat['school_year_name'];
+                                                    }
+                                                    $schoolYears11[] = $cat;
                                                 }
-                                                $schoolYears11[] = $cat;
-                                            }
-                                            ?>
-                                            <?php foreach ($schoolYears11 as $sy): ?>
-                                                <option value="<?= htmlspecialchars($sy['school_year_name']) ?>"
-                                                    <?= ($sy['school_year_status'] === 'Active') ? 'selected' : '' ?>>
-                                                    <?= htmlspecialchars($sy['school_year_name']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <a href="javascript:void(0);" class="report-link-wrapper show" id="reportLink_<?= $student['student_id'] ?>" 
-                                            data-student-id="<?= $student['student_id'] ?>" data-active-sy="<?= htmlspecialchars($activeSyName) ?>">
-                                            <i class="fa-solid fa-file-excel me-1"></i> Report
-                                        </a>
-                                    </div>
+                                                ?>
+                                                <?php foreach ($schoolYears11 as $sy): ?>
+                                                    <option value="<?= htmlspecialchars($sy['school_year_name']) ?>"
+                                                        <?= ($sy['school_year_status'] === 'Active') ? 'selected' : '' ?>>
+                                                        <?= htmlspecialchars($sy['school_year_name']) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <a href="javascript:void(0);" class="report-link-wrapper show" id="reportLink_<?= $student['student_id'] ?>"
+                                                data-student-id="<?= $student['student_id'] ?>" data-active-sy="<?= htmlspecialchars($activeSyName) ?>">
+                                                <i class="fa-solid fa-file-excel me-1"></i> Report
+                                            </a>
+                                        </div>
                                     <?php } else { ?>
                                         <button class="btn btn-action w-100" disabled style="background: #000000;">
                                             <i class="fa-solid fa-file-excel me-1"></i> No Report File
@@ -536,6 +555,7 @@ if (isset($_POST['ajax'])) {
     }
 
     .status-inactive {
+        white-space: nowrap;
         background: linear-gradient(135deg, #e74a3b, #be2617);
         color: white;
     }
@@ -1041,33 +1061,33 @@ if (isset($_POST['ajax'])) {
     function updateReportLink(selectElement, studentId) {
         const schoolYearName = selectElement.value;
         const reportLink = document.getElementById(`reportLink_${studentId}`);
-        
+
         if (schoolYearName) {
             // Check if file exists for this school year
             const formData = new FormData();
             formData.append('check_sf9', true);
             formData.append('student_id', studentId);
             formData.append('school_year_name', schoolYearName);
-            
+
             fetch('contents/learners.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.file_exists) {
-                    reportLink.href = `index.php?page=contents/sf9_view&student_id=${studentId}&school_year_name=${encodeURIComponent(schoolYearName)}`;
-                    reportLink.classList.add('show');
-                } else {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.file_exists) {
+                        reportLink.href = `index.php?page=contents/sf9_view&student_id=${studentId}&school_year_name=${encodeURIComponent(schoolYearName)}`;
+                        reportLink.classList.add('show');
+                    } else {
+                        reportLink.classList.remove('show');
+                        reportLink.href = 'javascript:void(0);';
+                    }
+                })
+                .catch(err => {
+                    console.error('Error checking file:', err);
                     reportLink.classList.remove('show');
                     reportLink.href = 'javascript:void(0);';
-                }
-            })
-            .catch(err => {
-                console.error('Error checking file:', err);
-                reportLink.classList.remove('show');
-                reportLink.href = 'javascript:void(0);';
-            });
+                });
         } else {
             reportLink.classList.remove('show');
             reportLink.href = 'javascript:void(0);';
@@ -1079,7 +1099,7 @@ if (isset($_POST['ajax'])) {
             const studentId = link.getAttribute('data-student-id');
             const activeSy = link.getAttribute('data-active-sy');
             const select = document.getElementById(`syFilteree_${studentId}`);
-            
+
             if (select && activeSy) {
                 select.value = activeSy;
                 updateReportLink(select, studentId);

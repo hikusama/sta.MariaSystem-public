@@ -32,9 +32,9 @@ function generateSF10Excel($pdo, $student_id, $save_directory = null)
     }
 
     // Get student info
-    $stmt_student = $pdo->prepare("SELECT * FROM student WHERE student_id = ?");
-    $stmt_student->execute([$student_id]);
-    $student = $stmt_student->fetch(PDO::FETCH_ASSOC);
+    // $stmt_student = $pdo->prepare("SELECT * FROM student WHERE student_id = ?");
+    // $stmt_student->execute([$student_id]);
+    // $student = $stmt_student->fetch(PDO::FETCH_ASSOC);
 
     // Get SF9 records to retrieve scholastic data
     $stmt_sf9 = $pdo->prepare("SELECT * FROM sf9_data WHERE student_id = ? ORDER BY CAST(SUBSTRING_INDEX(school_year, '-', 1) AS UNSIGNED) DESC");
@@ -563,7 +563,13 @@ if (isset($_GET['download_sf10'])) {
     $savePath = BASE_PATH . '/sf10_files' . DIRECTORY_SEPARATOR . $filename;
 
     if (!file_exists($savePath)) {
-      throw new Exception('File not found at: ' . $savePath);
+?>
+      <script>
+        alert("File not found: <?php echo htmlspecialchars($filename); ?>");
+        window.history.back();
+      </script>
+<?php
+      exit;
     }
 
     header('Content-Description: File Transfer');
@@ -1378,10 +1384,10 @@ if (isset($_GET['student_id'])) {
     /* Card Styling */
     .card {
       border: none;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      /* box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); */
       border-radius: 10px;
       overflow: hidden;
-      margin-top: 30px;
+      /* margin-top: 30px; */
     }
 
     .card-header {
@@ -1392,6 +1398,46 @@ if (isset($_GET['student_id'])) {
 
     .card-body {
       padding: 20px;
+    }
+
+    .card-body button a,
+    .card-body button {
+      font-size: 16px;
+      margin-bottom: 10px;
+
+    }
+
+    .card-body label {
+      font-size: 13px;
+    }
+
+    .card-body input {
+      margin-bottom: 10px;
+    }
+
+    .cbb {
+      width: 14rem;
+      flex: none;
+    }
+
+    .cbbyu {
+      display: flex;
+      gap: 1rem;
+      justify-content: space-between;
+    }
+
+    .elmp {
+      width: 100%;
+    }
+    @media screen and (max-width: 768px) {
+      .cbbyu {
+        flex-direction: column;
+        align-items: center;
+      }
+      .cbb {
+        width: 100%;
+      }
+      
     }
   </style>
 
@@ -1404,54 +1450,36 @@ if (isset($_GET['student_id'])) {
       <h4>STA.MARIA WEB SYSTEM</h4>
     </div>
   </div>
-  <div class="container-fluid" style="padding: 1rem 10%!important;">
+  <div class="container-fluid">
     <form method="post" onsubmit="populateGradeDataFromStore(); return validateFormBeforeSubmit()">
       <input type="hidden" id="form_student_id" value="<?= htmlspecialchars($student_id ?? '') ?>">
 
       <!-- Learner's Personal Information Header -->
-      <div class="card mb-4">
-        <div class="card-header bg-info text-white">
-          <h5 class="mb-0">Learner's Personal Information</h5>
-        </div>
-        <div class="card-body">
-          <div class="row">
-            <div class="col-12 col-sm-6 col-lg-2 mb-3">
-              <label class="form-label fw-bold">Last Name</label>
-              <input readonly type="text" class="form-control form-control-sm" name="last_name" value="<?= htmlspecialchars($_POST['last_name'] ?? ($student['lname'] ?? ($sf10_data['last_name'] ?? ''))) ?>">
-            </div>
-            <div class="col-12 col-sm-6 col-lg-2 mb-3">
-              <label class="form-label fw-bold">First Name</label>
-              <input readonly type="text" class="form-control form-control-sm" name="first_name" value="<?= htmlspecialchars($_POST['first_name'] ?? ($student['fname'] ?? ($sf10_data['first_name'] ?? ''))) ?>">
-            </div>
-            <div class="col-12 col-sm-6 col-lg-2 mb-3">
-              <label class="form-label fw-bold">Middle Name</label>
-              <input readonly type="text" class="form-control form-control-sm" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? ($student['mname'] ?? ($sf10_data['middle_name'] ?? ''))) ?>">
-            </div>
-            <div class="col-12 col-sm-6 col-lg-1 mb-3">
-              <label class="form-label fw-bold">Suffix</label>
-              <input readonly type="text" class="form-control form-control-sm" name="suffix" value="<?= htmlspecialchars($_POST['suffix'] ?? ($student['suffix'] ?? ($sf10_data['suffix'] ?? ''))) ?>">
-            </div>
-            <div class="col-12 col-sm-6 col-lg-2 mb-3">
-              <label class="form-label fw-bold">LRN</label>
-              <input readonly type="text" class="form-control form-control-sm" name="lrn" value="<?= htmlspecialchars($_POST['lrn'] ?? ($student['lrn'] ?? ($sf10_data['lrn'] ?? ''))) ?>">
-            </div>
-            <div class="col-12 col-sm-6 col-lg-2 mb-3">
-              <label class="form-label fw-bold">Birthdate</label>
-              <input readonly type="text" class="form-control form-control-sm" name="birthdate" value="<?= htmlspecialchars($_POST['birthdate'] ?? ($student['birthdate'] ?? ($sf10_data['birthdate'] ?? ''))) ?>">
-            </div>
-            <div class="col-12 col-sm-6 col-lg-1 mb-3">
-              <label class="form-label fw-bold">Sex</label>
-              <input readonly type="text" class="form-control form-control-sm" name="sex" value="<?= htmlspecialchars($_POST['sex'] ?? ($student['sex'] ?? ($sf10_data['sex'] ?? ''))) ?>">
-            </div>
-          </div>
-        </div>
-      </div>
+      <div class="mb-4 cbbyu">
+        <div class="card-body cbb card mt-4">
+          <div>
 
-      <div class="row">
-        <!-- Save/Back Buttons -->
-        <div class="col-12 mb-3">
-          <div class="text-center d-flex justify-content-center gap-2 flex-wrap">
-            <button type="submit" class="btn btn-primary btn-lg">Save</button>
+            <label class="form-label fw-bold">Last Name</label>
+            <input readonly type="text" class="form-control form-control-sm" name="last_name" value="<?= htmlspecialchars($_POST['last_name'] ?? ($student['lname'] ?? ($sf10_data['last_name'] ?? ''))) ?>">
+
+            <label class="form-label fw-bold">First Name</label>
+            <input readonly type="text" class="form-control form-control-sm" name="first_name" value="<?= htmlspecialchars($_POST['first_name'] ?? ($student['fname'] ?? ($sf10_data['first_name'] ?? ''))) ?>">
+
+            <label class="form-label fw-bold">Middle Name</label>
+            <input readonly type="text" class="form-control form-control-sm" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? ($student['mname'] ?? ($sf10_data['middle_name'] ?? ''))) ?>">
+
+            <label class="form-label fw-bold">Suffix</label>
+            <input readonly type="text" class="form-control form-control-sm" name="suffix" value="<?= htmlspecialchars($_POST['suffix'] ?? ($student['suffix'] ?? ($sf10_data['suffix'] ?? ''))) ?>">
+
+            <label class="form-label fw-bold">LRN</label>
+            <input readonly type="text" class="form-control form-control-sm" name="lrn" value="<?= htmlspecialchars($_POST['lrn'] ?? ($student['lrn'] ?? ($sf10_data['lrn'] ?? ''))) ?>">
+
+            <label class="form-label fw-bold">Birthdate</label>
+            <input readonly type="text" class="form-control form-control-sm" name="birthdate" value="<?= htmlspecialchars($_POST['birthdate'] ?? ($student['birthdate'] ?? ($sf10_data['birthdate'] ?? ''))) ?>">
+
+            <label class="form-label fw-bold">Sex</label>
+            <input readonly type="text" class="form-control form-control-sm" name="sex" value="<?= htmlspecialchars($_POST['sex'] ?? ($student['sex'] ?? ($sf10_data['sex'] ?? ''))) ?>">
+            <button style="width: 100%;" type="submit" class="btn btn-primary btn-lg">Save</button>
             <?php
             $safe_lrn = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($sf10_data['lrn'] ?? ''));
             $safe_first = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($sf10_data['first_name'] ?? ''));
@@ -1459,20 +1487,19 @@ if (isset($_GET['student_id'])) {
             $filename = trim($safe_lrn . '_' . $safe_first . '_' . $safe_last . '_SF10.xlsx', '_');
             $savePath = BASE_PATH . '/sf10_files' . DIRECTORY_SEPARATOR . $filename;
             // Only show download button if file exists in sf10_files
-            if (file_exists($savePath)):
+            // if (file_exists($savePath)):
             ?>
-              <button type="button" class="btn btn-success btn-lg" id="downloadBtn" onclick="downloadExcelFile('<?= htmlspecialchars($filename) ?>')">
-                <i class="fas fa-download"></i> Download Excel
-              </button>
-            <?php endif; ?>
-            <a onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf10'" class="btn btn-secondary btn-lg">Back</a>
+            <button type="button" style="width: 100%;" class="btn btn-success btn-lg" id="downloadBtn" onclick="downloadExcelFile('<?= htmlspecialchars($filename) ?>')">
+              <i class="fas fa-download"></i> Download Excel
+            </button>
+            <a style="width: 100%;" onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf10'" class="btn btn-secondary btn-lg">Back</a>
           </div>
         </div>
-      </div>
+        <!-- </div>
 
-      <div class="row">
-        <div class="col-12">
-          <div class="eligibility-container">
+      <div class="row"> -->
+        <div class="elmp">
+          <div class="eligibility-container mt-4 mb-0">
             <h5>Elementary School Eligibility</h5>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="kinder_progress_report" id="kinder_progress_report" value="1" <?= (!empty($_POST['kinder_progress_report']) || (!empty($sf10_data['kinder_progress_report']) && $sf10_data['kinder_progress_report'])) ? 'checked' : '' ?>>
@@ -1515,222 +1542,223 @@ if (isset($_GET['student_id'])) {
             <input type="text" class="form-control form-control-sm" name="remark" value="<?= htmlspecialchars($_POST['remark'] ?? ($sf10_data['remark'] ?? '')) ?>">
           </div>
         </div>
+      </div>
 
 
-        <div class="col-12">
-          <div class="scholastic-container">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 15px;">
-              <h5 style="margin: 0; flex: 1;">Scholastic Records</h5>
-              <button type="button" class="btn btn-success btn-sm" id="addsr" onclick="addNewScholasticRecord()" title="Add new scholastic record" style="white-space: nowrap;">
-                <i class="fas fa-plus"></i> Add Record
-              </button>
-            </div>
-            <ul class="nav nav-tabs mb-3" id="srTabs" role="tablist">
-              <?php for ($i = 1; $i <= $num_scholastic_records; $i++): ?>
+      <div class="col-12">
+        <div class="scholastic-container">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 15px;">
+            <h5 style="margin: 0; flex: 1;">Scholastic Records</h5>
+            <button type="button" class="btn btn-success btn-sm" id="addsr" onclick="addNewScholasticRecord()" title="Add new scholastic record" style="white-space: nowrap;">
+              <i class="fas fa-plus"></i> Add Record
+            </button>
+          </div>
+          <ul class="nav nav-tabs mb-3" id="srTabs" role="tablist">
+            <?php for ($i = 1; $i <= $num_scholastic_records; $i++): ?>
 
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link <?= $i === $num_scholastic_records ? 'active' : '' ?>" id="tab<?= $i ?>" data-bs-toggle="tab" data-bs-target="#sr<?= $i ?>" type="button" role="tab">
-                    Scholastic <?= $i ?> <?= $i === $num_scholastic_records ? ' (Latest)' : '' ?>
-                  </button>
-                </li>
-              <?php endfor; ?>
-            </ul>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link <?= $i === $num_scholastic_records ? 'active' : '' ?>" id="tab<?= $i ?>" data-bs-toggle="tab" data-bs-target="#sr<?= $i ?>" type="button" role="tab">
+                  Scholastic <?= $i ?> <?= $i === $num_scholastic_records ? ' (Latest)' : '' ?>
+                </button>
+              </li>
+            <?php endfor; ?>
+          </ul>
 
 
-            <div class="tab-content">
-              <?php for ($i = 1; $i <= $num_scholastic_records; $i++): ?>
+          <div class="tab-content">
+            <?php for ($i = 1; $i <= $num_scholastic_records; $i++): ?>
 
-                <div class="tab-pane fade <?= $i === $num_scholastic_records ? 'show active' : '' ?>" id="sr<?= $i ?>" role="tabpanel">
-                  <div class="alert alert-info"><small>Scholastic records are read-only and cannot be edited.</small></div>
-                  <label class="form-label">School</label>
-                  <input type="text" class="form-control form-control-sm" disabled name="school<?= $i ?>" value="<?= htmlspecialchars($_POST['school' . $i] ?? ($scholastic_data['schools'][$i] ?? '')) ?>">
-                  <label class="form-label">District</label>
-                  <input type="text" class="form-control form-control-sm" disabled name="district<?= $i ?>" value="<?= htmlspecialchars($_POST['district' . $i] ?? ($scholastic_data['districts'][$i] ?? '')) ?>">
-                  <label class="form-label">Division</label>
-                  <input type="text" class="form-control form-control-sm" disabled name="division<?= $i ?>" value="<?= htmlspecialchars($_POST['division' . $i] ?? ($scholastic_data['divisions'][$i] ?? '')) ?>">
-                  <label class="form-label">Region</label>
-                  <input type="text" class="form-control form-control-sm" disabled name="region<?= $i ?>" value="<?= htmlspecialchars($_POST['region' . $i] ?? ($scholastic_data['regions'][$i] ?? '')) ?>">
-                  <label class="form-label">School ID</label>
-                  <input type="text" class="form-control form-control-sm" disabled name="school_id<?= $i ?>" value="<?= htmlspecialchars($_POST['school_id' . $i] ?? ($scholastic_data['school_ids'][$i] ?? '')) ?>">
+              <div class="tab-pane fade <?= $i === $num_scholastic_records ? 'show active' : '' ?>" id="sr<?= $i ?>" role="tabpanel">
+                <div class="alert alert-info"><small>Scholastic records are read-only and cannot be edited.</small></div>
+                <label class="form-label">School</label>
+                <input type="text" class="form-control form-control-sm" disabled name="school<?= $i ?>" value="<?= htmlspecialchars($_POST['school' . $i] ?? ($scholastic_data['schools'][$i] ?? '')) ?>">
+                <label class="form-label">District</label>
+                <input type="text" class="form-control form-control-sm" disabled name="district<?= $i ?>" value="<?= htmlspecialchars($_POST['district' . $i] ?? ($scholastic_data['districts'][$i] ?? '')) ?>">
+                <label class="form-label">Division</label>
+                <input type="text" class="form-control form-control-sm" disabled name="division<?= $i ?>" value="<?= htmlspecialchars($_POST['division' . $i] ?? ($scholastic_data['divisions'][$i] ?? '')) ?>">
+                <label class="form-label">Region</label>
+                <input type="text" class="form-control form-control-sm" disabled name="region<?= $i ?>" value="<?= htmlspecialchars($_POST['region' . $i] ?? ($scholastic_data['regions'][$i] ?? '')) ?>">
+                <label class="form-label">School ID</label>
+                <input type="text" class="form-control form-control-sm" disabled name="school_id<?= $i ?>" value="<?= htmlspecialchars($_POST['school_id' . $i] ?? ($scholastic_data['school_ids'][$i] ?? '')) ?>">
 
-                  <label class="form-label">Grade</label>
-                  <input type="text" class="form-control form-control-sm" disabled name="grade<?= $i ?>"
-                    value="<?= htmlspecialchars($_POST['grade' . $i] ?? ($scholastic_data['grades'][$i] ?? '')) ?>">
+                <label class="form-label">Grade</label>
+                <input type="text" class="form-control form-control-sm" disabled name="grade<?= $i ?>"
+                  value="<?= htmlspecialchars($_POST['grade' . $i] ?? ($scholastic_data['grades'][$i] ?? '')) ?>">
 
-                  <label class="form-label">Section</label>
-                  <input type="text" class="form-control form-control-sm" disabled name="section<?= $i ?>"
-                    value="<?= htmlspecialchars($_POST['section' . $i] ?? ($scholastic_data['sections'][$i] ?? '')) ?>">
+                <label class="form-label">Section</label>
+                <input type="text" class="form-control form-control-sm" disabled name="section<?= $i ?>"
+                  value="<?= htmlspecialchars($_POST['section' . $i] ?? ($scholastic_data['sections'][$i] ?? '')) ?>">
 
-                  <label class="form-label">School Year</label>
-                  <div class="row g-2 d-flex align-items-center mb-2">
-                    <div class="col-2">
-                      <input type="number" class="form-control form-control-sm" disabled name="school_year_from<?= $i ?>" placeholder="From" min="2000" max="2099" value="<?php $sy = explode('-', $_POST['school_year' . $i] ?? ($scholastic_data['school_years'][$i] ?? ''));
-                                                                                                                                                                          echo htmlspecialchars($sy[0] ?? ''); ?>">
-                    </div>
-                    <span class="col-1 d-flex align-items-center justify-content-center" style="width:fit-content;">-</span>
-                    <div class="col-2">
-                      <input type="number" class="form-control form-control-sm" disabled name="school_year_to<?= $i ?>" placeholder="To" min="2000" max="2099" value="<?php echo htmlspecialchars($sy[1] ?? ''); ?>">
-                    </div>
+                <label class="form-label">School Year</label>
+                <div class="row g-2 d-flex align-items-center mb-2">
+                  <div class="col-2">
+                    <input type="number" class="form-control form-control-sm" disabled name="school_year_from<?= $i ?>" placeholder="From" min="2000" max="2099" value="<?php $sy = explode('-', $_POST['school_year' . $i] ?? ($scholastic_data['school_years'][$i] ?? ''));
+                                                                                                                                                                        echo htmlspecialchars($sy[0] ?? ''); ?>">
                   </div>
+                  <span class="col-1 d-flex align-items-center justify-content-center" style="width:fit-content;">-</span>
+                  <div class="col-2">
+                    <input type="number" class="form-control form-control-sm" disabled name="school_year_to<?= $i ?>" placeholder="To" min="2000" max="2099" value="<?php echo htmlspecialchars($sy[1] ?? ''); ?>">
+                  </div>
+                </div>
 
-                  <label class="form-label">Name of Adviser</label>
-                  <input type="text" class="form-control form-control-sm" disabled name="adviser_name<?= $i ?>"
-                    value="<?= htmlspecialchars($_POST['adviser_name' . $i] ?? ($scholastic_data['adviser_name'][$i] ?? '')) ?>">
+                <label class="form-label">Name of Adviser</label>
+                <input type="text" class="form-control form-control-sm" disabled name="adviser_name<?= $i ?>"
+                  value="<?= htmlspecialchars($_POST['adviser_name' . $i] ?? ($scholastic_data['adviser_name'][$i] ?? '')) ?>">
 
-                  <h6 class="mt-3">Grades Table</h6>
-                  <div class="table-responsive" id="tobeform" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                    <table class="table table-bordered table-sm" style="min-width: 700px;">
-                      <thead>
-                        <tr>
-                          <th>Learning Area</th>
-                          <th>1</th>
-                          <th>2</th>
-                          <th>3</th>
-                          <th>4</th>
-                          <th>Final Rating</th>
-                          <th>Remarks</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                <h6 class="mt-3">Grades Table</h6>
+                <div class="table-responsive" id="tobeform" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                  <table class="table table-bordered table-sm" style="min-width: 700px;">
+                    <thead>
+                      <tr>
+                        <th>Learning Area</th>
+                        <th>1</th>
+                        <th>2</th>
+                        <th>3</th>
+                        <th>4</th>
+                        <th>Final Rating</th>
+                        <th>Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php
+                      // Count non-empty subjects for this scholastic record
+                      $subjects_count = 0;
+                      if (!empty($scholastic_data['learning_areas'][$i])) {
+                        foreach ($scholastic_data['learning_areas'][$i] as $subj) {
+                          if (!empty($subj)) {
+                            $subjects_count++;
+                          }
+                        }
+                      }
+
+                      // Loop through actual subjects only
+                      $subj_idx = 0;
+                      for ($r = 0; $r < 15; $r++):
+                        if (!empty($scholastic_data['learning_areas'][$i][$r])):
+                      ?>
+                          <tr>
+                            <td>
+                              <input type="text" class="form-control form-control-sm" disabled
+                                name="learning_area<?= $i ?>[]"
+                                value="<?= htmlspecialchars($_POST['learning_area' . $i][$subj_idx] ?? ($scholastic_data['learning_areas'][$i][$r] ?? '')) ?>">
+                            </td>
+                            <td>
+                              <input type="text" class="form-control form-control-sm" disabled
+                                name="q1_<?= $i ?>[]"
+                                value="<?= htmlspecialchars($_POST['q1_' . $i][$subj_idx] ?? ($scholastic_data['q1'][$i][$r] ?? '')) ?>">
+                            </td>
+                            <td>
+                              <input type="text" class="form-control form-control-sm" disabled
+                                name="q2_<?= $i ?>[]"
+                                value="<?= htmlspecialchars($_POST['q2_' . $i][$subj_idx] ?? ($scholastic_data['q2'][$i][$r] ?? '')) ?>">
+                            </td>
+                            <td>
+                              <input type="text" class="form-control form-control-sm" disabled
+                                name="q3_<?= $i ?>[]"
+                                value="<?= htmlspecialchars($_POST['q3_' . $i][$subj_idx] ?? ($scholastic_data['q3'][$i][$r] ?? '')) ?>">
+                            </td>
+                            <td>
+                              <input type="text" class="form-control form-control-sm" disabled
+                                name="q4_<?= $i ?>[]"
+                                value="<?= htmlspecialchars($_POST['q4_' . $i][$subj_idx] ?? ($scholastic_data['q4'][$i][$r] ?? '')) ?>">
+                            </td>
+                            <td>
+                              <input type="text" class="form-control form-control-sm" disabled
+                                name="final_rating_<?= $i ?>[]"
+                                value="<?= htmlspecialchars($_POST['final_rating_' . $i][$subj_idx] ?? ($scholastic_data['final_ratings'][$i][$r] ?? '')) ?>">
+                            </td>
+                            <td>
+                              <input type="text" class="form-control form-control-sm" disabled
+                                name="remarks_table_<?= $i ?>[]"
+                                value="<?= htmlspecialchars($_POST['remarks_table_' . $i][$subj_idx] ?? ($scholastic_data['remarks_table'][$i][$r] ?? '')) ?>">
+                            </td>
+                          </tr>
+                      <?php
+                          $subj_idx++;
+                        endif;
+                      endfor;
+                      ?>
+                    </tbody>
+                  </table>
+                </div>
+
+
+
+                <label class="form-label">General Average</label>
+                <input type="text" class="form-control form-control-sm" disabled name="general_average_<?= $i ?>" value="<?= htmlspecialchars($_POST['general_average_' . $i] ?? ($scholastic_data['general_average'][$i] ?? '')) ?>">
+                <!-- Form to add new remedial entries -->
+                <div class="card card-body bg-light mb-3">
+                  <h6 class="mb-3">Add New Remedial Entry for Scholastic Record <?= $i ?> (School Year: <?= htmlspecialchars($_POST['school_year' . $i] ?? ($scholastic_data['school_years'][$i] ?? '')) ?>)</h6>
+                  <input type="hidden" id="school_year_<?= $i ?>" value="<?= htmlspecialchars($_POST['school_year' . $i] ?? ($scholastic_data['school_years'][$i] ?? '')) ?>">
+                  <div class="row">
+                    <div class="col-md-6 mb-2">
+                      <label class="form-label">Learning Area</label>
+                      <select class="form-control form-control-sm" id="rem_area_<?= $i ?>" onchange="updateFinalRating(<?= $i ?>)">
+                        <option value="" data-final-rating="">-- Select Learning Area --</option>
                         <?php
-                        // Count non-empty subjects for this scholastic record
-                        $subjects_count = 0;
+                        // Get subjects from this scholastic record with final ratings
                         if (!empty($scholastic_data['learning_areas'][$i])) {
-                          foreach ($scholastic_data['learning_areas'][$i] as $subj) {
-                            if (!empty($subj)) {
-                              $subjects_count++;
+                          foreach ($scholastic_data['learning_areas'][$i] as $subj_idx => $subject) {
+                            if (!empty($subject)) {
+                              $final_rating = $scholastic_data['final_ratings'][$i][$subj_idx] ?? '';
+                              echo '<option value="' . htmlspecialchars($subject) . '" data-final-rating="' . htmlspecialchars($final_rating) . '">' . htmlspecialchars($subject) . '</option>';
                             }
                           }
                         }
-
-                        // Loop through actual subjects only
-                        $subj_idx = 0;
-                        for ($r = 0; $r < 15; $r++):
-                          if (!empty($scholastic_data['learning_areas'][$i][$r])):
                         ?>
-                            <tr>
-                              <td>
-                                <input type="text" class="form-control form-control-sm" disabled
-                                  name="learning_area<?= $i ?>[]"
-                                  value="<?= htmlspecialchars($_POST['learning_area' . $i][$subj_idx] ?? ($scholastic_data['learning_areas'][$i][$r] ?? '')) ?>">
-                              </td>
-                              <td>
-                                <input type="text" class="form-control form-control-sm" disabled
-                                  name="q1_<?= $i ?>[]"
-                                  value="<?= htmlspecialchars($_POST['q1_' . $i][$subj_idx] ?? ($scholastic_data['q1'][$i][$r] ?? '')) ?>">
-                              </td>
-                              <td>
-                                <input type="text" class="form-control form-control-sm" disabled
-                                  name="q2_<?= $i ?>[]"
-                                  value="<?= htmlspecialchars($_POST['q2_' . $i][$subj_idx] ?? ($scholastic_data['q2'][$i][$r] ?? '')) ?>">
-                              </td>
-                              <td>
-                                <input type="text" class="form-control form-control-sm" disabled
-                                  name="q3_<?= $i ?>[]"
-                                  value="<?= htmlspecialchars($_POST['q3_' . $i][$subj_idx] ?? ($scholastic_data['q3'][$i][$r] ?? '')) ?>">
-                              </td>
-                              <td>
-                                <input type="text" class="form-control form-control-sm" disabled
-                                  name="q4_<?= $i ?>[]"
-                                  value="<?= htmlspecialchars($_POST['q4_' . $i][$subj_idx] ?? ($scholastic_data['q4'][$i][$r] ?? '')) ?>">
-                              </td>
-                              <td>
-                                <input type="text" class="form-control form-control-sm" disabled
-                                  name="final_rating_<?= $i ?>[]"
-                                  value="<?= htmlspecialchars($_POST['final_rating_' . $i][$subj_idx] ?? ($scholastic_data['final_ratings'][$i][$r] ?? '')) ?>">
-                              </td>
-                              <td>
-                                <input type="text" class="form-control form-control-sm" disabled
-                                  name="remarks_table_<?= $i ?>[]"
-                                  value="<?= htmlspecialchars($_POST['remarks_table_' . $i][$subj_idx] ?? ($scholastic_data['remarks_table'][$i][$r] ?? '')) ?>">
-                              </td>
-                            </tr>
-                        <?php
-                            $subj_idx++;
-                          endif;
-                        endfor;
-                        ?>
-                      </tbody>
-                    </table>
-                  </div>
-
-
-
-                  <label class="form-label">General Average</label>
-                  <input type="text" class="form-control form-control-sm" disabled name="general_average_<?= $i ?>" value="<?= htmlspecialchars($_POST['general_average_' . $i] ?? ($scholastic_data['general_average'][$i] ?? '')) ?>">
-                  <!-- Form to add new remedial entries -->
-                  <div class="card card-body bg-light mb-3">
-                    <h6 class="mb-3">Add New Remedial Entry for Scholastic Record <?= $i ?> (School Year: <?= htmlspecialchars($_POST['school_year' . $i] ?? ($scholastic_data['school_years'][$i] ?? '')) ?>)</h6>
-                    <input type="hidden" id="school_year_<?= $i ?>" value="<?= htmlspecialchars($_POST['school_year' . $i] ?? ($scholastic_data['school_years'][$i] ?? '')) ?>">
-                    <div class="row">
-                      <div class="col-md-6 mb-2">
-                        <label class="form-label">Learning Area</label>
-                        <select class="form-control form-control-sm" id="rem_area_<?= $i ?>" onchange="updateFinalRating(<?= $i ?>)">
-                          <option value="" data-final-rating="">-- Select Learning Area --</option>
-                          <?php
-                          // Get subjects from this scholastic record with final ratings
-                          if (!empty($scholastic_data['learning_areas'][$i])) {
-                            foreach ($scholastic_data['learning_areas'][$i] as $subj_idx => $subject) {
-                              if (!empty($subject)) {
-                                $final_rating = $scholastic_data['final_ratings'][$i][$subj_idx] ?? '';
-                                echo '<option value="' . htmlspecialchars($subject) . '" data-final-rating="' . htmlspecialchars($final_rating) . '">' . htmlspecialchars($subject) . '</option>';
-                              }
-                            }
-                          }
-                          ?>
-                        </select>
-                      </div>
-                      <div class="col-md-2 mb-2">
-                        <label class="form-label">Final Rating</label>
-                        <input type="text" class="form-control form-control-sm" placeholder="Final Rating"
-                          id="rem_final_<?= $i ?>" disabled />
-                      </div>
-                      <div class="col-md-2 mb-2">
-                        <label class="form-label">Class Mark</label>
-                        <input type="text" class="form-control form-control-sm" placeholder="PASSED/FAILED"
-                          id="rem_class_mark_<?= $i ?>" disabled />
-                      </div>
-                      <div class="col-md-2 mb-2">
-                        <label class="form-label">&nbsp;</label>
-                        <button type="button" class="btn btn-sm btn-success w-100" onclick="addRemedialAjax(<?= $i ?>)">
-                          <i class="fas fa-plus"></i> Add
-                        </button>
-                      </div>
+                      </select>
                     </div>
-                    <div class="row">
-                      <div class="col-md-3 mb-2">
-                        <label class="form-label">Recomputed Final Grade</label>
-                        <input type="text" class="form-control form-control-sm" placeholder="Recomputed Final Grade"
-                          id="rem_recomputed_<?= $i ?>" onchange="generateClassMark(<?= $i ?>)" oninput="generateClassMark(<?= $i ?>)" />
-                      </div>
-                      <div class="col-md-3 mb-2">
-                        <label class="form-label">Remarks (Comment)</label>
-                        <input type="text" class="form-control form-control-sm" placeholder="Teacher remarks"
-                          id="rem_remarks_input_<?= $i ?>" />
-                      </div>
+                    <div class="col-md-2 mb-2">
+                      <label class="form-label">Final Rating</label>
+                      <input type="text" class="form-control form-control-sm" placeholder="Final Rating"
+                        id="rem_final_<?= $i ?>" disabled />
+                    </div>
+                    <div class="col-md-2 mb-2">
+                      <label class="form-label">Class Mark</label>
+                      <input type="text" class="form-control form-control-sm" placeholder="PASSED/FAILED"
+                        id="rem_class_mark_<?= $i ?>" disabled />
+                    </div>
+                    <div class="col-md-2 mb-2">
+                      <label class="form-label">&nbsp;</label>
+                      <button type="button" class="btn btn-sm btn-success w-100" onclick="addRemedialAjax(<?= $i ?>)">
+                        <i class="fas fa-plus"></i> Add
+                      </button>
                     </div>
                   </div>
-
+                  <div class="row">
+                    <div class="col-md-3 mb-2">
+                      <label class="form-label">Recomputed Final Grade</label>
+                      <input type="text" class="form-control form-control-sm" placeholder="Recomputed Final Grade"
+                        id="rem_recomputed_<?= $i ?>" onchange="generateClassMark(<?= $i ?>)" oninput="generateClassMark(<?= $i ?>)" />
+                    </div>
+                    <div class="col-md-3 mb-2">
+                      <label class="form-label">Remarks (Comment)</label>
+                      <input type="text" class="form-control form-control-sm" placeholder="Teacher remarks"
+                        id="rem_remarks_input_<?= $i ?>" />
+                    </div>
+                  </div>
                 </div>
 
-
-              <?php endfor; ?>
-            </div>
-
-            <!-- Remedial Records Display Section (Updated dynamically by tab) -->
-            <div class="card mt-4" id="remedial-records-card">
-              <div class="card-header bg-primary text-white">
-                <h5 style="color: white !important;" class="mb-0">Remedial Records for <span id="active-scholastic-label">Scholastic Record <?= $num_scholastic_records ?></span></h5>
               </div>
-              <div class="card-body">
-                <div id="remedial-records-container">
-                </div>
+
+
+            <?php endfor; ?>
+          </div>
+
+          <!-- Remedial Records Display Section (Updated dynamically by tab) -->
+          <div class="card mt-4" id="remedial-records-card">
+            <div class="card-header bg-primary text-white">
+              <h5 style="color: white !important;" class="mb-0">Remedial Records for <span id="active-scholastic-label">Scholastic Record <?= $num_scholastic_records ?></span></h5>
+            </div>
+            <div class="card-body">
+              <div id="remedial-records-container">
               </div>
             </div>
           </div>
         </div>
-
       </div>
+
+      <!-- </div> -->
     </form>
   </div>
 

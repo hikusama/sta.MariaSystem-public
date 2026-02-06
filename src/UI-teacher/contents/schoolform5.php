@@ -207,8 +207,24 @@ if (isset($_GET['download'])) {
             header('Content-Length: ' . filesize($file));
             readfile($file);
             exit;
-        } else die("File not found!");
-    } else die("No file to download.");
+        } else {
+?>
+            <script>
+                alert("File not found: <?php echo htmlspecialchars(basename($file)); ?>");
+                window.history.back();
+            </script>
+        <?php
+            exit;
+        }
+    } else {
+        ?>
+        <script>
+            alert("No file available for download.");
+            window.history.back();
+        </script>
+<?php
+        exit;
+    }
 }
 
 
@@ -408,7 +424,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // --- Save actions to database ---
     $actionData = json_encode($formData['action'], JSON_UNESCAPED_UNICODE);
     $learnersData = json_encode($formData['did_not_meet'], JSON_UNESCAPED_UNICODE);
-    
+
     // Escape data for SQL
     $school_year = $pdo->quote($formData['school_year']);
     $grade_level = $pdo->quote($formData['grade_level']);
@@ -416,47 +432,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $curriculum = $pdo->quote($formData['curriculum']);
     $action_taken = $pdo->quote($actionData);
     $learners = $pdo->quote($learnersData);
-    
+
     $male_total = (int)$formData['male_total'];
     $female_total = (int)$formData['female_total'];
     $combined_total = (int)$formData['combined_total'];
-    
+
     $promoted_male = (int)($formData['summary']['promoted']['male'] ?? 0);
     $promoted_female = (int)($formData['summary']['promoted']['female'] ?? 0);
     $promoted_total = (int)($formData['summary']['promoted']['total'] ?? 0);
-    
+
     $retained_male = (int)($formData['summary']['retained']['male'] ?? 0);
     $retained_female = (int)($formData['summary']['retained']['female'] ?? 0);
     $retained_total = (int)($formData['summary']['retained']['total'] ?? 0);
-    
+
     $dnm_male = (int)($formData['progress']['did_not_meet']['male'] ?? 0);
     $dnm_female = (int)($formData['progress']['did_not_meet']['female'] ?? 0);
     $dnm_total = (int)($formData['progress']['did_not_meet']['total'] ?? 0);
-    
+
     $fs_male = (int)($formData['progress']['fairly_satisfactory']['male'] ?? 0);
     $fs_female = (int)($formData['progress']['fairly_satisfactory']['female'] ?? 0);
     $fs_total = (int)($formData['progress']['fairly_satisfactory']['total'] ?? 0);
-    
+
     $sat_male = (int)($formData['progress']['satisfactory']['male'] ?? 0);
     $sat_female = (int)($formData['progress']['satisfactory']['female'] ?? 0);
     $sat_total = (int)($formData['progress']['satisfactory']['total'] ?? 0);
-    
+
     $vs_male = (int)($formData['progress']['very_satisfactory']['male'] ?? 0);
     $vs_female = (int)($formData['progress']['very_satisfactory']['female'] ?? 0);
     $vs_total = (int)($formData['progress']['very_satisfactory']['total'] ?? 0);
-    
+
     $out_male = (int)($formData['progress']['outstanding']['male'] ?? 0);
     $out_female = (int)($formData['progress']['outstanding']['female'] ?? 0);
     $out_total = (int)($formData['progress']['outstanding']['total'] ?? 0);
-    
+
     $prepared_by = $pdo->quote($formData['prepared_by']);
     $certified_by = $pdo->quote($formData['certified_by']);
     $reviewed_by = $pdo->quote($formData['reviewed_by']);
-    
+
     // Check if record exists
     $checkSql = "SELECT id FROM sf5_data WHERE grade_level = $grade_level AND section = $section AND school_year = $school_year LIMIT 1";
     $checkResult = $pdo->query($checkSql);
-    
+
     if ($checkResult->rowCount() > 0) {
         // Update existing record
         $row = $checkResult->fetch();
@@ -675,9 +691,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div id="action-buttons">
                             <button type="button" class="btn btn-secondary" onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf5'">Back</button>
                             <button type="submit" id="save-grades" class="btn btn-primary">Save</button>
-                            <?php if ($downloadLink): ?>
-                                <a href="?download=1" class="btn btn-success">Download</a>
-                            <?php endif; ?>
+                            <a href="?download=1" class="btn btn-success">Download</a>
                         </div>
                     </div>
                 </div>
