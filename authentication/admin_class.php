@@ -273,6 +273,48 @@ class Action
             ]);
         }
     }
+    public function gaccess()
+    {
+        header('Content-Type: application/json');
+        $student_id = $_POST['studentId'] ?? null;
+
+        if (!$student_id) {
+            echo json_encode(['status' => 0, 'message' => 'No student ID provided.']);
+            return;
+        }
+
+        try {
+            // Check if already enrolled in active school year
+            $stmt = $this->db->prepare("
+            SELECT 1 FROM enrolment
+            INNER JOIN school_year 
+            ON enrolment.school_year_id = school_year.school_year_id
+            WHERE enrolment.student_id = ? 
+            AND school_year.school_year_status = 'Active'
+            LIMIT 1
+        ");
+            $stmt->execute([$student_id]);
+
+            if ($stmt->fetchColumn()) {
+                echo json_encode(['status' => 0, 'message' => 'Student is already enrolled for the active school year.']);
+                return;
+            }
+
+            // Update student
+            $stmt = $this->db->prepare("
+            UPDATE student 
+            SET enrolment_status = 'pending', isMovingUp = 1 
+            WHERE student_id = ?
+        ");
+            $stmt->execute([$student_id]);
+
+            echo json_encode(['status' => 1, 'message' => 'Enrollment access granted successfully.']);
+        } catch (PDOException $e) {
+            error_log("Database error in gaccess: " . $e->getMessage());
+            echo json_encode(['status' => 0, 'message' => 'An internal error occurred.']);
+        }
+    }
+
     function schoolYear_form()
     {
         $status = htmlspecialchars(trim($_POST["status"]));
