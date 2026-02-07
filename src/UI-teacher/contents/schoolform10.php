@@ -1429,15 +1429,17 @@ if (isset($_GET['student_id'])) {
     .elmp {
       width: 100%;
     }
+
     @media screen and (max-width: 768px) {
       .cbbyu {
         flex-direction: column;
         align-items: center;
       }
+
       .cbb {
         width: 100%;
       }
-      
+
     }
   </style>
 
@@ -1751,6 +1753,14 @@ if (isset($_GET['student_id'])) {
               <h5 style="color: white !important;" class="mb-0">Remedial Records for <span id="active-scholastic-label">Scholastic Record <?= $num_scholastic_records ?></span></h5>
             </div>
             <div class="card-body">
+              <div class="d-flex align-items-center justify-content-end mb-3">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary grant-access-btn"
+                  data-student="<?= $student_id ?>">
+                  Grant enrollment access
+                </button>
+              </div>
               <div id="remedial-records-container">
               </div>
             </div>
@@ -1771,6 +1781,7 @@ if (isset($_GET['student_id'])) {
       </div>
     </div>
   </div>
+
 
   <script src="<?= BASE_FR ?>/assets/js/bootstrap.min.js"></script>
   <script src="<?= BASE_FR ?>/assets/libs/sweetalert2/sweetalert2.min.js"></script>
@@ -2160,9 +2171,115 @@ if (isset($_GET['student_id'])) {
       recalc(i);
     }
 
+
+
     // Initialize tab click listeners
     document.addEventListener('DOMContentLoaded', function() {
-      // Load initial remedial records - try to find any school year input
+
+      document.addEventListener('click', async (e) => {
+        if (!e.target.classList.contains('grant-access-btn')) return;
+
+        const btn = e.target;
+        const studentId = btn.dataset.student;
+
+        if (!studentId) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Student ID not found.'
+          });
+          return;
+        }
+
+        const {
+          value: confirmText
+        } = await Swal.fire({
+          title: 'Type CONFIRM to proceed',
+          html: '<p style="font-size:14px; margin-bottom:10px;">This action will grant the student enrollment access. Type <strong>CONFIRM</strong> to continue.</p>',
+          input: 'text',
+          inputPlaceholder: 'Type CONFIRM here',
+          inputAttributes: {
+            autocapitalize: 'off',
+            autocorrect: 'off',
+            style: 'width:150px; font-size:14px;'
+          },
+          showCancelButton: true,
+          confirmButtonText: 'Submit',
+          cancelButtonText: 'Cancel',
+          customClass: {
+            popup: 'swal-small-popup'
+          },
+          inputValidator: (value) => {
+            if (!value) return 'You need to type something!';
+            if (value.toUpperCase() !== 'CONFIRM') return 'You must type CONFIRM to proceed!';
+            return null;
+          }
+        });
+
+
+        if (!confirmText) return;
+
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('studentId', studentId);
+
+        Swal.fire({
+          title: 'Processing...',
+          text: 'Please wait',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          didOpen: () => Swal.showLoading()
+        });
+
+        try {
+          const baseUrl = "<?= base_url() ?>";
+          const url = `${baseUrl}authentication/action.php?action=gaccess`;
+
+          const res = await fetch(url, {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!res.ok) throw new Error('Network response was not ok');
+
+          let data;
+          try {
+            data = await res.json();
+          } catch {
+            throw new Error('Invalid JSON response from server.');
+          }
+
+          // Check backend status
+          if (data.status === 1) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Success',
+              text: data.message,
+              timer: 3500,
+              showConfirmButton: false
+            });
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.message || 'An error occurred on the server.'
+            });
+          }
+
+        } catch (err) {
+          console.error(err);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.message || 'An error occurred while granting enrollment access.'
+          });
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+
       let schoolYearInput = null;
       for (let i = 1; i <= numScholasticRecords; i++) {
         schoolYearInput = document.getElementById(`school_year_${i}`);
