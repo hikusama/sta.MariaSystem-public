@@ -44,6 +44,13 @@ if ($action === 'section_form') {
     }
     exit();
 }
+if ($action === 'gaccess') {
+    $registration = $crud->gaccess();
+    if ($registration) {
+        echo $registration;
+    }
+    exit();
+}
 if ($action === 'schoolYear_form') {
     $registration = $crud->schoolYear_form();
     if ($registration) {
