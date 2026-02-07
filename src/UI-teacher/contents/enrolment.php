@@ -310,7 +310,7 @@ if (isset($_POST['ajax'])) {
                         if ($iddf != $user['school_year_id']) { ?>- Ended<?php }
                                                                     } else {
                                                                         if ($systatus === 2) { ?>- Ended<?php }
-                                                                                                                    } ?>
+                                                                                                } ?>
                 </td>
                 <td width="20%"><?= !empty($user["enrolled_date"]) ? '<small>' . date('M d, Y', strtotime($user["enrolled_date"])) . '</small>' : '<small class="text-muted">Not enrolled yet</small>' ?></td>
                 <td width="25%">
@@ -321,7 +321,7 @@ if (isset($_POST['ajax'])) {
                                 <button onclick="approvebtn(<?= $user['student_id'] ?>)" type="button" class="btn btn-success btn-sm open-enrolment" data-id="<?= $user["student_id"] ?>" data-gradelevel="<?= htmlspecialchars($user["gradeLevel"]) ?>" title="Approve Enrollment"><i class="fa-solid fa-check me-1"></i> Approve</button>
                             <?php endif; ?>
                             <?php if ($status != 'rejected' && $status != 'active'): ?>
-                                <button onclick="rjkbtn()" type="button" class="btn btn-danger btn-sm open-rejection" data-id="<?= $user["student_id"] ?>" title="Reject Enrollment"><i class="fa-solid fa-xmark me-1"></i> Reject</button>
+                                <button onclick="rjkbtn(<?= htmlspecialchars($user['student_id']) ?>)" type="button" class="btn btn-danger btn-sm open-rejection" data-id="<?= htmlspecialchars($user["student_id"]) ?>" title="Reject Enrollment"><i class="fa-solid fa-xmark me-1"></i> Reject</button>
                         <?php endif;
                         } ?>
                     </div>
@@ -648,8 +648,13 @@ $teacherFull = ($me['student_count'] ?? 0) >= 50;
 <script>
     let currentPage = 1;
 
-    function rjkbtn() {
-        const modal = new bootstrap.Modal(document.getElementById('rejectEnrolment'));
+    function rjkbtn(studentId) {
+        selectedStudentId = studentId;
+        document.getElementById('studentID').value = studentId;
+
+        const modal = new bootstrap.Modal(
+            document.getElementById('rejectEnrolment')
+        );
         modal.show();
     }
 
