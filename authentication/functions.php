@@ -43,20 +43,21 @@ function base_url(): string
 {
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'];
-    return $protocol . '://' . $host . '/sta.MariaSystem/';
+
+    return $protocol . '://' . $host . '/';
 }
 
 
 
 
-function get_current_page()
-{
-    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'];
-    $uri = $_SERVER['REQUEST_URI'];
+// function get_current_page()
+// {
+//     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+//     $host = $_SERVER['HTTP_HOST'];
+//     $uri = $_SERVER['REQUEST_URI'];
 
-    return $protocol . '://' . $host . $uri;
-}
+//     return $protocol . '://' . $host . $uri;
+// }
 
 function render_styles()
 {

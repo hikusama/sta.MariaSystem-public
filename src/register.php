@@ -1,4 +1,4 @@
-<?php include '../header.php'; 
+<?php include '../header.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -138,7 +138,8 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
     isset($_GET['email']) ||
     isset($_GET['password']) ||
     isset($_GET['username']) ||
-    isset($_GET['create'])
+    isset($_GET['create']) ||
+    isset($_GET['noActiveSchoolYear'])
 ): ?>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
@@ -157,7 +158,7 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
                 },
                 noActiveSchoolYear: {
                     icon: 'error',
-                    title: 'Registration is closed - no active school year.'
+                    title: 'No active school year.'
                 },
                 create: {
                     icon: 'success',
