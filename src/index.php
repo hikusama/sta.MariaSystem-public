@@ -135,6 +135,10 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
                 incorrect: {
                     icon: 'error',
                     title: 'Incorrect username or password, please try again!'
+                },
+                recaptcha: {
+                    icon: 'error',
+                    title: 'Recaptcha verification failed.'
                 }
 
             };
