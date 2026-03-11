@@ -41,20 +41,8 @@ $pdo = db_connect();
 // }
 function base_url(): string
 {
-    // Default to http
-    $protocol = 'http';
-
-    // Check if HTTPS is on
-    if (
-        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
-        (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
-        (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443)
-    ) {
-        $protocol = 'https';
-    }
-
-    // Use HTTP_HOST if available, otherwise SERVER_NAME
-    $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'];
 
     return $protocol . '://' . $host . '/';
 }

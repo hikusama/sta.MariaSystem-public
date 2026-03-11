@@ -3,6 +3,8 @@ version: '3.9'
 services:
   web:
     build: .
+    ports:
+      - "8001:80"
     volumes:
       - .:/var/www/html
     depends_on:
@@ -11,7 +13,7 @@ services:
       - appnet
 
   db:
-    image: mysql:5.7
+    image: mysql:8.0
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: rootpass
@@ -27,6 +29,8 @@ services:
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     restart: unless-stopped
+    ports:
+      - "8002:80"
     environment:
       PMA_HOST: db
       PMA_USER: root
