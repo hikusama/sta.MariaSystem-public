@@ -10,8 +10,8 @@ if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_tok
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // LOGIN PROCESS
     if (isset($_POST['loginAuth']) && $_POST['loginAuth'] === 'true') {
-        $username = $_POST['username'] ?? '';
-        $password = $_POST['password'] ?? '';
+        $username = trim($_POST['username'] ?? '');
+        $password = trim($_POST['password'] ?? '');
 
         $hasCredentials = $username !== '' && $password !== '';
 
@@ -37,7 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $result_json = json_decode($result);
 
             if (!($result_json->success)) {
-                header("Location: ../src/register.php?recaptcha=failed");
+                header("Location: ../src/index.php?recaptcha=failed");
                 exit;
             }
             if ($hasCredentials) {
