@@ -126,7 +126,8 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
     });
 </script>
 <?php if (
-    isset($_GET['incorrect'])
+    isset($_GET['incorrect']) ||
+    isset($_GET['recaptcha'])
 ): ?>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
