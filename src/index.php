@@ -1,5 +1,4 @@
 <?php
-include '../header.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -30,7 +29,7 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
     header('Location: ../src/UI-Admin/index.php');
     exit;
 }
-
+include '../header.php';
 ?>
 
 <style>
