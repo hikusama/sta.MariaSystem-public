@@ -1012,7 +1012,7 @@ WHERE NOT EXISTS (
     WHERE s.sf_type = t.sf_type
 );
  
-INSERT INTO accessibility (id, accessible_to) VALUES (1, 'allusers')
+INSERT INTO accessibility (id, accessible_to) VALUES (1, 'allusers');
 
 
 --
