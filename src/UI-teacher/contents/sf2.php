@@ -39,27 +39,30 @@ $stmt_sy->execute([$selected_school_year_id]);
 $selected_sy_data = $stmt_sy->fetch(PDO::FETCH_ASSOC) ?? ['school_year_name' => '', 'school_year_status' => ''];
 $is_active_sy = $selected_sy_data['school_year_status'] === 'Active';
 
-// Function to get all school days for a month
-function getSchoolDaysForMonth($month, $year) {
-    $month_num = str_pad(date('m', strtotime($month . " 1, $year")), 2, '0', STR_PAD_LEFT);
-    $days_in_month = cal_days_in_month(CAL_GREGORIAN, (int)$month_num, $year);
+function getSchoolDaysForMonth($month, $year)
+{
+    // Convert month name to numeric month (01..12)
+    $month_num = str_pad(date('m', strtotime(ucfirst(strtolower($month)) . " 1, $year")), 2, '0', STR_PAD_LEFT);
+
+    $days_in_month = (int) date("t", strtotime("$year-$month_num-01"));
     $school_days = [];
-    $weekday_count = 0;
+    $position = 0;
 
     for ($day = 1; $day <= $days_in_month; $day++) {
         $date = sprintf("%04d-%02d-%02d", $year, $month_num, $day);
-        $weekday = date('w', strtotime($date));
+        $weekday = date('w', strtotime($date));  
 
-        if ($weekday >= 1 && $weekday <= 5) {
-            $weekday_count++;
+        if ($weekday >= 1 && $weekday <= 6) {
+            $position++;
             $school_days[$day] = [
                 'date' => $date,
                 'weekday' => $weekday,
-                'weekday_name' => date('D', strtotime($date)),
-                'position' => $weekday_count
+                'weekday_name' => date('D', strtotime($date)), // 'Mon', 'Tue', etc.
+                'position' => $position
             ];
         }
     }
+
     return $school_days;
 }
 
@@ -101,21 +104,21 @@ $daily_totals = [];
 
 foreach ($attendance_rows as $row) {
     $sid = $row['student_id'];
-    
+
     // Add student info once
     if (!isset($students[$sid])) {
         $students[$sid] = $row;
         $student_absent_counts[$sid] = 0;
         $student_present_counts[$sid] = 0;
     }
-    
+
     // Process attendance
     if ($row['attendance_at'] && $selected_month) {
         $day = (int)date('d', strtotime($row['attendance_at']));
         $is_absent = $row['attendance_summary'] === 'Absent';
-        
+
         $student_attendance[$sid][$day] = $is_absent ? 'ABSENT' : 'PRESENT';
-        
+
         if ($is_absent) {
             $student_absent_counts[$sid]++;
         } else {
@@ -159,7 +162,7 @@ if ($selected_month && !empty($school_days)) {
             }
         }
     }
-    
+
     // Calculate monthly totals
     foreach ($male_students as $student) {
         $monthly_male_absent_total += $student_absent_counts[$student['student_id']] ?? 0;
@@ -177,10 +180,10 @@ $monthly_combined_present_total = $monthly_male_present_total + $monthly_female_
 ?>
 
 <main>
-    <form class="main-container" id="sfEight-form" style="width: 1900px;" method="POST">
+    <form class="main-container" id="sfEight-form" style="width: 1900px;" method="POST" onsubmit="return validateBeforeSave()">
         <div class="mt-3 text-start d-flex flex-wrap gap-1 justify-center align-center">
             <?php if ($is_active_sy): ?>
-                <button type="submit" class="btn btn-danger" name="save">Save Data</button>
+                <button type="submit" class="btn btn-danger" name="save" id="saveBtnData">Save Data</button>
             <?php endif; ?>
             <button type="button" class="btn btn-secondary" onclick="generateReport()">Generate Report</button>
             <select id="syFilter" name="school_year" class="form-select" style="max-width: 200px; margin-bottom: .8rem;" onchange="this.form.submit()">
@@ -192,7 +195,7 @@ $monthly_combined_present_total = $monthly_male_present_total + $monthly_female_
                         CASE WHEN school_year_status = 'Active' THEN 0 ELSE 1 END,
                         school_year_name ASC
                 ")->fetchAll(PDO::FETCH_ASSOC);
-                
+
                 $activeSyId = null;
                 foreach ($schoolYears as $cat) {
                     if ($cat['school_year_status'] === 'Active' && $activeSyId === null) {
@@ -210,6 +213,7 @@ $monthly_combined_present_total = $monthly_male_present_total + $monthly_female_
             </select>
         </div>
         <input type="hidden" name="id" value="<?= htmlspecialchars($data_sf_eight["sf_add_data_id"] ?? '') ?>">
+        <input type="hidden" id="report_for_the_month_of" name="report_for_the_month_of" value="">
         <div class="col-md-12 d-flex justify-content-between">
             <div class="col-md-3 d-flex align-items-center justify-content-start">
                 <img id="school_logo" src="../../assets/image/logo.png" alt="No Image" style="width: auto; height: 150px;">
@@ -332,7 +336,7 @@ $monthly_combined_present_total = $monthly_male_present_total + $monthly_female_
                                 <td>
                                     <?php
                                     $status = $student['enrolment_status'] ?? '';
-                                    echo match($status) {
+                                    echo match ($status) {
                                         'dropped' => 'DROPPED OUT',
                                         'transferred_out' => 'TRANSFERRED OUT',
                                         'transferred_in' => 'TRANSFERRED IN',
@@ -383,7 +387,7 @@ $monthly_combined_present_total = $monthly_male_present_total + $monthly_female_
                                 <td>
                                     <?php
                                     $status = $student['enrolment_status'] ?? '';
-                                    echo match($status) {
+                                    echo match ($status) {
                                         'dropped' => 'DROPPED OUT',
                                         'transferred_out' => 'TRANSFERRED OUT',
                                         'transferred_in' => 'TRANSFERRED IN',
@@ -621,17 +625,21 @@ $monthly_combined_present_total = $monthly_male_present_total + $monthly_female_
             width: 100% !important;
             padding: 0;
         }
+
         main {
             max-width: 100% !important;
             padding: 0;
         }
+
         .table-responsive {
             max-height: none !important;
             overflow: visible !important;
         }
+
         table {
             font-size: 9px !important;
         }
+
         .table-bordered td,
         .table-bordered th {
             padding: 2px !important;
@@ -641,6 +649,40 @@ $monthly_combined_present_total = $monthly_male_present_total + $monthly_female_
 </style>
 
 <script>
+    function validateBeforeSave() {
+        const month = document.getElementById('month_attendance').value;
+        
+        if (!month) {
+            alert('Please select a month before saving!');
+            return false;
+        }
+        
+        // Convert month name to date (first day of the month)
+        const year = new Date().getFullYear();
+        const monthMap = {
+            'JANUARY': '01',
+            'FEBRUARY': '02',
+            'MARCH': '03',
+            'APRIL': '04',
+            'MAY': '05',
+            'JUNE': '06',
+            'JULY': '07',
+            'AUGUST': '08',
+            'SEPTEMBER': '09',
+            'OCTOBER': '10',
+            'NOVEMBER': '11',
+            'DECEMBER': '12'
+        };
+        
+        const monthNum = monthMap[month];
+        if (monthNum) {
+            const dateValue = `${year}-${monthNum}-01`;
+            document.getElementById('report_for_the_month_of').value = dateValue;
+        }
+        
+        return true;
+    }
+
     function generateReport() {
         // Show loading indicator
         const button = document.querySelector('.btn-secondary');
@@ -788,7 +830,7 @@ $monthly_combined_present_total = $monthly_male_present_total + $monthly_female_
         </head>
         <body>
     `);
-    
+
         // Get form data
         const gradeLevel = document.querySelector('input[name="grade_level"]').value;
         const sectionName = document.getElementById('section_name').value;
@@ -796,7 +838,7 @@ $monthly_combined_present_total = $monthly_male_present_total + $monthly_female_
         const schoolName = document.querySelector('input[name="school_name"]').value;
         const schoolId = document.querySelector('input[name="school_id"]').value;
         const currentDate = new Date();
-        
+
         // Add header
         printWindow.document.write(`
             <div class="report-header">

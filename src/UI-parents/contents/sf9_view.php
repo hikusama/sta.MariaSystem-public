@@ -249,7 +249,7 @@ $data = $stmt->fetch(PDO::FETCH_ASSOC);
                 <i class="fa-solid fa-triangle-exclamation fa-3x text-warning mb-3"></i>
                 <h5 class="fw-bold text-danger mb-2"><?= htmlspecialchars($alertTitle) ?></h5>
                 <p class="text-muted mb-3"><?= htmlspecialchars($alertMessage) ?></p>
-                <button type="button" onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf9'" class="btn btn-primary">
+                <button type="button" onclick="window.location.href='<?= base_url() ?>/src/UI-teacher/index.php?page=contents/sf9'" class="btn btn-primary">
                     <i class="fa-solid fa-arrow-left me-1"></i> Go Back
                 </button>
             </div>

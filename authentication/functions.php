@@ -1,6 +1,6 @@
 <?php
-include "config.php";
-
+include_once "config.php";
+include_once "session.php";
 
 $pdo = db_connect();
 
@@ -146,9 +146,7 @@ function get_option($key)
 }
 function checkURI(string $allowedRole, int $times = 1): array
 {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+
 
     $base = str_repeat('../', $times);
 

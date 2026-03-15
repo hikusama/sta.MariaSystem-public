@@ -268,7 +268,7 @@ endif;
     <!-- Scrollable Body -->
     <div class="table-responsive" style="max-height: 500px; overflow: auto; scrollbar-width: thin;">
         <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 0.875rem; width: 100%;">
-            <thead class="table-light sticky-top">
+            <thead class="table-light">
                 <tr>
                     <th style="width: 1rem;">#</th>
                     <th>Name</th>

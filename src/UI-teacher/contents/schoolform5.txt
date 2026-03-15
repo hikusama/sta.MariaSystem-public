@@ -343,7 +343,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <body>
     <div class="header">
-        <img src="<?= BASE_FR ?>/assets/image/logo2.png" alt="Logo">
+        <img src="<?= base_url() ?>/assets/image/logo2.png" alt="Logo">
         <h4>STA. MARIA WEB SYSTEM</h4>
     </div>
     <div class="container-fluid mt-4">
@@ -406,7 +406,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         </div>
                         <div id="action-buttons">
-                            <button type="button" class="btn btn-secondary" onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf5'">Back</button>
+                            <button type="button" class="btn btn-secondary" onclick="window.location.href='<?= base_url() ?>/src/UI-teacher/index.php?page=contents/sf5'">Back</button>
                             <button type="submit" form="sf5-form" class="btn btn-primary">Save</button>
                             <?php if ($downloadLink): ?>
                                 <a href="?download=1" class="btn btn-success">Download</a>

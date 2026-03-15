@@ -2,6 +2,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+date_default_timezone_set('Asia/Manila');
 require_once __DIR__ . '/../assets/vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -101,21 +102,112 @@ class Action
         $password = $_POST["password"];
         $cpassword = $_POST["cpassword"];
 
+
+        // ==================== INPUT VALIDATION ====================== //
+        if (empty($user_role)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'User role is required',
+                'field' => 'user_role',
+                'code' => 'failed1'
+            ]);
+        }
+
+        if (empty($gender)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Gender is required',
+                'field' => 'gender',
+                'code' => 'failed2'
+            ]);
+        }
+
+        if (empty($firstName)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'First name is required',
+                'field' => 'firstName',
+                'code' => 'failed3'
+            ]);
+        }
+
+        if (empty($lastName)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Last name is required',
+                'field' => 'lastName',
+                'code' => 'failed4'
+            ]);
+        }
+
+        if (empty($username) || strlen($username) < 3) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Username must be at least 3 characters',
+                'field' => 'username',
+                'code' => 'failed5'
+            ]);
+        }
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Invalid email address',
+                'field' => 'email',
+                'code' => 'failed6'
+            ]);
+        }
+
+        if (empty($password) || strlen($password) < 6) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Password must be at least 6 characters',
+                'field' => 'password',
+                'code' => 'failed7'
+            ]);
+        }
+
+        if (empty($cpassword)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Confirm password is required',
+                'field' => 'cpassword',
+                'code' => 'failed8'
+            ]);
+        }
+
+        if (empty($contact)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Contact number is required',
+                'field' => 'contact',
+                'code' => 'failed10'
+            ]);
+        }
+
+
+
         // Validation code remains the same...
 
         try {
 
-            // Check if username exists using prepared statement
-            $stmt = $this->db->prepare("SELECT username FROM users WHERE username = ? OR username IN(SELECT admin_username FROM admin WHERE admin_username = ?)");
-            $stmt->execute([$username, $username]);
-            $usernameTaken = $stmt->fetch(PDO::FETCH_ASSOC);
-
+            // Validate password match first
             if ($cpassword != $password) {
                 return json_encode([
                     'status' => 0,
                     'message' => 'Mismatch password'
                 ]);
             }
+
+            // Check if username exists in both users and admin tables
+            $stmt = $this->db->prepare("
+                SELECT username FROM users WHERE username = ? 
+                UNION 
+                SELECT admin_username as username FROM admin WHERE admin_username = ?
+            ");
+            $stmt->execute([$username, $username]);
+            $usernameTaken = $stmt->fetch(PDO::FETCH_ASSOC);
+
             if ($usernameTaken) {
                 return json_encode([
                     'status' => 0,
@@ -123,18 +215,15 @@ class Action
                 ]);
             }
 
-            // Check if email exists
-            $stmt = $this->db->prepare("SELECT email FROM users WHERE email = ?");
-            $stmt->execute([$email]);
+            // Check if email exists in both users and admin tables
+            $stmt = $this->db->prepare("
+                SELECT email FROM users WHERE email = ? 
+                UNION 
+                SELECT admin_email as email FROM admin WHERE admin_email = ?
+            ");
+            $stmt->execute([$email, $email]);
             $emailTaken = $stmt->fetch(PDO::FETCH_ASSOC);
 
-
-            if ($emailTaken) {
-                return json_encode([
-                    'status' => 0,
-                    'message' => 'Email address already registered'
-                ]);
-            }
             if ($emailTaken) {
                 return json_encode([
                     'status' => 0,
@@ -494,7 +583,6 @@ class Action
     {
         $lrn = htmlspecialchars(trim($_POST["lrn"] ?? ''));
         $gradeLevel = htmlspecialchars(trim($_POST["grade_level"] ?? ''));
-        // $nickname = htmlspecialchars(trim($_POST["nickname"] ?? ''));
         $sex = htmlspecialchars(trim($_POST["sex"] ?? ''));
         $lastName = htmlspecialchars(trim($_POST["lastName"] ?? ''));
         $firstName = htmlspecialchars(trim($_POST["firstName"] ?? ''));
@@ -503,6 +591,72 @@ class Action
         $religion = htmlspecialchars(trim($_POST["religion"] ?? ''));
         $birthdate = $_POST["birthdate"] ?? null;
         $birthplace = $_POST["birthplace"] ?? null;
+
+
+        if (empty($lrn)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'LRN is required',
+                'field' => 'lrn'
+            ]);
+        }
+
+        if (!preg_match('/^[0-9]{12}$/', $lrn)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'LRN must be 12 digits',
+                'field' => 'lrn'
+            ]);
+        }
+
+        if (empty($gradeLevel)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Grade level is required',
+                'field' => 'grade_level'
+            ]);
+        }
+
+        if (empty($sex)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Sex is required',
+                'field' => 'sex'
+            ]);
+        }
+
+        if (empty($lastName)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Last name is required',
+                'field' => 'lastName'
+            ]);
+        }
+
+        if (empty($firstName)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'First name is required',
+                'field' => 'firstName'
+            ]);
+        }
+
+        if (empty($birthdate)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Birthdate is required',
+                'field' => 'birthdate'
+            ]);
+        }
+
+        if (empty($birthplace)) {
+            return json_encode([
+                'status' => 0,
+                'message' => 'Birthplace is required',
+                'field' => 'birthplace'
+            ]);
+        }
+
 
         try {
             // Check if LRN exists
@@ -576,7 +730,7 @@ class Action
             ]);
             $student_id = $this->db->lastInsertId();
 
-            $query = "INSERT INTO stuEnrolmentInfo (student_id) VALUES ('$student_id')";
+            $query = "INSERT INTO stuenrolmentinfo (student_id) VALUES ('$student_id')";
             $stmt = $this->db->prepare($query);
             $stmt->execute();
 
@@ -591,6 +745,7 @@ class Action
             error_log("Database error: " . $e->getMessage());
             return json_encode([
                 'status' => 0,
+                'dump' => $e->getMessage(),
                 'message' => 'An error occurred. Please try again later.'
             ]);
         }
@@ -819,7 +974,7 @@ class Action
 
         try {
             // // Use DELETE FROM (not DELETE *) and handle errors
-            // $tables = ['classes', 'enrolment', 'enrolment_subjects', 'stuEnrolmentInfo', 'attendance', 'student', 'stuenrolmentinfo'];
+            // $tables = ['classes', 'enrolment', 'enrolment_subjects', 'stuenrolmentinfo', 'attendance', 'student', 'stuenrolmentinfo'];
 
             // foreach ($tables as $table) {
             //     $stmt = $this->db->prepare("DELETE FROM $table");
@@ -928,14 +1083,14 @@ class Action
             $learning_mode = isset($_POST['learning_mode']) ? implode(',', $_POST['learning_mode']) : '';
 
             // Check if enrolment info already exists
-            $check_query = "SELECT COUNT(*) FROM stuEnrolmentInfo WHERE student_id = :student_id";
+            $check_query = "SELECT COUNT(*) FROM stuenrolmentinfo WHERE student_id = :student_id";
             $check_stmt = $this->db->prepare($check_query);
             $check_stmt->execute([':student_id' => $student_id]);
             $exists = $check_stmt->fetchColumn();
 
             if ($exists) {
                 // Update existing record
-                $enrolment_query = "UPDATE stuEnrolmentInfo SET 
+                $enrolment_query = "UPDATE stuenrolmentinfo SET 
                     mother_tongue = :tongue,
                     house_no = :current_house_no,
                     street = :current_street,
@@ -954,7 +1109,7 @@ class Action
                     WHERE student_id = :student_id";
             } else {
                 // Insert new record
-                $enrolment_query = "INSERT INTO stuEnrolmentInfo (
+                $enrolment_query = "INSERT INTO stuenrolmentinfo (
                     student_id, mother_tongue, house_no, street, barnagay, city, 
                     province, country, zip_code, diagnosis, manifestations, pwd_id, 
                     balik_aral, learning_mode, indigenous_people, fourPs
@@ -996,6 +1151,7 @@ class Action
             error_log("Database error: " . $e->getMessage());
             return json_encode([
                 'status' => 0,
+                'error' => $e->getMessage(),
                 'message' => 'An error occurred. Please try again later.'
             ]);
         }
@@ -1194,7 +1350,7 @@ class Action
 
             // UPATE STUDENT ADDRESS
 
-            $stmtAddress = $this->db->prepare("UPDATE stuEnrolmentInfo SET house_no = :house_no, street = :street, barnagay = :barnagay,
+            $stmtAddress = $this->db->prepare("UPDATE stuenrolmentinfo SET house_no = :house_no, street = :street, barnagay = :barnagay,
             city = :city, province = :province, country = :country, zip_code = :zip_code
             WHERE student_id = :student_id");
             $stmtAddress->execute([
@@ -1934,8 +2090,8 @@ class Action
         $division    = $_POST["Division"] ?? ''; // fixed casing
         $district    = $_POST["district"] ?? '';
         $school_name = $_POST["school_name"] ?? '';
-        $report_for_the_month_of = $_POST["report_for_the_month_of"] ?? ''; // must be YYYY-MM-DD
-        $school_year_name = $_POST["school_year_name"] ?? '';
+        $report_for_the_month_of = $_POST["report_for_the_month_of"] ?? null; // must be YYYY-MM-DD
+        $school_year_id = $_POST["school_year"] ?? '';
         $Previous_Month = $_POST["Previous_Month"] ?? '';
         $For_the_month = $_POST["For_the_month"] ?? '';
         $Cumulative_as_of_End_of_Month = $_POST["Cumulative_as_of_End_of_Month"] ?? '';
@@ -1943,15 +2099,43 @@ class Action
 
         try {
             // safely get school_year_id
-            $stmt = $this->db->prepare("SELECT school_year_id FROM school_year WHERE school_year_name = :school_year_name");
-            $stmt->execute([':school_year_name' => $school_year_name]);
+            $stmt = $this->db->prepare("SELECT school_year_id FROM school_year WHERE school_year_id = :school_year_id");
+            $stmt->execute([':school_year_id' => $school_year_id]);
             $syID = $stmt->fetch(PDO::FETCH_ASSOC);
             $school_year_id = $syID["school_year_id"] ?? null;
+            $report_for_the_month_of = $_POST["report_for_the_month_of"] ?? null;
 
+            if ($report_for_the_month_of) {
+                $monthNumber = date('m', strtotime($report_for_the_month_of));
+                $year = date('Y');
+                $report_for_the_month_of = $year . '-' . $monthNumber . '-01';
+            }
             if (!$school_year_id) {
                 return json_encode([
                     'status' => 0,
-                    'message' => 'Invalid school year'
+                    'message' => "Invalid school year id"
+                ]);
+            }
+            if ($school_id == 3) {
+                if (empty($report_for_the_month_of)) {
+                    return json_encode([
+                        'status' => 0,
+                        'message' => 'Please fill in all required fields'
+                    ]);
+                }
+            }else{
+                $report_for_the_month_of = null;
+            }
+            if (
+                empty($school_id) ||
+                empty($region) ||
+                empty($division) ||
+                empty($district) ||
+                empty($school_name)
+            ) {
+                return json_encode([
+                    'status' => 0,
+                    'message' => 'Please fill in all required fields'
                 ]);
             }
 

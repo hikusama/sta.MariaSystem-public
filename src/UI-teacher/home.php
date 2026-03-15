@@ -252,8 +252,8 @@ SELECT
     SUM(CASE WHEN a.attendance_summary = 'Present' THEN 1 ELSE 0 END) AS present_count,
     SUM(CASE WHEN a.attendance_summary = 'Absent' THEN 1 ELSE 0 END) AS absent_count,
     SUM(CASE WHEN a.attendance_summary = 'Late' THEN 1 ELSE 0 END) AS late_count,
-    c.section_name,
-    c.grade_level
+    MAX(c.section_name) AS section_name,
+    MAX(c.grade_level) AS grade_level
 FROM enrolment e
 LEFT JOIN attendance a 
     ON a.student_id = e.student_id
@@ -362,8 +362,8 @@ $parentCount = $stmt->fetchColumn();
                                         <i class="fa-solid fa-chalkboard-user text-white"></i>
                                     </div>
                                     <div>
-                                        <h2 class="h4 mb-1"><?= htmlspecialchars($sectionName['section_name']) ?></h2>
-                                        <p class="mb-0"><?= htmlspecialchars($sectionName['grade_level']) ?> • Class Adviser</p>
+                                        <h2 class="h4 mb-1"><?= $sectionName['section_name'] ?></h2>
+                                        <p class="mb-0"><?= $sectionName['grade_level'] ?> Class Adviser</p>
                                     </div>
                                 </div>
                             </div>

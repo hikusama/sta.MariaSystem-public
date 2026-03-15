@@ -5341,9 +5341,48 @@ fieldset:disabled .btn {
 }
 
 #profile_slide p {
-    color: #000 !important;
-    margin: -0 !important;
+    color: #000;
+    margin: 0;
 }
+
+#profile_slide {
+    position: relative;
+}
+
+#profile_slide .contad p {
+    font-size: .8rem;
+    margin-top: .5rem;
+    color: #ff0000;
+}
+
+#profile_slide .adprof {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 .5rem;
+}
+
+#profile_slide .admc {
+    color: #ffffff;
+    background: #38288f;
+    border-radius: 5px;
+    padding: .2rem 1.2rem;
+    border: solid 1px #38288f;
+    font-size: .9rem;
+    cursor: pointer;
+}
+
+#profile_slide .admc:hover {
+    color: #fff;
+    transform: scale(.95);
+    transition: .3s ease-in-out;
+
+}
+
+ 
+ 
+
 
 .logoutDomain {
     position: fixed;
@@ -5469,10 +5508,10 @@ fieldset:disabled .btn {
 }
 
 .trf2 {
+    margin-top: 2rem;
     display: flex;
     gap: .5rem;
-    align-items: center;
-    position: absolute;
+    align-items: end;
     top: 75%;
     right: 0;
     flex-direction: column;

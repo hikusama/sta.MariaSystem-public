@@ -10,7 +10,7 @@ if (isset($_GET['student_id'])) {
     $learner_id = $_GET['student_id'];
 }
 $query = "SELECT * FROM student
-INNER JOIN stuEnrolmentInfo ON student.student_id = stuEnrolmentInfo.student_id
+INNER JOIN stuenrolmentinfo ON student.student_id = stuenrolmentinfo.student_id
 WHERE student.student_id = '$learner_id'";
 $stmt = $pdo->prepare($query);
 $stmt->execute();
@@ -172,12 +172,10 @@ $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
                                     <div class="form-floating">
                                         <select name="gender" id="gender" class="form-select border-0 bg-light">
                                             <option value="">Select Gender</option>
-                                            <option value="Male" <?= ($studentInfo["sex"] ?? '') == 'Male' ? 'selected' : '' ?>>MALE</option>
-                                            <option value="Female" <?= ($studentInfo["sex"] ?? '') == 'Female' ? 'selected' : '' ?>>FEMALE</option>
+                                            <option value="MALE" <?= ($studentInfo["sex"] ?? '') == 'MALE' ? 'selected' : '' ?>>MALE</option>
+                                            <option value="FEMALE" <?= ($studentInfo["sex"] ?? '') == 'FEMALE' ? 'selected' : '' ?>>FEMALE</option>
                                         </select>
-                                        <label for="gender" class="text-muted">
-                                            <i class="fa-solid fa-venus-mars me-2"></i>Sex
-                                        </label>
+ 
                                     </div>
                                 </div>
                                 <div class="col-xl-3 col-lg-4 col-md-6">
@@ -205,9 +203,7 @@ $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
                                             <option value="Born Again Christian" <?= ($studentInfo["religion"] ?? '') == 'Born Again Christian' ? 'selected' : '' ?>>Born Again Christian</option>
                                             <option value="Jehovah's Witness" <?= ($studentInfo["religion"] ?? '') == 'Jehovah\'s Witness' ? 'selected' : '' ?>>Jehovah's Witness</option>
                                         </select>
-                                        <label for="religious" class="text-muted">
-                                            <i class="fa-solid fa-hands-praying me-2"></i>Religion
-                                        </label>
+
                                     </div>
                                 </div>
                                 <div class="col-xl-3 col-lg-4 col-md-6">
@@ -226,9 +222,7 @@ $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
                                             <option value="Tausug" <?= ($studentInfo["mother_tongue"] ?? '') == 'Tausug' ? 'selected' : '' ?>>Tausug</option>
                                             <option value="Others" <?= ($studentInfo["mother_tongue"] ?? '') == 'Others' ? 'selected' : '' ?>>Others</option>
                                         </select>
-                                        <label for="tongue" class="text-muted">
-                                            <i class="fa-solid fa-language me-2"></i>Mother Tongue
-                                        </label>
+
                                     </div>
                                 </div>
                             </div>

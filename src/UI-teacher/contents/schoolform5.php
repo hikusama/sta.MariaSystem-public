@@ -12,7 +12,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
-$mysqli = new mysqli("localhost", "root", "", "stamariadb");
+$mysqli = new mysqli("db", "stuser", "stpass", "stamaraiadb");
 if ($mysqli->connect_error) die("DB Connection failed: " . $mysqli->connect_error);
 
 
@@ -195,36 +195,46 @@ if (!empty($gradeLevel) && !empty($sectionName)) {
 
 
 if (isset($_GET['download'])) {
-    if (!empty($_SESSION['sf5_download'])) {
-        $file = $saveDir . DIRECTORY_SEPARATOR . $_SESSION['sf5_download'];
-        if (file_exists($file)) {
-            header('Content-Description: File Transfer');
-            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            header('Content-Disposition: attachment; filename="' . basename($file) . '"');
-            header('Expires: 0');
-            header('Cache-Control: must-revalidate');
-            header('Pragma: public');
-            header('Content-Length: ' . filesize($file));
-            readfile($file);
-            exit;
-        } else {
-?>
-            <script>
-                alert("File not found: <?php echo htmlspecialchars(basename($file)); ?>");
-                window.history.back();
-            </script>
-        <?php
-            exit;
-        }
-    } else {
-        ?>
-        <script>
-            alert("No file available for download.");
-            window.history.back();
-        </script>
-<?php
+    $downloadFilename = $_SESSION['sf5_download'] ?? '';
+    $file = $saveDir . DIRECTORY_SEPARATOR . $downloadFilename;
+
+    if (isset($_GET['check'])) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'exists' => !empty($downloadFilename) && file_exists($file),
+            'filename' => $downloadFilename
+        ]);
         exit;
     }
+
+    if (!empty($downloadFilename) && file_exists($file)) {
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . basename($file) . '"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($file));
+        readfile($file);
+        exit;
+    }
+
+    // no file to send
+    http_response_code(404);
+    if (!isset($_GET['check'])) {
+        ?>
+        <script>
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'File not found',
+                    text: '<?= addslashes(htmlspecialchars($downloadFilename, ENT_QUOTES)) ?>'
+                });
+            }
+        </script>
+        <?php
+    }
+    exit;
 }
 
 
@@ -536,8 +546,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->exec($insertSql);
     }
 
-    // --- Redirect back ---
-    header("Location: " . $_SERVER['PHP_SELF'] . "?school_year=" . rawurlencode($formData['school_year']) . "&section_id=" . rawurlencode($sectionId) . "&grade=" . rawurlencode($formData['grade_level']) . "&section=" . rawurlencode($formData['section']));
+    // --- Redirect back (include saved flag for JS notification) ---
+    header("Location: " . $_SERVER['PHP_SELF'] . "?school_year=" . rawurlencode($formData['school_year']) . "&section_id=" . rawurlencode($sectionId) . "&grade=" . rawurlencode($formData['grade_level']) . "&section=" . rawurlencode($formData['section']) . "&saved=1");
     exit;
 }
 ?>
@@ -548,7 +558,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <title>SF5</title>
+    <link rel="icon" href="<?php echo base_url() ?>/assets/image/logo2.png" type="image/x-icon">
     <link href="<?= base_url() ?>assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <script src="<?= base_url() ?>/assets/js/sweetalert2.min.js"></script>
     <style>
         body {
             font-family: 'Poppins', sans-serif;
@@ -603,7 +615,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <body>
     <div class="header">
-        <img src="<?= BASE_FR ?>/assets/image/logo2.png" alt="Logo">
+        <img src="<?php echo base_url() ?>/assets/image/logo2.png" alt="Logo">
         <h4>STA. MARIA WEB SYSTEM</h4>
     </div>
     <div class="container-fluid mt-4">
@@ -689,9 +701,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         </div>
                         <div id="action-buttons">
-                            <button type="button" class="btn btn-secondary" onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf5'">Back</button>
+                            <button type="button" class="btn btn-secondary" onclick="window.location.href='<?= base_url() ?>/src/UI-teacher/index.php?page=contents/sf5'">Back</button>
                             <button type="submit" id="save-grades" class="btn btn-primary">Save</button>
-                            <a href="?download=1" class="btn btn-success">Download</a>
+                            <button type="button" id="download-btn" class="btn btn-success">Download</button>
                         </div>
                     </div>
                 </div>
@@ -820,6 +832,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             document.addEventListener('DOMContentLoaded', function() {
                 computeAll();
+
+                // Show success message after redirect from save action
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('saved') === '1') {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Saved!',
+                            text: 'Data saved successfully.',
+                            confirmButtonText: 'OK'
+                        });
+
+                        // Clean URL so popup doesn’t show again on refresh
+                        params.delete('saved');
+                        const cleaned = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                        history.replaceState(null, '', cleaned);
+                    }
+                }
+
+                // Download button with existence check via backend before triggering download
+                const downloadBtn = document.getElementById('download-btn');
+                if (downloadBtn) {
+                    downloadBtn.addEventListener('click', async function () {
+                        const checkParams = new URLSearchParams(window.location.search);
+                        checkParams.set('download', '1');
+                        checkParams.set('check', '1');
+                        const checkUrl = window.location.pathname + '?' + checkParams.toString();
+
+                        try {
+                            const response = await fetch(checkUrl, { cache: 'no-store' });
+                            if (!response.ok) throw new Error('Network check failed');
+
+                            const data = await response.json();
+                            if (data.exists) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Download ready',
+                                    text: `Found ${data.filename}. Preparing download...`,
+                                    timer: 900,
+                                    showConfirmButton: false
+                                });
+
+                                setTimeout(() => {
+                                    const downloadParams = new URLSearchParams(window.location.search);
+                                    downloadParams.set('download', '1');
+                                    downloadParams.delete('check');
+                                    window.location.href = window.location.pathname + '?' + downloadParams.toString();
+                                }, 950);
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'File not found',
+                                    text: 'No generated file exists yet. Save first before downloading.'
+                                });
+                            }
+                        } catch (error) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Download check failed',
+                                text: 'Unable to verify if the export file exists.'
+                            });
+                        }
+                    });
+                }
             });
         </script>
 

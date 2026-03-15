@@ -421,7 +421,7 @@ if (isset($_POST['ajax'])) {
             document.querySelectorAll('tbody tr').forEach(row => {
                 row.onclick = () => {
                     window.location.href =
-                        `<?= BASE_FR ?>/src/UI-teacher/contents/schoolform9.php?student_id=${row.dataset.id}&school_year_name=${row.dataset.school_year_name}`;
+                        `<?= base_url() ?>/src/UI-teacher/contents/schoolform9.php?student_id=${row.dataset.id}&school_year_name=${row.dataset.school_year_name}`;
                 };
             });
         }

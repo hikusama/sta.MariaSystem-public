@@ -2,6 +2,13 @@
 require_once 'config.php';
 include "session.php";
 
+// Sanitize and trim all incoming POST data
+foreach ($_POST as $key => $value) {
+    if (is_string($value)) {
+        $_POST[$key] = htmlspecialchars(trim($value), ENT_QUOTES, 'UTF-8');
+    }
+}
+
 if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
     header("Location: eror.php");
     exit;
@@ -10,14 +17,25 @@ if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_tok
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // LOGIN PROCESS
     if (isset($_POST['loginAuth']) && $_POST['loginAuth'] === 'true') {
-        $username = trim($_POST['username'] ?? '');
-        $password = trim($_POST['password'] ?? '');
+        $username = htmlspecialchars(trim($_POST['username'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $password = trim($_POST['password'] ?? '');  // Don't sanitize password, only trim
 
         $hasCredentials = $username !== '' && $password !== '';
 
+        // ==================== INPUT VALIDATION ====================== //
+        if (!$hasCredentials) {
+            header("Location: ../src/index.php?validation=failed");
+            exit;
+        }
+
         try {
             $recaptcha_secret = '6LdSd4csAAAAAL31gtAH7xkNO0fq10rzZuY5Oegc';
-            $recaptcha_response = $_POST['g-recaptcha-response'];
+            $recaptcha_response = $_POST['g-recaptcha-response'] ?? '';
+
+            if (empty($recaptcha_response)) {
+                header("Location: ../src/index.php?validation=failed");
+                exit;
+            }
 
             $url = 'https://www.google.com/recaptcha/api/siteverify';
             $data = [
@@ -40,62 +58,75 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 header("Location: ../src/index.php?recaptcha=failed");
                 exit;
             }
-            if ($hasCredentials) {
-                // First, check if it's a user
-                $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
-                $stmt->execute([$username]);
-                $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                if ($user && password_verify($password, $user['password'])) {
+            $acc = $pdo->prepare("SELECT accessible_to FROM accessibility WHERE id = 1");
+            $acc->execute();
+            $accesible_to = $acc->fetch(PDO::FETCH_ASSOC);
+            if (!$accesible_to) {
+                $pdo->prepare("INSERT INTO accessibility (id, accessible_to) VALUES (1, 'allusers')")->execute();
+            }
+            $ac = $accesible_to['accessible_to'];
+
+            // First, check if it's a user
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($user && password_verify($password, $user['password'])) {
+                $user_role = $user['user_role'];
+
+                if ($user_role == 'PARENT') {
+                    $stmt->execute([$user['user_id']]);
+                    if ($ac !== 'allusers') {
+                        header("Location: ../src/index.php?restricted=1A");
+                        exit;
+                    }
                     session_regenerate_id(true);
                     $_SESSION['user_id'] = $user['user_id'];
                     $_SESSION['user_role'] = $user['user_role'];
-                    $user_role = $user['user_role'];
+                    $stmt = $pdo->prepare("INSERT INTO users_history (user_id, login_time) VALUES (?, NOW())");
 
-                    if ($user_role == 'PARENT') {
-                        $stmt = $pdo->prepare("INSERT INTO users_history (user_id, login_time) VALUES (?, NOW())");
-                        $stmt->execute([$user['user_id']]);
-
-                        header("Location: ../src/UI-parents/index.php");
-                        exit();
-                    } else if ($user_role == 'TEACHER') {
-                        $stmt = $pdo->prepare("INSERT INTO users_history (user_id, login_time) VALUES (?, NOW())");
-                        $stmt->execute([$user['user_id']]);
-
-                        header("Location: ../src/UI-teacher/index.php");
-                        exit();
+                    header("Location: ../src/UI-parents/index.php");
+                    exit();
+                } else if ($user_role == 'TEACHER') {
+                    $stmt->execute([$user['user_id']]);
+                    if ($ac === 'onlyadmin') {
+                        header("Location: ../src/index.php?restricted=12");
+                        exit;
                     }
-                    // Log login history
-
-                }
-
-                // If not a user, check if it's an admin
-                $stmt = $pdo->prepare("SELECT * FROM admin WHERE admin_username = ?");
-                $stmt->execute([$username]);
-                $admin = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                if ($admin && password_verify($password, $admin['admin_password'])) {
                     session_regenerate_id(true);
-                    $_SESSION['admin_id'] = $admin['admin_id'];
-                    $_SESSION['admin_role'] = $admin['admin_user_role'];
-
-                    // Log login history
-                    $stmt = $pdo->prepare("INSERT INTO admin_history (admin_id, login_time) VALUES (?, NOW())");
-                    $stmt->execute([$admin['admin_id']]);
-
-                    header("Location: ../src/UI-Admin/index.php");
+                    $_SESSION['user_id'] = $user['user_id'];
+                    $_SESSION['user_role'] = $user['user_role'];
+                    $stmt = $pdo->prepare("INSERT INTO users_history (user_id, login_time) VALUES (?, NOW())");
+                    header("Location: ../src/UI-teacher/index.php");
                     exit();
                 }
+                // Log login history
 
-                // If credentials don't match either
-                $_SESSION['errors_login']['login_incorrect'] = 'Incorrect username or password.';
-                header("Location: ../src/index.php?incorrect=login");
-                exit();
-            } else {
-                $_SESSION['errors_login']['login_incorrect'] = 'Please fill in both fields.';
-                header("Location: ../src/index.php");
+            }
+
+            // If not a user, check if it's an admin
+            $stmt = $pdo->prepare("SELECT * FROM admin WHERE admin_username = ?");
+            $stmt->execute([$username]);
+            $admin = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($admin && password_verify($password, $admin['admin_password'])) {
+                session_regenerate_id(true);
+                $_SESSION['admin_id'] = $admin['admin_id'];
+                $_SESSION['admin_role'] = $admin['admin_user_role'];
+
+                // Log login history
+                $stmt = $pdo->prepare("INSERT INTO admin_history (admin_id, login_time) VALUES (?, NOW())");
+                $stmt->execute([$admin['admin_id']]);
+
+                header("Location: ../src/UI-Admin/index.php");
                 exit();
             }
+
+            // If credentials don't match either
+            $_SESSION['errors_login']['login_incorrect'] = 'Incorrect username or password.';
+            header("Location: ../src/index.php?incorrect=login");
+            exit();
         } catch (PDOException $e) {
             error_log('Login error: ' . $e->getMessage());
             $_SESSION['errors_login']['login_incorrect'] = 'System error. Please try again later.';
@@ -106,13 +137,60 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     //USERS MANAGEMENT
     if (isset($_POST['resgiter']) && $_POST['resgiter'] === 'true') {
-        $username = trim($_POST["username"] ?? '');
-        $email = trim($_POST["email"] ?? '');
+        $username = htmlspecialchars(trim($_POST["username"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $email = filter_var(trim($_POST["email"] ?? ''), FILTER_SANITIZE_EMAIL);
+        $firstName = htmlspecialchars(trim($_POST["firstName"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $middleName = htmlspecialchars(trim($_POST["middleName"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $lastName = htmlspecialchars(trim($_POST["lastName"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $suffix = htmlspecialchars(trim($_POST["suffix"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $relationship = htmlspecialchars(trim($_POST["relationship"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $contact = htmlspecialchars(trim($_POST["contact"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $password = trim($_POST["password"] ?? '');
+        $cpassword = trim($_POST["cpassword"] ?? '');
         $errors = [];
+
+        // ==================== INPUT VALIDATION ====================== //
+        if (empty($firstName)) {
+            header("Location: ../src/register.php?validation=failed1");
+            exit;
+        }
+        if (empty($lastName)) {
+            header("Location: ../src/register.php?validation=failed2");
+            exit;
+        }
+        if (empty($username) || strlen($username) < 3) {
+            header("Location: ../src/register.php?unlen=failed3");
+            exit;
+        }
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            header("Location: ../src/register.php?validation=failed4");
+            exit;
+        }
+        if (empty($password) || strlen($password) < 6) {
+            header("Location: ../src/register.php?pwlen=failed5");
+            exit;
+        }
+        if (empty($cpassword)) {
+            header("Location: ../src/register.php?validation=failed6");
+            exit;
+        }
+        if (empty($relationship)) {
+            header("Location: ../src/register.php?validation=failed7");
+            exit;
+        }
+        if (empty($contact)) {
+            header("Location: ../src/register.php?validation=failed8");
+            exit;
+        }
 
         try {
             $recaptcha_secret = '6LdSd4csAAAAAL31gtAH7xkNO0fq10rzZuY5Oegc';
-            $recaptcha_response = $_POST['g-recaptcha-response'];
+            $recaptcha_response = $_POST['g-recaptcha-response'] ?? '';
+
+            if (empty($recaptcha_response)) {
+                header("Location: ../src/register.php?validation=failed");
+                exit;
+            }
 
             $url = 'https://www.google.com/recaptcha/api/siteverify';
             $data = [
@@ -135,17 +213,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 header("Location: ../src/register.php?recaptcha=failed");
                 exit;
             }
-            // Check username
-            $query = "SELECT username FROM users WHERE username = :username";
-            $stmt = $pdo->prepare($query);
-            $stmt->execute([':username' => $username]);
-            $usernameExist = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($usernameExist) {
-                header("Location: ../src/register.php?username=exist");
-                exit;
-            }
-
             // Get active school year
             $stmtCheckSY = $pdo->prepare("SELECT * FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
             $stmtCheckSY->execute();
@@ -155,9 +222,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 header("Location: ../src/register.php?noActiveSchoolYear=1");
                 exit;
             }
+            // Check username in both users and admin tables
+            $query = "SELECT username FROM users WHERE username = :username 
+                      UNION 
+                      SELECT admin_username as username FROM admin WHERE admin_username = :username";
+            $stmt = $pdo->prepare($query);
+            $stmt->execute([':username' => $username]);
+            $usernameExist = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Check email
-            $query = "SELECT email FROM users WHERE email = :email";
+            if ($usernameExist) {
+                header("Location: ../src/register.php?username=exist");
+                exit;
+            }
+
+            // Check email in both users and admin tables
+            $query = "SELECT email FROM users WHERE email = :email 
+                      UNION 
+                      SELECT admin_email as email FROM admin WHERE admin_email = :email";
             $stmt = $pdo->prepare($query);
             $stmt->execute([':email' => $email]);
             $emailExist = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -168,25 +249,36 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             // Password match
-            if (($_POST["password"] ?? '') !== ($_POST["cpassword"] ?? '')) {
+            $password = trim($_POST["password"] ?? '');
+            $cpassword = trim($_POST["cpassword"] ?? '');
+            
+            if ($password !== $cpassword) {
                 header("Location: ../src/register.php?password=notMatch");
                 exit;
             }
 
             if (empty($errors)) {
-                $newHashed = password_hash($_POST["password"], PASSWORD_BCRYPT);
+                $newHashed = password_hash($password, PASSWORD_BCRYPT);
                 $user_role = "PARENT";
-                $query = "INSERT INTO users (firstname, middlename, lastname, suffix, user_role, email, relationship, username, password) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $firstName = htmlspecialchars(trim($_POST["firstName"] ?? ''), ENT_QUOTES, 'UTF-8');
+                $contact = htmlspecialchars(trim($_POST["contact"] ?? ''), ENT_QUOTES, 'UTF-8');
+                $middleName = htmlspecialchars(trim($_POST["middleName"] ?? ''), ENT_QUOTES, 'UTF-8');
+                $lastName = htmlspecialchars(trim($_POST["lastName"] ?? ''), ENT_QUOTES, 'UTF-8');
+                $suffix = htmlspecialchars(trim($_POST["suffix"] ?? ''), ENT_QUOTES, 'UTF-8');
+                $relationship = htmlspecialchars(trim($_POST["relationship"] ?? ''), ENT_QUOTES, 'UTF-8');
+                
+                $query = "INSERT INTO users (firstname, middlename, lastname, suffix, user_role, email, relationship, contact, username, password) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 $stmt = $pdo->prepare($query);
                 $stmt->execute([
-                    $_POST["firstName"],
-                    $_POST["middleName"],
-                    $_POST["lastName"],
-                    $_POST["suffix"] ?? null,
+                    $firstName,
+                    $middleName,
+                    $lastName,
+                    $suffix,
                     $user_role,
                     $email,
-                    $_POST["relationship"],
+                    $relationship,
+                    $contact,
                     $username,
                     $newHashed
                 ]);
@@ -199,19 +291,30 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         } catch (PDOException $e) {
             error_log("Registration error: " . $e->getMessage());
-            header("Location: ../src/register.php?error=server");
+            // header("Location: ../src/register.php?error=server");
+            var_dump($e->getMessage());
             exit;
         }
     }
     // PROFILE MANAGEMENT
     if (isset($_POST['parentSettings']) && $_POST['parentSettings'] === 'true') {
-        $user_id  = $_POST["user_id"] ?? null;
-        $firstname = $_POST["firstname"] ?? '';
-        $lastname  = $_POST["lastname"] ?? '';
-        $middlename = $_POST["middlename"] ?? '';
-        $suffix    = $_POST["suffix"] ?? '';
-        $email     = $_POST["email"] ?? '';
+        $user_id  = htmlspecialchars(trim($_POST["user_id"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $firstname = htmlspecialchars(trim($_POST["firstname"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $lastname  = htmlspecialchars(trim($_POST["lastname"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $middlename = htmlspecialchars(trim($_POST["middlename"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $suffix    = htmlspecialchars(trim($_POST["suffix"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $email     = filter_var(trim($_POST["email"] ?? ''), FILTER_SANITIZE_EMAIL);
         $profile   = '';
+
+        // ==================== INPUT VALIDATION ====================== //
+        if (empty($user_id) || empty($firstname) || empty($lastname) || empty($email)) {
+            header("Location: ../src/UI-parents/index.php?page=contents/settings&validation=failed");
+            exit;
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            header("Location: ../src/UI-parents/index.php?page=contents/settings&validation=failed");
+            exit;
+        }
 
         // CSRF protection
         if (!isset($_POST["csrf_token"]) || $_POST["csrf_token"] !== $_SESSION["csrf_token"]) {
@@ -342,13 +445,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     }
     if (isset($_POST['teacherSettings']) && $_POST['teacherSettings'] === 'true') {
-        $user_id  = $_POST["user_id"] ?? null;
-        $firstname = $_POST["firstname"] ?? '';
-        $lastname  = $_POST["lastname"] ?? '';
-        $middlename = $_POST["middlename"] ?? '';
-        $suffix    = $_POST["suffix"] ?? '';
-        $email     = $_POST["email"] ?? '';
+        $user_id  = htmlspecialchars(trim($_POST["user_id"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $firstname = htmlspecialchars(trim($_POST["firstname"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $lastname  = htmlspecialchars(trim($_POST["lastname"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $middlename = htmlspecialchars(trim($_POST["middlename"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $suffix    = htmlspecialchars(trim($_POST["suffix"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $email     = filter_var(trim($_POST["email"] ?? ''), FILTER_SANITIZE_EMAIL);
         $profile   = '';
+
+        // ==================== INPUT VALIDATION ====================== //
+        if (empty($user_id) || empty($firstname) || empty($lastname) || empty($email)) {
+            header("Location: ../src/UI-teacher/index.php?page=contents/settings&validation=failed");
+            exit;
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            header("Location: ../src/UI-teacher/index.php?page=contents/settings&validation=failed");
+            exit;
+        }
 
         // CSRF protection
         if (!isset($_POST["csrf_token"]) || $_POST["csrf_token"] !== $_SESSION["csrf_token"]) {
@@ -479,13 +592,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     }
     if (isset($_POST['adminProfile']) && $_POST['adminProfile'] === 'true') {
-        $adminID  = $_POST["adminID"] ?? null;
-        $admin_lastname      = $_POST["admin_lastname"] ?? '';
-        $admin_firstname      = $_POST["admin_firstname"] ?? '';
-        $admin_middlename      = $_POST["admin_middlename"] ?? '';
-        $admin_suffix     = $_POST["admin_suffix"] ?? '';
-        $admin_email      = $_POST["admin_email"] ?? '';
+        $adminID  = htmlspecialchars(trim($_POST["adminID"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $admin_lastname      = htmlspecialchars(trim($_POST["admin_lastname"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $admin_firstname      = htmlspecialchars(trim($_POST["admin_firstname"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $admin_middlename      = htmlspecialchars(trim($_POST["admin_middlename"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $admin_suffix     = htmlspecialchars(trim($_POST["admin_suffix"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $admin_email      = filter_var(trim($_POST["admin_email"] ?? ''), FILTER_SANITIZE_EMAIL);
         $profile    = '';
+
+        // ==================== INPUT VALIDATION ====================== //
+        if (empty($adminID) || empty($admin_firstname) || empty($admin_lastname) || empty($admin_email)) {
+            header("Location: ../src/UI-Admin/index.php?page=contents/settings&validation=failed");
+            exit;
+        }
+        if (!filter_var($admin_email, FILTER_VALIDATE_EMAIL)) {
+            header("Location: ../src/UI-Admin/index.php?page=contents/settings&validation=failed");
+            exit;
+        }
+
+        // CSRF protection
+        if (!isset($_POST["csrf_token"]) || $_POST["csrf_token"] !== $_SESSION["csrf_token"]) {
+            die("CSRF token validation failed.");
+        }
 
         $errors = [];
 
@@ -533,17 +661,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 header("Location: ../src/UI-Admin/index.php?page=contents/settings&update=success");
                 exit;
+            } else {
+                $_SESSION['error_messages'] = $errors;
+                header("Location: ../src/UI-Admin/index.php?page=contents/settings&update=error");
+                exit;
             }
         } catch (PDOException $e) {
-            die("Query Failed: " . $e->getMessage());
+            error_log("Admin profile update error: " . $e->getMessage());
+            header("Location: ../src/UI-Admin/index.php?page=contents/settings&error=dbError");
+            exit;
         }
     }
     // PASSWORD MANAGEMENT
     if (isset($_POST['usersForgottenPass']) && $_POST['usersForgottenPass'] === 'true') {
-        $Users_id = $_POST["Users_id"] ?? '';
-        $currentPassword = $_POST["current_password"] ?? "";
-        $newPassword = $_POST["new_password"] ?? "";
-        $confirmPassword = $_POST["confirm_password"] ?? "";
+        $Users_id = htmlspecialchars(trim($_POST["Users_id"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $currentPassword = trim($_POST["current_password"] ?? "");
+        $newPassword = trim($_POST["new_password"] ?? "");
+        $confirmPassword = trim($_POST["confirm_password"] ?? "");
 
         try {
             // ==================== FETCH USER ====================== //
@@ -632,28 +766,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     }
     if (isset($_POST['usersForgottenPassAdmin']) && $_POST['usersForgottenPassAdmin'] === 'true') {
-        $Users_id = $_POST["Users_id"];
-        $currentPassword = $_POST["current_password"] ?? "";
-        $newPassword = $_POST["new_password"] ?? "";
-        $confirmPassword = $_POST["confirm_password"] ?? "";
-
-
-
-        // ==================== EMPTY INPUTS ====================== //
-        if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
-            echo json_encode(["status" => "error", "message" => "All fields are required."]);
-            header("Location: ../src/UI-Admin/index.php?page=contents/settings");
-            exit;
-        }
-        // ==================== CONFIRM PASSWORD NOT MATCH ====================== //
-        if ($newPassword !== $confirmPassword) {
-            echo json_encode(["status" => "error", "message" => "New passwords do not match."]);
-            header("Location: ../src/UI-Admin/index.php?page=contents/settings&NewPassword=notMatch");
-            exit;
-        }
+        $Users_id = htmlspecialchars(trim($_POST["Users_id"] ?? ''), ENT_QUOTES, 'UTF-8');
+        $currentPassword = trim($_POST["current_password"] ?? "");
+        $newPassword = trim($_POST["new_password"] ?? "");
+        $confirmPassword = trim($_POST["confirm_password"] ?? "");
 
         try {
-            $Users_id = $Users_id ?? '';
+            // ==================== EMPTY INPUTS ====================== //
+            if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+                echo json_encode(["status" => "error", "message" => "All fields are required."]);
+                header("Location: ../src/UI-Admin/index.php?page=contents/settings");
+                exit;
+            }
+            // ==================== CONFIRM PASSWORD NOT MATCH ====================== //
+            if ($newPassword !== $confirmPassword) {
+                echo json_encode(["status" => "error", "message" => "New passwords do not match."]);
+                header("Location: ../src/UI-Admin/index.php?page=contents/settings&NewPassword=notMatch");
+                exit;
+            }
+
             $stmt = $pdo->prepare("SELECT admin_password FROM admin WHERE admin_id  = :admin_id ");
             $stmt->execute(['admin_id' => $Users_id]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -677,32 +808,52 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 'admin_password' => $newHashed,
                 'admin_id' => $Users_id
             ]);
-            header("Location: ../src/UI-Admin/index.php?page=contents/settings&passwordChange=success");
-            exit;
+            
+            if ($updateSuccess) {
+                header("Location: ../src/UI-Admin/index.php?page=contents/settings&passwordChange=success");
+                exit;
+            } else {
+                header("Location: ../src/UI-Admin/index.php?page=contents/settings&error=updateFailed");
+                exit;
+            }
         } catch (PDOException $e) {
-            echo json_encode(["status" => "error", "message" => "Database error: " . $e->getMessage()]);
-            // header("Location: ../src/UI-Admin/index.php?page=contents/settings&CurrentPasswoed=failedasdasdasd");
+            error_log("Admin password change error: " . $e->getMessage());
+            echo json_encode(["status" => "error", "message" => "Database error occurred"]);
+            header("Location: ../src/UI-Admin/index.php?page=contents/settings&error=dbError");
             exit;
         }
     }
     if (isset($_POST['LogoutAdmin']) && $_POST['LogoutAdmin'] === 'true') {
-        $adminID = $_POST["adminID"];
+        $adminID = htmlspecialchars(trim($_POST["adminID"] ?? ''), ENT_QUOTES, 'UTF-8');
         try {
+            if (empty($adminID)) {
+                session_unset();
+                session_destroy();
+                header('Location: ../index.php');
+                exit;
+            }
+            
             $query = "INSERT INTO admin_history (admin_id, login_time) VALUES (?, NOW());";
             $stmt = $pdo->prepare($query);
             $stmt->execute([$adminID]);
+            
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
             session_unset();
             session_destroy();
             header('Location: ../index.php');
+            exit;
         } catch (PDOException $e) {
-            die('Query Failed: ' . $e->getMessage());
+            error_log('Admin logout error: ' . $e->getMessage());
+            session_unset();
+            session_destroy();
+            header('Location: ../index.php?error=logout');
+            exit;
         }
     }
     if (isset($_POST['LogoutUser']) && $_POST['LogoutUser'] === 'true') {
-        $user_id = $_POST["user_id"];
+        $user_id = htmlspecialchars(trim($_POST["user_id"] ?? ''), ENT_QUOTES, 'UTF-8');
         try {
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
@@ -710,8 +861,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             session_unset();
             session_destroy();
             header('Location: ../index.php');
-        } catch (PDOException $e) {
-            die('Query Failed: ' . $e->getMessage());
+            exit;
+        } catch (Exception $e) {
+            error_log('User logout error: ' . $e->getMessage());
+            session_unset();
+            session_destroy();
+            header('Location: ../index.php?error=logout');
+            exit;
         }
     }
     // if (isset($_POST['adminAccReg']) && $_POST['adminAccReg'] === 'true') {

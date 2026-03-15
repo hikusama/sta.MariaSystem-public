@@ -1,4 +1,4 @@
-<?php include '../header.php';
+<?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -30,7 +30,7 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
     exit;
 }
 
-
+include '../header.php';
 ?>
 <style>
     body {
@@ -47,6 +47,17 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
         align-items: center !important;
     }
 
+    .g-recaptcha {
+        justify-content: center;
+        display: flex;
+    }
+
+    @media screen and (min-width: 768px) {
+        .wrdt {
+            width: 36rem;
+        }
+    }
+
     @media screen and (max-width: 768px) {
         .login-page {
             padding: 2rem 0 !important;
@@ -58,7 +69,7 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
     }
 </style>
 <main class="login-page p-0 d-flex justify-content-center w-100 h-100">
-    <div class="card-header h-fit shadow p-0 m-0 rounded-3 col-md-5 col-11 rounded rounded-top bg-white">
+    <div class="wrdt card-header h-fit shadow p-0 m-0 rounded-3 col-md-5 col-11 rounded rounded-top bg-white">
         <div class="card-header  py-2 text-white bg-danger text-center rounded-top">
             <h4 class="mt-1 text-white">Registration</h4>
         </div>
@@ -104,6 +115,10 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
                         <option value="Guardian">Guardian</option>
                     </select>
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label">Contact Number <span class="text-danger"></span></label>
+                    <input type="tel" class="form-control" name="contact" required="">
+                </div>
                 <h5 class="ms-1 my-1 mt-3">Account Information</h5>
                 <div class="col-md-4">
                     <label class="form-label">Username</label>
@@ -142,6 +157,9 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
     isset($_GET['username']) ||
     isset($_GET['create']) ||
     isset($_GET['noActiveSchoolYear']) ||
+    isset($_GET['validation']) ||
+    isset($_GET['pwlen']) ||
+    isset($_GET['unlen']) ||
     isset($_GET['recaptcha'])
 ): ?>
     <script>
@@ -169,7 +187,19 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
                 },
                 create: {
                     icon: 'success',
-                    title: 'Account Created successfully!'
+                    title: 'Your account is now pending approval.'
+                },
+                validation: {
+                    icon: 'error',
+                    title: 'Please fill in all required fields correctly.'
+                },
+                pwlen: {
+                    icon: 'error',
+                    title: 'Password must be at least 6 characters long.'
+                },
+                unlen: {
+                    icon: 'error',
+                    title: 'Username must be at least 3 characters long.'
                 }
             };
 
@@ -182,7 +212,7 @@ if (isset($_SESSION['admin_id'], $_SESSION['admin_role'])) {
                         title: messages[key].title,
                         position: 'top-end',
                         showConfirmButton: false,
-                        timer: 3000,
+                        timer: 6000,
                         timerProgressBar: true,
                         didClose: () => removeUrlParams([key])
                     });

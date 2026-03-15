@@ -15,9 +15,6 @@
         margin: 5px !important;
     }
 
-    .profile p {
-        color: #000 !important;
-    }
 
     .toggle-section {
         max-height: 0;
@@ -73,7 +70,7 @@
 </style>
 
 <?php
-$query = "SELECT * FROM admin";
+$query = "SELECT * FROM admin limit 1";
 $stmt = $pdo->prepare($query);
 $stmt->execute();
 $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -82,11 +79,17 @@ $profile = $result["admin_picture"];
 <nav id="sidebar" class="navbarHide shadow" style="z-index: 55;">
     <div style="width: 240px; border-radius: 5px;">
         <div class="profile w-100 h-auto d-flex flex-column align-items-center px-2 pb-2 mt-3" id="profile_slide">
-            <?php if ($profile) { ?>
-                <img src="../../authentication/uploads/<?= $profile; ?>" alt="" style="width: 90px; height: 90px; border-radius: 50%;">
-            <?php } else { ?>
-                <img src="../../assets/image/users.png" alt="" style="width: 90px; height: 90px; border-radius: 50%;">
-            <?php } ?>
+            <div class="adprof">
+                <?php if ($profile) { ?>
+                    <img src="../../authentication/uploads/<?= $profile; ?>" alt="" style="width: 90px; height: 90px; border-radius: 50%;">
+                <?php } else { ?>
+                    <img src="../../assets/image/users.png" alt="" style="width: 90px; height: 90px; border-radius: 50%;">
+                <?php } ?>
+                <a class="contad" href="index.php?page=contents/admincontroll">
+                    <div class="admc"><i class="fa-brands fa-expeditedssl"></i> Controll</div>
+                    <p>Administrator</p>
+                </a>
+            </div>
             <p class="fw-bold text-center text-black"><?php echo ucwords(strtolower($result["admin_lastname"] . ', ' . $result["admin_firstname"])); ?></p>
         </div>
         <div class="sidebar-list m-2">
@@ -136,11 +139,6 @@ $profile = $result["admin_picture"];
                 <span class=""><i class=""></i></span> Account Settings
             </a>
             <div class="trf2">
-                <div class="h-100 align-items-center " style="display: flex;">
-                    <!-- <i class="fas fa-user-shield me-2"></i> -->
-                    <span><?php echo ucwords(strtolower($result["admin_lastname"] . ', ' . $result["admin_firstname"])); ?></span>
-                </div>
-
                 <button onclick="LogoutButton()" class="d-flex gap-2 align-items-center justify-content-center">
                     <p class="m-0">Logout</p>
                     <div style="border: none; background: none;" class="">

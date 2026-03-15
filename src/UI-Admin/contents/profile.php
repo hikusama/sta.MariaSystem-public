@@ -332,10 +332,10 @@ $gradesData = [];
                         <div class="profile-avatar-container mx-auto mb-3">
                             <div class="profile-avatar position-relative">
                                 <?php if ($student_info["student_profile_img"] != null): ?>
-                                    <img src="<?= BASE_FR ?>/authentication/uploads/<?php echo htmlspecialchars($student_info["student_profile_img"]); ?>"
+                                    <img src="<?= base_url() ?>/authentication/uploads/<?php echo htmlspecialchars($student_info["student_profile_img"]); ?>"
                                         class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Profile Picture">
                                 <?php else: ?>
-                                    <img src="<?= BASE_FR ?>/assets/image/users.png" class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Default Profile">
+                                    <img src="<?= base_url() ?>/assets/image/users.png" class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Default Profile">
                                 <?php endif; ?>
                                 <span class="badge bg-primary position-absolute top-0 end-0 rounded-pill p-2">
                                     <i class="fas fa-graduation-cap"></i>
@@ -1804,7 +1804,7 @@ $gradesData = [];
             formData.append('year', selectedYear);
             formData.append('school_year_name', e.target.options[e.target.selectedIndex].text.trim());
             
-            fetch('<?= BASE_FR ?>/src/UI-Admin/contents/profile.php', {
+            fetch('<?= base_url() ?>/src/UI-Admin/contents/profile.php', {
                 method: 'POST',
                 body: formData
             })

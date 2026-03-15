@@ -114,31 +114,58 @@ if ($result['res']) {
 </style>
 <main>
     <?php
-    $stmt = $pdo->prepare("SELECT * FROM sf_add_data");
+    $stmt = $pdo->prepare("SELECT * FROM sf_add_data WHERE sf_add_data_id = 4");
     $stmt->execute();
     $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
     ?>
 
     <?php
-    // Get selected month from the form
-    $selected_month = isset($_POST['month']) ? $_POST['month'] : (isset($_GET['month']) ? $_GET['month'] : '');
-    
+    // Fetch SF4 data and get the saved month from database FIRST
+    $stmt = $pdo->prepare("SELECT * FROM sf_add_data WHERE sf_add_data_id = 3");
+    $stmt->execute();
+    $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $report_for_the_month_of = $data_sf_four["report_for_the_month_of"] ?? '';
+    if ($report_for_the_month_of) {
+        $report_for_the_month_of = strtoupper(date("F", strtotime($report_for_the_month_of)));
+    }
+
+    // Save month to database when dropdown changes (on form submit)
+    // if (isset($_POST['month']) && !empty($_POST['id'])) {
+    //     $monthToSave = $_POST['month'];
+    //     if ($monthToSave) {
+    //         $monthDate = date('Y-m-d', strtotime("$monthToSave 1 " . date('Y')));
+    //     } else {
+    //         $monthDate = null;
+    //     }
+
+    //     $updateStmt = $pdo->prepare("UPDATE sf_add_data SET report_for_the_month_of = :month WHERE sf_add_data_id = 3");
+    //     $updateStmt->execute([
+    //         ':month' => $monthDate
+    //     ]);
+
+    //     $report_for_the_month_of = $monthToSave;
+    // }
+
+    // Get selected month from form, default to saved database value
+    $selected_month = isset($_POST['month']) ? $_POST['month'] : (isset($_GET['month']) ? $_GET['month'] : $report_for_the_month_of);
+
     // Get active school year (with ID for filtering)
     $activeSyStmt = $pdo->prepare("SELECT school_year_id, school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
     $activeSyStmt->execute();
     $activeSyData = $activeSyStmt->fetch(PDO::FETCH_ASSOC);
     $defaultSyId = $activeSyData['school_year_id'] ?? 0;
     $default_sy_name = $activeSyData['school_year_name'] ?? '';
-    
+
     // Get selected school year from form (default to active if not selected)
     $selected_sy_id = isset($_POST['school_year']) ? (int)$_POST['school_year'] : (isset($_GET['school_year']) ? (int)$_GET['school_year'] : $defaultSyId);
     $activeSyId = $selected_sy_id; // Use selected SY for filtering
-    
+
     // Fetch all school years for dropdown
     $syStmt = $pdo->prepare("SELECT school_year_id, school_year_name FROM school_year ORDER BY school_year_name DESC");
     $syStmt->execute();
     $school_years = $syStmt->fetchAll(PDO::FETCH_ASSOC);
-    
+
     $month_number = 0;
 
     // Convert month name to month number
@@ -167,10 +194,6 @@ if ($result['res']) {
     $grade_stmt = $pdo->prepare("SELECT DISTINCT Grade_level FROM enrolment WHERE enrolment_Status = 'Approved' AND school_year_id = ? ORDER BY Grade_level");
     $grade_stmt->execute([$activeSyId]);
     $grade_levels = $grade_stmt->fetchAll(PDO::FETCH_COLUMN);
-
-    $stmt = $pdo->prepare("SELECT * FROM sf_add_data");
-    $stmt->execute();
-    $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
     ?>
 
     <form class="main-container" id="sfFour-form" method="POST">
@@ -242,7 +265,7 @@ if ($result['res']) {
                     <div class="d-flex align-items-center mb-2">
                         <label class="me-2 col-4">Report for the month of</label>
                         <div style="display:flex; gap:12px; align-items:center;">
-                            <select name="month" id="month_attendance" class="form-select" onchange="this.form.submit()">
+                            <select name="month" id="month_attendance" value="<?= htmlspecialchars($report_for_the_month_of) ?>" class="form-select" onchange="this.form.submit()">
                                 <option value="">Select Month</option>
                                 <?php
                                 $months = ['JANUARY', 'FEBRUARY', 'MARCH', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
@@ -268,23 +291,30 @@ if ($result['res']) {
 
         <?php if ($selected_month && $month_number): ?>
             <?php
-            // Calculate first and last day of selected month
+            $current_year = date('Y'); // or get from selected year
+            $selected_month_name = $selected_month ?? date('F'); // e.g., "MARCH"
             $first_day_of_month = date("$current_year-$month_number-01");
             $last_day_of_month = date('Y-m-d', strtotime("$first_day_of_month +1 month -1 day"));
 
+            // Convert month name to number
+            $month_number = date('m', strtotime("$selected_month_name 1 $current_year")); // 01..12
+
+
             // Function to count school days (Mon-Fri) in a month
-            function count_school_days($month, $year)
+            function count_school_days($month_number, $year)
             {
-                $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+                $days_in_month = (int) date("t", strtotime("$year-$month_number-01"));
                 $count = 0;
                 for ($d = 1; $d <= $days_in_month; $d++) {
-                    $w = date('w', strtotime(sprintf('%04d-%02d-%02d', $year, $month, $d)));
-                    if ($w >= 1 && $w <= 5) $count++;
+                    $w = date('w', strtotime(sprintf('%04d-%02d-%02d', $year, $month_number, $d)));
+                    if ($w >= 1 && $w <= 6) {
+                        $count++;
+                    }
                 }
                 return $count;
             }
 
-            $school_days_count = count_school_days($month_number, $current_year);
+            $school_days_count = count_school_days((int)$month_number, $current_year);
             ?>
 
             <div class="scroll-container">
@@ -1052,9 +1082,9 @@ if ($result['res']) {
             <!DOCTYPE html>
             <html>
             <head>
-  <?= 
-                '<link rel="icon" href="' . base_url() . '/assets/image/logo2.png" type="image/x-icon">'
-                ?>
+  <?=
+    '<link rel="icon" href="' . base_url() . '/assets/image/logo2.png" type="image/x-icon">'
+    ?>
                 <title>School Form 4 (SF4) Monthly Learner's Movement and Attendance</title>
                 <style>
                     body {
@@ -1183,6 +1213,7 @@ if ($result['res']) {
                 span.style.padding = '0 5px';
                 input.parentNode.replaceChild(span, input);
             });
+            const selectedMonth = "<?= $selected_month ?>";
 
             // Remove the save and generate buttons
             const buttons = mainContainer.querySelectorAll('button');
@@ -1200,7 +1231,7 @@ if ($result['res']) {
                     <tr>
                         <td><strong>School Name:</strong> ${document.querySelector('input[name="school_name"]')?.value || ''}</td>
                         <td><strong>School Year:</strong> ${document.querySelector('input[name="school_year_name"]')?.value || ''}</td>
-                        <td><strong>Report Month:</strong> ${formatDate(document.querySelector('input[name="report_for_the_month_of"]')?.value || '')}</td>
+                        <td><strong>Report Month:</strong> ${selectedMonth}</td>
                     </tr>
                 </table>
             </div>

@@ -13,8 +13,6 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 
 
-$pdo = new PDO("mysql:host=localhost;dbname=stamariadb;charset=utf8", "root", "");
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $student_id = isset($_GET['student_id']) ? trim($_GET['student_id']) : null;
 $school_year_name = isset($_GET['school_year_name']) ? trim($_GET['school_year_name']) : null;
@@ -135,20 +133,35 @@ if (isset($_GET['download']) && $_GET['download'] === '1') {
   if (!$student) {
     die("Error: Student not found.");
   }
-  // file name saving as excel file based sa student info
+
   $fileName = build_sf9_filename($student['lrn'] ?? '', $student['fname'] ?? '', $student['lname'] ?? '', $student['gradeLevel'] ?? '');
-  // die(BASE_PATH);
   $filePath = BASE_PATH . '/sf9_files/' . $fileName;
 
+  if (isset($_GET['check']) && $_GET['check'] === '1') {
+    header('Content-Type: application/json');
+    echo json_encode([
+      'exists' => file_exists($filePath),
+      'filename' => $fileName
+    ]);
+    exit;
+  }
+
   if (!file_exists($filePath)) {
+    http_response_code(404);
 ?>
     <script>
-      alert("File not found: <?php echo htmlspecialchars($fileName); ?>");
-      window.history.back();
+      if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+        Swal.fire({
+          icon: 'error',
+          title: 'File not found',
+          text: '<?= addslashes(htmlspecialchars($fileName, ENT_QUOTES)) ?>'
+        });
+      }
     </script>
 <?php
     exit;
   }
+
   header('Content-Description: File Transfer');
   header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   header('Content-Disposition: attachment; filename="' . basename($fileName) . '"');
@@ -321,19 +334,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $emptyfinal++;
     }
   }
-  ?>
-<script>
-  alert("Debug: general_average = <?php echo isset($data['general_average']) ? $data['general_average'] : 'null'; ?>, emptyfinal = <?php echo $emptyfinal; ?>");
-</script>
-  <?php
 
-  if ($data["general_average"] !== null && $emptyfinal === 0) {
-    $passed = false;
-    if ($data["general_average"] >= 75.0) {
-      $passed = true;
-    }
-    $pdo->prepare("UPDATE student SET IsMovingUp = ? WHERE student_id = ?")
-      ->execute([$passed, $student_id]);
+  if ($data["general_average"] !== null && $emptyfinal === 0 && !empty($student_id)) {
+    $movingUp = ($data["general_average"] >= 75.0) ? 1 : 0;
+    $stmt = $pdo->prepare("UPDATE student SET IsMovingUp = ? WHERE student_id = ?");
+    $stmt->bindValue(1, $movingUp, PDO::PARAM_INT);
+    $stmt->bindValue(2, $student_id, is_numeric($student_id) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    $stmt->execute();
   }
 
   $behavior_texts = [
@@ -446,6 +453,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="UTF-8">
   <title>SF9 Fill</title>
+    <link rel="icon" href="<?php echo base_url() ?>/assets/image/logo2.png" type="image/x-icon">
   <link href="<?= base_url() ?>assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="<?= base_url() ?>assets/fontawesome/css/all.min.css">
   <!-- <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"> -->
@@ -818,7 +826,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <div class="text-white d-flex align-items-center justify-content-between col-12 m-0 p-0 header-brand flex-wrap">
     <div class="d-flex align-items-center ps-md-4 ps-2">
-      <img src="<?= BASE_FR ?>/assets/image/logo2.png" alt="Logo"
+      <img src="<?= base_url() ?>/assets/image/logo2.png" alt="Logo"
         style="width: 65px; height: 65px; border-radius: 50%; margin-right: 15px; object-fit: cover;">
       <h4 class="card-title text-white m-0 fw-bold" style="font-size: 1.3rem;">STA.MARIA WEB SYSTEM</h4>
     </div>
@@ -850,7 +858,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <i class="fa-solid fa-triangle-exclamation fa-3x text-warning mb-3"></i>
           <h5 class="fw-bold text-danger mb-2"><?= htmlspecialchars($alertTitle) ?></h5>
           <p class="text-muted mb-3"><?= htmlspecialchars($alertMessage) ?></p>
-          <button type="button" onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf9'" class="btn btn-primary">
+          <button type="button" onclick="window.location.href='<?= base_url() ?>/src/UI-teacher/index.php?page=contents/sf9'" class="btn btn-primary">
             <i class="fa-solid fa-arrow-left me-1"></i> Go Back
           </button>
         </div>
@@ -906,11 +914,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if ($student):
               $downloadUrl = htmlspecialchars($_SERVER['PHP_SELF']) . '?student_id=' . urlencode($student_id) . '&download=1' . '&school_year_name=' . urlencode($school_year_name);
             ?>
-              <a href="<?= $downloadUrl ?>" class="btn btn-success btn-lg">Download</a>
+              <button type="button" id="download-btn" data-download-url="<?= $downloadUrl ?>" class="btn btn-success btn-lg">Download</button>
             <?php else: ?>
-              <a href="#" class="btn btn-success btn-lg disabled" title="No student selected">Download</a>
+              <button type="button" id="download-btn" class="btn btn-success btn-lg disabled" title="No student selected" disabled>Download</button>
             <?php endif; ?>
-            <a onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf9'" class="btn btn-secondary btn-lg">Back</a>
+            <a onclick="window.location.href='<?= base_url() ?>/src/UI-teacher/index.php?page=contents/sf9'" class="btn btn-secondary btn-lg">Back</a>
           </div>
 
         </div>
@@ -1263,7 +1271,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </div>
 
-  <script src="<?= BASE_FR ?>/assets/js/bootstrap.min.js"></script>
+  <script src="<?= base_url() ?>/assets/js/sweetalert2.min.js"></script>
+  <script src="<?= base_url() ?>/assets/js/bootstrap.min.js"></script>
   <script>
     (function() {
       const schoolInputs = Array.from(document.querySelectorAll("input[name^='days_school_']"));
@@ -1347,13 +1356,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           setTimeout(function() {
             bsModal.hide();
 
-            const params = new URLSearchParams(window.location.search);
             <?php if (!empty($student_id)): ?>
-              window.location.href = window.location.pathname +
-                '?student_id=' + encodeURIComponent(<?= json_encode($student_id) ?>) +
+              window.location.href = '<?= base_url() ?>/src/UI-teacher/index.php?page=contents/sf9' +
+                '&student_id=' + encodeURIComponent(<?= json_encode($student_id) ?>) +
                 '&school_year_name=' + encodeURIComponent(<?= json_encode($school_year_name) ?>);
             <?php else: ?>
-              window.location.reload();
+              window.location.href = '<?= base_url() ?>/src/UI-teacher/index.php?page=contents/sf9';
             <?php endif; ?>
           }, 2000);
         <?php endif; ?>
@@ -1377,12 +1385,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     });
 
     function checkGradesAndShowWarning() {
-      const inputs = document.querySelectorAll('.grade-input');
-      let hasFilled = false;
+      const qInputs = document.querySelectorAll('.table-grades input.q');
+      const finalInputs = document.querySelectorAll('.table-grades input.final');
+      let hasFilled = Array.from(qInputs).some(input => input.value.trim() !== '');
 
-      inputs.forEach(input => {
-        if (input.value.trim() !== '') hasFilled = true;
-      });
+      if (!hasFilled) {
+        hasFilled = Array.from(finalInputs).some(input => input.value.trim() !== '');
+      }
 
       const warning = document.getElementById('gradeLockWarning');
       const saveBtn = document.getElementById('saveBtn');
@@ -1423,6 +1432,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           mainForm.submit();
         }
       });
+
+      const downloadBtn = document.getElementById('download-btn');
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', async function() {
+          const downloadUrl = this.getAttribute('data-download-url');
+          if (!downloadUrl) {
+            if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+              Swal.fire({
+                icon: 'warning',
+                title: 'No student file',
+                text: 'Please save current record first before downloading.'
+              });
+            }
+            return;
+          }
+
+          try {
+            const checkUrl = new URL(downloadUrl, window.location.origin);
+            checkUrl.searchParams.set('check', '1');
+            const response = await fetch(checkUrl.toString(), { cache: 'no-store' });
+            if (!response.ok) throw new Error('Check failed');
+            const data = await response.json();
+
+            if (data.exists) {
+              if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Download ready',
+                  text: `Found ${data.filename}. Preparing download...`,
+                  timer: 900,
+                  showConfirmButton: false
+                });
+              }
+
+              setTimeout(() => {
+                let iframe = document.getElementById('download-iframe');
+                if (!iframe) {
+                  iframe = document.createElement('iframe');
+                  iframe.id = 'download-iframe';
+                  iframe.style.display = 'none';
+                  document.body.appendChild(iframe);
+                }
+                iframe.src = downloadUrl;
+              }, 950);
+            } else {
+              if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'File not found',
+                  text: 'No generated file exists yet. Save first before downloading.'
+                });
+              }
+            }
+          } catch (err) {
+            if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+              Swal.fire({
+                icon: 'error',
+                title: 'Download check failed',
+                text: 'Unable to verify file availability.'
+              });
+            }
+          }
+        });
+      }
 
       document.addEventListener('input', function(e) {
         if (e.target.id === 'confirmInput') {

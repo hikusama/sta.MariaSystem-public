@@ -23,10 +23,10 @@ if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
     }
 
     // Build SQL with optional filters
-    $sql = "SELECT student.*, parents_info.*, stuEnrolmentInfo.*, enrolment.Grade_level, enrolment.section_name
+    $sql = "SELECT student.*, parents_info.*, stuenrolmentinfo.*, enrolment.Grade_level, enrolment.section_name
             FROM student
             INNER JOIN parents_info ON student.student_id = parents_info.student_id
-            INNER JOIN stuEnrolmentInfo ON student.student_id = stuEnrolmentInfo.student_id
+            INNER JOIN stuenrolmentinfo ON student.student_id = stuenrolmentinfo.student_id
             INNER JOIN enrolment ON student.student_id = enrolment.student_id
             LEFT JOIN school_year ON school_year.school_year_id = enrolment.school_year_id
             WHERE student.enrolment_status = 'active'";
@@ -241,7 +241,7 @@ $school_year_name = $currentSy['school_year_name'] ?? '';
 
 <main>
     <?php
-    $stmt = $pdo->prepare("SELECT * FROM sf_add_data");
+    $stmt = $pdo->prepare("SELECT * FROM sf_add_data WHERE sf_add_data_id = 1");
     $stmt->execute();
     $data_sf_four = $stmt->fetch(PDO::FETCH_ASSOC);
     ?>

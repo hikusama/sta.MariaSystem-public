@@ -6,8 +6,9 @@ if ($result['res']) {
     exit;
 }
 
+
 $teacher_id = $_SESSION['user_id'];
-$conn = new mysqli("localhost", "root", "", "stamariadb");
+$conn = new mysqli("db", "stuser", "stpass", "stamaraiadb");
 if ($conn->connect_error) die("Connection failed");
 
 $perPage = 10;
@@ -561,7 +562,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
             function attachRowClick() {
                 document.querySelectorAll('.student-row').forEach(row => {
                     row.onclick = () => {
-                        window.location.href = "<?= BASE_FR ?>/src/UI-teacher/contents/schoolform10.php?student_id=" + row.dataset.id;
+                        window.location.href = "<?= base_url() ?>/src/UI-teacher/contents/schoolform10.php?student_id=" + row.dataset.id;
                     };
                 });
             }

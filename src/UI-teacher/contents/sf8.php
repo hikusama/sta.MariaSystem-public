@@ -10,10 +10,10 @@ $user_id = $_SESSION['user_id'];
 $selectedGrade = $_POST['gradeLevelCategory'] ?? '';
 
 // Build the SQL query with optional grade level filter
-$sql = "SELECT student.*, parents_info.*, stuEnrolmentInfo.*, enrolment.Grade_level 
+$sql = "SELECT student.*, parents_info.*, stuenrolmentinfo.*, enrolment.Grade_level 
         FROM student
         INNER JOIN parents_info ON student.student_id = parents_info.student_id
-        INNER JOIN stuEnrolmentInfo ON student.student_id = stuEnrolmentInfo.student_id
+        INNER JOIN stuenrolmentinfo ON student.student_id = stuenrolmentinfo.student_id
         INNER JOIN enrolment ON student.student_id = enrolment.student_id
         WHERE student.enrolment_status = 'active'";
 
@@ -447,7 +447,7 @@ function submitSF8() {
     mainContainer.classList.add('loading');
 
     // Assuming you have an action file to handle the form submission
-    fetch('../actions/sf_actions.php', {
+    fetch(base_url + "authentication/action.php?action=sfEight_form", {
         method: 'POST',
         body: formData
     })

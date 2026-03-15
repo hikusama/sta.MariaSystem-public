@@ -908,7 +908,7 @@ CREATE TABLE `student` (
 --
 
 CREATE TABLE `stuenrolmentinfo` (
-  `stuEnrolmentInfo_id` int(11) NOT NULL,
+  `stuenrolmentinfo_id` int(11) NOT NULL,
   `student_id` int(11) NOT NULL,
   `mother_tongue` varchar(50) DEFAULT NULL,
   `house_no` varchar(50) DEFAULT NULL,
@@ -918,8 +918,8 @@ CREATE TABLE `stuenrolmentinfo` (
   `province` varchar(50) DEFAULT NULL,
   `country` varchar(50) DEFAULT NULL,
   `zip_code` varchar(50) DEFAULT NULL,
-  `diagnosis` varchar(50) DEFAULT NULL,
-  `manifestations` varchar(50) DEFAULT NULL,
+  `diagnosis` varchar(250) DEFAULT NULL,
+  `manifestations` varchar(320) DEFAULT NULL,
   `pwd_id` varchar(50) DEFAULT NULL,
   `balik_aral` varchar(50) DEFAULT NULL,
   `learning_mode` varchar(50) DEFAULT NULL,
@@ -980,12 +980,42 @@ CREATE TABLE `users_history` (
   `logout_time` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `accessibility`
+--
+
+CREATE TABLE `accessibility` (
+  `id` int(11) NOT NULL,
+  `accessible_to` varchar(15) NOT NULL DEFAULT 'allusers'
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
 
 INSERT INTO `admin` ( `admin_firstname`, `admin_middlename`, `admin_lastname`, `admin_suffix`, `admin_picture`, `admin_email`, `admin_username`, `admin_password`, `admin_user_role`) 
-VALUES( 'Administrator', 'Administrator', 'Administrator', '', '', 'stamariaenrollmentsystem@gmail.com', 'admin', '$2y$10$8KCwOtNLe.em638llio8rew./p1/Fe6NKoHncV02wKK691pk8pOd.', 'admin');
+VALUES( 'Stamaria', 'Stamaria', 'Stamaria', '', '', 'stamariaenrollmentsystem@gmail.com', 'admin', '$2y$10$8KCwOtNLe.em638llio8rew./p1/Fe6NKoHncV02wKK691pk8pOd.', 'admin');
 --
 -- Indexes for dumped tables
 --
+
+
+--
+-- Indexes for table `accessibility`
+--
+ALTER TABLE `accessibility`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `accessibility`
+--
+ALTER TABLE `accessibility`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+COMMIT;
+
 
 --
 -- Indexes for table `admin`
@@ -1119,7 +1149,7 @@ ALTER TABLE `student`
 -- Indexes for table `stuenrolmentinfo`
 --
 ALTER TABLE `stuenrolmentinfo`
-  ADD PRIMARY KEY (`stuEnrolmentInfo_id`),
+  ADD PRIMARY KEY (`stuenrolmentinfo_id`),
   ADD KEY `student_id` (`student_id`);
 
 --
@@ -1257,7 +1287,7 @@ ALTER TABLE `student`
 -- AUTO_INCREMENT for table `stuenrolmentinfo`
 --
 ALTER TABLE `stuenrolmentinfo`
-  MODIFY `stuEnrolmentInfo_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `stuenrolmentinfo_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `subjects`

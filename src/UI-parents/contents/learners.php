@@ -208,8 +208,8 @@ if (isset($_POST['ajax'])) {
 
                                     <!-- LRN Badge -->
                                     <div class="position-absolute bottom-0 end-0 bg-dark text-white rounded-pill px-2 py-1 lrr"
-                                        style="font-size: 10px; transform: translate(5px, 5px);">
-                                        LRN: <?= substr(htmlspecialchars($student["lrn"]), 0, 6) ?>...
+                                        style="font-size: 10px; transform: translate(5px, 5px); white-space: nowrap;">
+                                        LRN: <?= htmlspecialchars($student["lrn"]) ?>
                                     </div>
                                 </div>
                                 <div class="rsyr">

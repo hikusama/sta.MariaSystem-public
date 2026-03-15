@@ -332,7 +332,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 1) {
                         const school_year = this.dataset.school_year;
                         const gradeLevel = this.dataset.grade;
                         const sectionName = this.dataset.section;
-                        const url = `<?php echo BASE_FR; ?>/src/UI-teacher/contents/schoolform5.php?school_year=${school_year}&section_id=${encodeURIComponent(sectionId)}&grade=${encodeURIComponent(gradeLevel)}&section=${encodeURIComponent(sectionName)}`;
+const baseFr = '<?php echo rtrim(base_url(), "/"); ?>';
+const url = `${baseFr}/src/UI-teacher/contents/schoolform5.php?school_year=${school_year}&section_id=${encodeURIComponent(sectionId)}&grade=${encodeURIComponent(gradeLevel)}&section=${encodeURIComponent(sectionName)}`;
                         window.location.href = url;
                     });
                 });

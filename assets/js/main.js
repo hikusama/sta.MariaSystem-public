@@ -1327,9 +1327,21 @@ $(document).ready(function () {
     $(document).on("submit", "#sfFour-form", function (e) {
         // alert('Button Submit');
         e.preventDefault();
+
         const $form = $(this);
         if ($form.data("isSubmitted")) return;
         $form.data("isSubmitted", true);
+        e.preventDefault();
+
+        let monthVal = $("#month_attendance").val();
+
+        // create hidden input and append to form
+        $form.append(
+            $('<input>')
+                .attr('type', 'hidden')
+                .attr('name', 'report_for_the_month_of')
+                .val(monthVal)
+        );
 
         const formData = new FormData(this);
         const $btn = $form.find("button[type='submit']");
@@ -1393,6 +1405,30 @@ $(document).ready(function () {
         if ($form.data("isSubmitted")) return;
         $form.data("isSubmitted", true);
 
+        const month = document.getElementById('month_attendance').value;
+
+        if (!month) {
+            return false;
+        }
+
+        const year = new Date().getFullYear();
+        const monthMap = {
+            'JANUARY': '01',
+            'FEBRUARY': '02',
+            'MARCH': '03',
+            'APRIL': '04',
+            'MAY': '05',
+            'JUNE': '06',
+            'JULY': '07',
+            'AUGUST': '08',
+            'SEPTEMBER': '09',
+            'OCTOBER': '10',
+            'NOVEMBER': '11',
+            'DECEMBER': '12'
+        };
+
+
+
         const formData = new FormData(this);
         const $btn = $form.find("button[type='submit']");
         $btn.prop("disabled", true);
@@ -1449,7 +1485,7 @@ $(document).ready(function () {
         });
     });
 
-    $('#saveBtn').click(function (e) { 
+    $('#saveBtn').click(function (e) {
         e.preventDefault();
         const lockConf = document.getElementById('saveModal');
         const svm = new bootstrap.Modal(lockConf);

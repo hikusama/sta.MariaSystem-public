@@ -316,7 +316,7 @@ if ($student_id && $school_year_name) {
                 <nav aria-label="breadcrumb" class="breadcrumb-nav">
                     <ol class="breadcrumb mb-0">
                         <li class="breadcrumb-item">
-                            <a href="<?= BASE_FR ?>/src/UI-parents/index.php?page=contents/student" class="text-decoration-none">
+                            <a href="<?= base_url() ?>/src/UI-parents/index.php?page=contents/student" class="text-decoration-none">
                                 <i class="fas fa-users me-1"></i>Learners
                             </a>
                         </li>
@@ -342,10 +342,10 @@ if ($student_id && $school_year_name) {
                         <div class="profile-avatar-container mx-auto mb-3">
                             <div class="profile-avatar position-relative">
                                 <?php if($student_info["student_profile_img"] != null): ?>
-                                    <img src="<?= BASE_FR ?>/authentication/uploads/<?php echo htmlspecialchars($student_info["student_profile_img"]);?>" 
+                                    <img src="<?= base_url() ?>/authentication/uploads/<?php echo htmlspecialchars($student_info["student_profile_img"]);?>" 
                                          class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Profile Picture">
                                 <?php else: ?>
-                                    <img src="<?= BASE_FR ?>/assets/image/users.png" class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Default Profile">
+                                    <img src="<?= base_url() ?>/assets/image/users.png" class="img-fluid" style="width:180px; height: auto; border-radius: 50%;" alt="Default Profile">
                                 <?php endif; ?>
                                 <span class="badge bg-primary position-absolute top-0 end-0 rounded-pill p-2">
                                     <i class="fas fa-graduation-cap"></i>
@@ -1954,7 +1954,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('year', selectedYear);
         formData.append('school_year_name', e.target.options[e.target.selectedIndex].text.trim());
         
-        fetch('<?= BASE_FR ?>/src/UI-parents/contents/profile.php', {
+        fetch('<?= base_url() ?>/src/UI-parents/contents/profile.php', {
             method: 'POST',
             body: formData
         })

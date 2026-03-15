@@ -15,6 +15,8 @@ if ($result['res']) {
 }
 if (!isset($showSuccess)) $showSuccess = false;
 if (!isset($successMessage)) $successMessage = '';
+if (!isset($showError)) $showError = false;
+if (!isset($errorMessage)) $errorMessage = '';
 
 $pdo = db_connect();
 
@@ -264,7 +266,7 @@ function generateSF10Excel($pdo, $student_id, $save_directory = null)
     }
 
     // Add logo
-    $logo_path = $_SERVER['DOCUMENT_ROOT'] . BASE_FR . '/assets/image/deped.png';
+    $logo_path = $_SERVER['DOCUMENT_ROOT'] . base_url() . '/assets/image/deped.png';
     if (file_exists($logo_path)) {
       $drawing = new Drawing();
       $drawing->setName('DepEd Logo');
@@ -554,6 +556,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Handler to actually download the file from sf10_files directory
 if (isset($_GET['download_sf10'])) {
+  // quick JSON check route for frontend before redirecting
+  if (isset($_GET['check']) && $_GET['check'] === '1') {
+    $filename = $_GET['download_sf10'] ?? null;
+    $filename = basename((string)$filename);
+    $savePath = BASE_PATH . '/sf10_files' . DIRECTORY_SEPARATOR . $filename;
+    header('Content-Type: application/json');
+    echo json_encode([
+      'exists' => !empty($filename) && file_exists($savePath),
+      'filename' => $filename
+    ]);
+    exit;
+  }
+
   try {
     $filename = $_GET['download_sf10'] ?? null;
     if (!$filename) throw new Exception('No filename provided');
@@ -563,10 +578,16 @@ if (isset($_GET['download_sf10'])) {
     $savePath = BASE_PATH . '/sf10_files' . DIRECTORY_SEPARATOR . $filename;
 
     if (!file_exists($savePath)) {
+      if (!headers_sent()) {
+        http_response_code(404);
+      }
 ?>
       <script>
-        alert("File not found: <?php echo htmlspecialchars($filename); ?>");
-        window.history.back();
+        Swal.fire({
+          icon: 'error',
+          title: 'File not found',
+          text: '<?= addslashes(htmlspecialchars($filename, ENT_QUOTES)) ?>'
+        });
       </script>
 <?php
       exit;
@@ -583,7 +604,12 @@ if (isset($_GET['download_sf10'])) {
     readfile($savePath);
     exit;
   } catch (Exception $e) {
-    die("Error: " . htmlspecialchars($e->getMessage()));
+    if (!headers_sent()) {
+      echo '<script>Swal.fire({ icon: "error", title: "Download error", text: "'. addslashes(htmlspecialchars($e->getMessage(), ENT_QUOTES)) . '" });</script>';
+    } else {
+      echo 'Error: ' . htmlspecialchars($e->getMessage());
+    }
+    exit;
   }
 }
 
@@ -732,7 +758,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['is_new_scholastic_rec
       throw new Exception('Adviser name is required');
     }
 
-    error_log("DEBUG: Validation passed. Checking school year format.");
+    // error_log("DEBUG: Validation passed. Checking school year format.");
 
     // Validate school year
     $sy_validation = validateSchoolYearPHP($school_year);
@@ -922,11 +948,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['is_new_scholastic_rec
     $showSuccess = true;
     $successMessage = "New scholastic record for {$school_year} has been saved successfully!";
 
-    // Reload the page to show the new record in the tabs
+    if (isset($_POST['ajax_save']) && $_POST['ajax_save'] === '1') {
+      header('Content-Type: application/json');
+      echo json_encode([
+        'success' => true,
+        'message' => $successMessage
+      ]);
+      exit;
+    }
+
+    // Reload the page to show the new record in the tabs when not AJAX
     header("Location: " . $_SERVER['REQUEST_URI']);
     exit;
   } catch (Exception $e) {
-    die('Error: ' . htmlspecialchars($e->getMessage()));
+    if (isset($_POST['ajax_save']) && $_POST['ajax_save'] === '1') {
+      header('Content-Type: application/json');
+      echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+      exit;
+    }
+
+    $showError = true;
+    $errorMessage = $e->getMessage();
   }
 }
 
@@ -1035,6 +1077,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
     $showSuccess = true;
     $successMessage = 'SF10 data saved successfully!';
 
+    if (isset($_POST['ajax_save']) && $_POST['ajax_save'] === '1') {
+      header('Content-Type: application/json');
+      echo json_encode([
+        'success' => true,
+        'message' => $successMessage
+      ]);
+      exit;
+    }
+
     // Generate Excel file immediately after successful save to sf10_files
     try {
       $excel_result = generateSF10Excel($pdo, $student_id, BASE_PATH . '/sf10_files');
@@ -1048,7 +1099,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
     }
   } catch (Exception $e) {
     error_log("SF10 Error: " . $e->getMessage());
-    die("Error: " . htmlspecialchars($e->getMessage()));
+
+    if (isset($_POST['ajax_save']) && $_POST['ajax_save'] === '1') {
+      header('Content-Type: application/json');
+      echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+      exit;
+    }
+
+    $showError = true;
+    $errorMessage = $e->getMessage();
   }
 }
 
@@ -1165,7 +1224,7 @@ if (isset($_GET['student_id'])) {
   <meta charset="UTF-8">
   <title>SF10 Fill</title>
   <link href="<?= base_url() ?>assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-  <link href="<?= BASE_FR ?>/assets/libs/sweetalert2/sweetalert2.min.css" rel="stylesheet">
+  <link href="<?= base_url() ?>/assets/libs/sweetalert2/sweetalert2.min.css" rel="stylesheet">
   <!-- <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet\"> -->
   <link rel="stylesheet" href="<?= base_url() ?>assets/fontawesome/css/all.min.css">
   <style>
@@ -1448,7 +1507,7 @@ if (isset($_GET['student_id'])) {
 <body>
   <div class="d-flex align-items-center justify-content-between col-12 m-0 p-0 header-brand">
     <div class="d-flex align-items-center ps-4">
-      <img src="<?= BASE_FR ?>/assets/image/logo2.png" alt="Logo">
+      <img src="<?= base_url() ?>/assets/image/logo2.png" alt="Logo">
       <h4>STA.MARIA WEB SYSTEM</h4>
     </div>
   </div>
@@ -1494,7 +1553,7 @@ if (isset($_GET['student_id'])) {
             <button type="button" style="width: 100%;" class="btn btn-success btn-lg" id="downloadBtn" onclick="downloadExcelFile('<?= htmlspecialchars($filename) ?>')">
               <i class="fas fa-download"></i> Download Excel
             </button>
-            <a style="width: 100%;" onclick="window.location.href='<?= BASE_FR ?>/src/UI-teacher/index.php?page=contents/sf10'" class="btn btn-secondary btn-lg">Back</a>
+            <a style="width: 100%;" onclick="window.location.href='<?= base_url() ?>/src/UI-teacher/index.php?page=contents/sf10'" class="btn btn-secondary btn-lg">Back</a>
           </div>
         </div>
         <!-- </div>
@@ -1529,7 +1588,7 @@ if (isset($_GET['student_id'])) {
             <label class="form-label">PEPT Passer Rating (text)</label>
             <input type="text" class="form-control form-control-sm" name="pept_text" value="<?= htmlspecialchars($_POST['pept_text'] ?? ($sf10_data['pept_text'] ?? '')) ?>">
             <label class="form-label">Date of Examination/Assessment (dd/mm/yyyy)</label>
-            <input type="text" class="form-control form-control-sm" name="exam_date" value="<?= htmlspecialchars($_POST['exam_date'] ?? ($sf10_data['exam_date'] ?? '')) ?>">
+            <input type="date" class="form-control form-control-sm" name="exam_date" value="<?= htmlspecialchars($_POST['exam_date'] ?? ($sf10_data['exam_date'] ?? '')) ?>">
             <div class="form-check mt-2">
               <input class="form-check-input" type="checkbox" name="others_check" id="others_check" value="1" <?= (!empty($_POST['others_check']) || (!empty($sf10_data['others_check']) && $sf10_data['others_check'])) ? 'checked' : '' ?>>
               <label class="form-check-label" for="others_check">Others, pls specify</label>
@@ -1783,16 +1842,27 @@ if (isset($_GET['student_id'])) {
   </div>
 
 
-  <script src="<?= BASE_FR ?>/assets/js/bootstrap.min.js"></script>
-  <script src="<?= BASE_FR ?>/assets/libs/sweetalert2/sweetalert2.min.js"></script>
+  <script src="<?= base_url() ?>/assets/js/bootstrap.min.js"></script>
+  <script src="<?= base_url() ?>/assets/libs/sweetalert2/sweetalert2.min.js"></script>
   <?php if ($showSuccess): ?>
     <script>
-      // Show success modal after save
-      const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-      successModal.show();
-      setTimeout(() => {
-        successModal.hide();
-      }, 2000);
+      Swal.fire({
+        icon: 'success',
+        title: 'Saved',
+        text: '<?= addslashes(htmlspecialchars($successMessage, ENT_QUOTES)) ?>',
+        timer: 1800,
+        showConfirmButton: false
+      });
+    </script>
+  <?php endif; ?>
+  <?php if ($showError): ?>
+    <script>
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: '<?= addslashes(htmlspecialchars($errorMessage, ENT_QUOTES)) ?>',
+        confirmButtonText: 'OK'
+      });
     </script>
   <?php endif; ?>
 
@@ -1810,9 +1880,50 @@ if (isset($_GET['student_id'])) {
         return;
       }
 
-      // Directly download from sf10_files folder
-      const downloadUrl = '<?= $_SERVER['REQUEST_URI'] ?>' + (window.location.search ? '&' : '?') + 'download_sf10=' + encodeURIComponent(filename);
-      window.location.href = downloadUrl;
+      const baseUrl = '<?= base_url() ?>/src/UI-teacher/contents/schoolform10.php';
+      const checkUrl = `${baseUrl}?download_sf10=${encodeURIComponent(filename)}&check=1`;
+
+      fetch(checkUrl, { cache: 'no-store' })
+        .then(response => {
+          if (!response.ok) throw new Error('Network error');
+          return response.json();
+        })
+        .then(res => {
+          if (res.exists) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Download ready',
+              text: `Found ${res.filename}. Preparing download...`,
+              timer: 900,
+              showConfirmButton: false
+            });
+
+            setTimeout(() => {
+              let iframe = document.getElementById('download-iframe');
+              if (!iframe) {
+                iframe = document.createElement('iframe');
+                iframe.id = 'download-iframe';
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+              }
+              iframe.src = `${baseUrl}?download_sf10=${encodeURIComponent(filename)}`;
+            }, 950);
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'File not found',
+              text: 'No file was found for download. Please save first.'
+            });
+          }
+        })
+        .catch(err => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Download check failed',
+            text: 'Unable to verify file availability.'
+          });
+          console.error(err);
+        });
     }
 
     function updateFinalRating(i) {
@@ -2402,7 +2513,14 @@ if (isset($_GET['student_id'])) {
         <input type="text" class="form-control form-control-sm" name="school_id${newTabNum}" value="">
         
         <label class="form-label">Grade</label>
-        <input type="text" class="form-control form-control-sm" name="grade${newTabNum}" value="">
+        <select class="form-control form-control-sm" name="grade${newTabNum}" value="">
+            <option value="Grade 1">Grade 1</option>
+            <option value="Grade 2">Grade 2</option>
+            <option value="Grade 3">Grade 3</option>
+            <option value="Grade 4">Grade 4</option>
+            <option value="Grade 5">Grade 5</option>
+            <option value="Grade 6">Grade 6</option>
+        </select>
 
         <label class="form-label">Section</label>
         <input type="text" class="form-control form-control-sm" name="section${newTabNum}" value="">
@@ -2640,18 +2758,43 @@ if (isset($_GET['student_id'])) {
       // Populate hidden inputs with stored data before submit
       populateGradeDataFromStore();
 
-      // Submit the form
-      try {
-        form.submit();
-        // Note: Page will reload on successful submission from PHP handler
-      } catch (error) {
-        console.error('Form submission error:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Submission Error',
-          text: 'An error occurred while submitting the form: ' + error.message
+      // Submit the new scholastic record via AJAX to avoid full page refresh
+      const formData = new FormData(form);
+      formData.append('ajax_save', '1');
+
+      fetch(window.location.href, {
+        method: 'POST',
+        body: formData,
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Saved',
+              text: data.message || 'Scholastic record saved successfully.',
+              timer: 1800,
+              showConfirmButton: false
+            }).then(() => {
+              // Reload page after success to refresh the record list and remedial data
+              window.location.reload();
+            });
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.message || 'Unable to save scholastic record'
+            });
+          }
+        })
+        .catch(error => {
+          console.error('Form submission error:', error);
+          Swal.fire({
+            icon: 'error',
+            title: 'Submission Error',
+            text: 'An error occurred while submitting the form'
+          });
         });
-      }
     }
 
     function addGradeRow(scholasticIndex) {
@@ -2774,6 +2917,80 @@ if (isset($_GET['student_id'])) {
       }
 
       return true;
+    }
+
+    function saveSF10Form() {
+      const form = document.getElementById('sf10-form');
+      if (!form) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Form Error',
+          text: 'Unable to locate the SF10 form. Please refresh the page.'
+        });
+        return;
+      }
+
+      populateGradeDataFromStore();
+
+      if (!validateFormBeforeSubmit()) {
+        return;
+      }
+
+      const formData = new FormData(form);
+      formData.append('ajax_save', '1');
+
+      Swal.fire({
+        title: 'Saving...',
+        text: 'Please wait while the form is being saved.',
+        icon: 'info',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const saveUrl = window.location.href.split('?')[0] + '?student_id=<?= urlencode($student_id) ?>';
+
+      fetch(saveUrl, {
+        method: 'POST',
+        body: formData
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Saved',
+              text: data.message || 'SF10 data saved successfully.',
+              timer: 1800,
+              showConfirmButton: false
+            });
+
+            // Reload remedial section to show updates without full page refresh
+            const activeTab = document.querySelector('.tab-pane.show.active');
+            if (activeTab) {
+              const activeIndex = activeTab.id.replace('sr', '');
+              const schoolYearEl = document.getElementById(`school_year_${activeIndex}`);
+              if (schoolYearEl) {
+                fetchRemedial(schoolYearEl.value);
+              }
+            }
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Save failed',
+              text: data.message || 'Unable to save SF10 data.'
+            });
+          }
+        })
+        .catch(error => {
+          console.error('Save error:', error);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Unable to save form. Please check console for details.'
+          });
+        });
     }
 
     function populateGradeDataFromStore() {

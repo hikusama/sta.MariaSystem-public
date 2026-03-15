@@ -384,7 +384,7 @@ foreach ($certifications as $cert) {
         $drawing = new Drawing();
         $drawing->setName('DepEd Logo');
         $drawing->setDescription('DepEd Logo');
-        $drawing->setPath($_SERVER['DOCUMENT_ROOT'] . BASE_FR . '/assets/image/deped.png');
+        $drawing->setPath($_SERVER['DOCUMENT_ROOT'] . base_url() . '/assets/image/deped.png');
         $drawing->setCoordinates('A1');
         $drawing->setWidth(80);
         $drawing->setHeight(80);
@@ -596,7 +596,7 @@ body {
 <body>
 <div class="d-flex align-items-center justify-content-between col-12 m-0 p-0 header-brand">
   <div class="d-flex align-items-center ps-4">
-    <img src="<?= BASE_FR ?>/assets/image/logo2.png" alt="Logo">
+    <img src="<?= base_url() ?>/assets/image/logo2.png" alt="Logo">
     <h4>STA.MARIA WEB SYSTEM</h4>
   </div>
 </div>
@@ -899,7 +899,7 @@ body {
   </div>
 </div>
 
-<script src="<?= BASE_FR ?>/assets/js/bootstrap.min.js"></script>
+<script src="<?= base_url() ?>/assets/js/bootstrap.min.js"></script>
 <?php if($showSuccess): ?>
 <script>
   const successModal = new bootstrap.Modal(document.getElementById('successModal'));
@@ -1266,7 +1266,7 @@ foreach ($certifications as $cert) {
         $drawing = new Drawing();
         $drawing->setName('DepEd Logo');
         $drawing->setDescription('DepEd Logo');
-        $drawing->setPath($_SERVER['DOCUMENT_ROOT'] . BASE_FR . '/assets/image/deped.png');
+        $drawing->setPath($_SERVER['DOCUMENT_ROOT'] . base_url() . '/assets/image/deped.png');
         $drawing->setCoordinates('A1');
         $drawing->setWidth(80);
         $drawing->setHeight(80);

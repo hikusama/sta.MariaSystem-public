@@ -152,8 +152,8 @@ function db_connect()
                 FOREIGN KEY (subjects_id) REFERENCES subjects(subject_id) ON DELETE CASCADE,
                 FOREIGN KEY (enrolment_id) REFERENCES enrolment(enrolment_id) ON DELETE CASCADE
             )",
-            "CREATE TABLE IF NOT EXISTS stuEnrolmentInfo (
-                stuEnrolmentInfo_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            "CREATE TABLE IF NOT EXISTS stuenrolmentinfo (
+                stuenrolmentinfo_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 student_id INT(11) NOT NULL,
                 mother_tongue VARCHAR(50),
                 house_no VARCHAR(50),

@@ -40,6 +40,11 @@ include '../header.php';
         background-repeat: no-repeat;
     }
 
+    .g-recaptcha {
+        justify-content: center;
+        display: flex;
+    }
+
     .button-eye {
         position: absolute;
         right: .7rem;
@@ -50,7 +55,7 @@ include '../header.php';
     }
 </style>
 <main class="p-0 d-flex justify-content-center align-items-center w-100 h-100">
-    <div class="shadow rounded-3 col-md-3 bg-white">
+    <div class="shadow rounded-3 col-md-3 bg-white " style="width: 21rem;">
         <div class="card-header bg-danger text-white text-center shadow p-2 py-3 rounded-top-2">
             <h4 class="card-title text-white mt-1 loginAccess">LOGIN</h4>
         </div>
@@ -64,8 +69,8 @@ include '../header.php';
                 <div class="mb-3">
                     <input type="password" class="form-control" name="password" placeholder="Password: ">
                     <i class="fa-solid fa-eye button-eye" id="password-toggle"></i>
-                    <div class="g-recaptcha" data-sitekey="6LdSd4csAAAAAKy34idc9xXPwnk0BTLCieym-NXj"></div>
                 </div>
+                <div class="g-recaptcha" data-sitekey="6LdSd4csAAAAAKy34idc9xXPwnk0BTLCieym-NXj"></div>
                 <div class="m-0 text-center d-flex flex-column ">
                     <button type="submit" class="btn btn-danger mb-0 buttonLogin p-1 py-2"
                         style="color: #fff !important;"><i class="bi bi-person-plus-fill me-1"></i>Login</button>
@@ -126,6 +131,8 @@ include '../header.php';
 </script>
 <?php if (
     isset($_GET['incorrect']) ||
+    isset($_GET['restricted']) ||
+    isset($_GET['validation']) ||
     isset($_GET['recaptcha'])
 ): ?>
     <script>
@@ -138,6 +145,14 @@ include '../header.php';
                 recaptcha: {
                     icon: 'error',
                     title: 'Recaptcha verification failed.'
+                },
+                restricted: {
+                    icon: 'error',
+                    title: 'Access restricted please contact admin.'
+                },
+                validation: {
+                    icon: 'error',
+                    title: 'Please fill in all required fields correctly.'
                 }
 
             };

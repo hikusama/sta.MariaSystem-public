@@ -54,182 +54,187 @@ $teacherGrades = array_column($classStmt->fetchAll(PDO::FETCH_ASSOC), 'grade_lev
 
 if (empty($teacherGrades)) {
     // Teacher not assigned → return empty
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
+        echo json_encode([
+            'hasData' => false,
+            'stats'   => ['total_students' => 0, 'enrolled' => 0, 'pending' => 0, 'rejected' => 0],
+            'html'    => ''
+        ]);
+        exit;
+    }
     $students = [];
     $stat = ['total_students' => 0, 'enrolled' => 0, 'pending' => 0, 'rejected' => 0];
     $totalPages = 1;
-    echo json_encode(compact('students', 'stat', 'totalPages'));
-    exit;
 }
 
-// -------------------------------------------
-// GRADE PLACEHOLDERS
-// -------------------------------------------
-$bindParams = [':teacher_id' => $teacher_id];
-$gradePH = [];
-foreach ($teacherGrades as $i => $g) {
-    $ph = ":grade_$i";
-    $gradePH[] = $ph;
-    $bindParams[$ph] = $g;
-}
-$gradeIn = implode(',', $gradePH);
-
-
-$whereClauses = [];
-$systatus = 0;
-$iddf = 0;
-$syStmt = $pdo->prepare("SELECT school_year_status,school_year_id,school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
-$syStmt->execute();
-$syStatus = $syStmt->fetch(PDO::FETCH_ASSOC);
-$iddf = $syStatus['school_year_id'];
-if ($sy !== '') {
-    if ($syStatus['school_year_id'] == $sy) {
-        $systatus = 1;
-        $whereClauses[] = "( 
-            (e.adviser_id = :teacher_id AND e.school_year_id = :sy)
-            OR 
-            (s.enrolment_status = 'pending' AND (e.adviser_id IS NULL OR e.adviser_id = '') AND s.gradeLevel IN ($gradeIn))
-        )";
-        $bindParams[':sy'] = $sy;
-    } else {
-        $systatus = 2;
-        $whereClauses[] = "(e.adviser_id = :teacher_id AND e.school_year_id = :sy AND s.gradeLevel IN ($gradeIn))";
-        $bindParams[':sy'] = $sy;
+if (!empty($teacherGrades)) {
+    // -------------------------------------------
+    // GRADE PLACEHOLDERS
+    // -------------------------------------------
+    $bindParams = [':teacher_id' => $teacher_id];
+    $gradePH = [];
+    foreach ($teacherGrades as $i => $g) {
+        $ph = ":grade_$i";
+        $gradePH[] = $ph;
+        $bindParams[$ph] = $g;
     }
+    $gradeIn = implode(',', $gradePH);
+
+
+    $whereClauses = [];
+    $systatus = 0;
+    $iddf = 0;
+    $syStmt = $pdo->prepare("SELECT school_year_status,school_year_id,school_year_name FROM school_year WHERE school_year_status = 'Active' LIMIT 1");
+    $syStmt->execute();
+    $syStatus = $syStmt->fetch(PDO::FETCH_ASSOC);
+    $iddf = $syStatus['school_year_id'];
+    if ($sy !== '') {
+        if ($syStatus['school_year_id'] == $sy) {
+            $systatus = 1;
+            $whereClauses[] = "( 
+                (e.adviser_id = :teacher_id AND e.school_year_id = :sy)
+                OR 
+                (s.enrolment_status = 'pending' AND (e.adviser_id IS NULL OR e.adviser_id = '') AND s.gradeLevel IN ($gradeIn))
+            )";
+            $bindParams[':sy'] = $sy;
+        } else {
+            $systatus = 2;
+            $whereClauses[] = "(e.adviser_id = :teacher_id AND e.school_year_id = :sy AND s.gradeLevel IN ($gradeIn))";
+            $bindParams[':sy'] = $sy;
+        }
+    } else {
+        $whereClauses[] = "(e.student_id IS NOT NULL AND s.gradeLevel IN ($gradeIn))";
+    }
+
+    // -------------------------------------------
+    // OPTIONAL FILTERS
+    // -------------------------------------------
+    if ($status !== '') {
+        $whereClauses[] = "s.enrolment_status = :status";
+        $bindParams[':status'] = $status;
+    }
+
+    if ($grade !== '') {
+        $whereClauses[] = "s.gradeLevel = :grade_filter";
+        $bindParams[':grade_filter'] = $grade;
+    }
+
+    if ($search !== '') {
+        $whereClauses[] = "(s.fname LIKE :search OR s.lname LIKE :search OR s.lrn LIKE :search)";
+        $bindParams[':search'] = "%$search%";
+    }
+
+    $baseWhere = implode(' AND ', $whereClauses);
+
+    // -------------------------------------------
+    // STATS QUERY
+    // -------------------------------------------
+    $statSql = "
+    SELECT
+        COUNT(DISTINCT s.student_id) AS total_students,
+        SUM(s.enrolment_status = 'active') AS enrolled,
+        SUM(s.enrolment_status = 'pending') AS pending,
+        SUM(s.enrolment_status IN ('rejected','dropped')) AS rejected
+    FROM student s
+    LEFT JOIN enrolment e
+        ON e.student_id = s.student_id
+       AND (:sy = '' OR e.school_year_id = :sy)
+    WHERE $baseWhere
+    ";
+
+    $stmtStat = $pdo->prepare($statSql);
+    $stmtStat->execute($bindParams + [':sy' => $sy]);
+    $stat = $stmtStat->fetch(PDO::FETCH_ASSOC);
+
+    // -------------------------------------------
+    // GET TEACHER INFO & SUBJECTS
+    // -------------------------------------------
+    $ste = $pdo->prepare("
+    SELECT 
+        u.*,
+        c.*,
+        sy.*,
+        COALESCE(e.student_count, 0) AS student_count
+    FROM users u
+    LEFT JOIN classes c 
+        ON u.user_id = c.adviser_id
+    INNER JOIN school_year sy
+        ON sy.school_year_id = c.sy_id
+    LEFT JOIN (
+        SELECT adviser_id, COUNT(student_id) AS student_count
+        FROM enrolment
+        WHERE school_year_id = ?
+        GROUP BY adviser_id
+    ) e ON e.adviser_id = u.user_id
+    WHERE u.user_id = ? AND c.sy_id = ?
+    LIMIT 1
+    ");
+    $ste->execute([$iddf, $teacher_id, $iddf]);
+    $me = $ste->fetch(PDO::FETCH_ASSOC);
+
+    if (!$me) {
+        $subj = [];
+    } else {
+        $ste = $pdo->prepare("SELECT * FROM subjects WHERE grade_level = ?");
+        $ste->execute([$me['grade_level']]);
+        $subj = $ste->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // -------------------------------------------
+    // STUDENTS QUERY
+    // -------------------------------------------
+    $sql = "
+    SELECT DISTINCT
+        s.*, e.school_year_id,
+        u.firstname AS guardian_fname,
+        u.lastname  AS guardian_lname
+    FROM student s
+    LEFT JOIN enrolment e
+        ON e.student_id = s.student_id
+       AND (:sy_filter = '' OR e.school_year_id = :sy_filter)
+    LEFT JOIN users u
+        ON u.user_id = s.guardian_id
+    WHERE $baseWhere
+    ORDER BY s.lname ASC, s.fname ASC
+    ";
+
+    // -------------------------------------------
+    // COUNT + PAGINATION
+    // -------------------------------------------
+    $countSql = "SELECT COUNT(*) FROM ($sql) t";
+    $stmtCount = $pdo->prepare($countSql);
+
+    // Bind the SY filter with new placeholder
+    $bindsForCount = $bindParams;
+    $bindsForCount[':sy_filter'] = $sy;
+
+    $stmtCount->execute($bindsForCount);
+    $totalRows  = (int)$stmtCount->fetchColumn();
+    $totalPages = max(1, ceil($totalRows / $limit));
+
+    $sql .= " LIMIT :limit OFFSET :offset";
+    $stmt = $pdo->prepare($sql);
+
+    // Bind teacher/grade filters
+    foreach ($bindParams as $k => $v) {
+        $stmt->bindValue($k, $v);
+    }
+
+    // Bind SY filter once
+    $stmt->bindValue(':sy_filter', $sy);
+
+    // Bind pagination
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+
+    $stmt->execute();
+    $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
-    $whereClauses[] = "(e.student_id IS NOT NULL AND s.gradeLevel IN ($gradeIn))";
-}
-
-// -------------------------------------------
-// OPTIONAL FILTERS
-// -------------------------------------------
-if ($status !== '') {
-    $whereClauses[] = "s.enrolment_status = :status";
-    $bindParams[':status'] = $status;
-}
-
-if ($grade !== '') {
-    $whereClauses[] = "s.gradeLevel = :grade_filter";
-    $bindParams[':grade_filter'] = $grade;
-}
-
-if ($search !== '') {
-    $whereClauses[] = "(s.fname LIKE :search OR s.lname LIKE :search OR s.lrn LIKE :search)";
-    $bindParams[':search'] = "%$search%";
-}
-
-$baseWhere = implode(' AND ', $whereClauses);
-
-// -------------------------------------------
-// STATS QUERY
-// -------------------------------------------
-$statSql = "
-SELECT
-    COUNT(DISTINCT s.student_id) AS total_students,
-    SUM(s.enrolment_status = 'active') AS enrolled,
-    SUM(s.enrolment_status = 'pending') AS pending,
-    SUM(s.enrolment_status IN ('rejected','dropped')) AS rejected
-FROM student s
-LEFT JOIN enrolment e
-    ON e.student_id = s.student_id
-   AND (:sy = '' OR e.school_year_id = :sy)
-WHERE $baseWhere
-";
-
-$stmtStat = $pdo->prepare($statSql);
-$stmtStat->execute($bindParams + [':sy' => $sy]);
-$stat = $stmtStat->fetch(PDO::FETCH_ASSOC);
-
-// -------------------------------------------
-// GET TEACHER INFO & SUBJECTS
-// -------------------------------------------
-$ste = $pdo->prepare("
-SELECT 
-    u.*,
-    c.*,
-    sy.*,
-    COALESCE(e.student_count, 0) AS student_count
-FROM users u
-LEFT JOIN classes c 
-    ON u.user_id = c.adviser_id
-INNER JOIN school_year sy
-    ON sy.school_year_id = c.sy_id
-LEFT JOIN (
-    SELECT adviser_id, COUNT(student_id) AS student_count
-    FROM enrolment
-    WHERE school_year_id = ?
-    GROUP BY adviser_id
-) e ON e.adviser_id = u.user_id
-WHERE u.user_id = ? AND c.sy_id = ?
-LIMIT 1
-");
-$ste->execute([$iddf, $teacher_id, $iddf]);
-$me = $ste->fetch(PDO::FETCH_ASSOC);
-
-// $stmt55 = $pdo->prepare("SELECT COUNT(student_id) as student_count FROM enrolment WHERE school_year_id = ? AND adviser_id = ?");
-// $stmt55->execute([$iddf,$teacher_id]);
-// $countT = $stmt55->fetch(PDO::FETCH_ASSOC);
-// $me['student_count'] = $countT['student_count'] ?? 0;
-
-// var_dump($me)
-if (!$me) {
+    // If no grades assigned, ensure these variables are initialized
+    $me = [];
     $subj = [];
-} else {
-    $ste = $pdo->prepare("SELECT * FROM subjects WHERE grade_level = ?");
-    $ste->execute([$me['grade_level']]);
-    $subj = $ste->fetchAll(PDO::FETCH_ASSOC);
+    $students = [];
 }
-
-// -------------------------------------------
-// STUDENTS QUERY
-// -------------------------------------------
-$sql = "
-SELECT DISTINCT
-    s.*, e.school_year_id,
-    u.firstname AS guardian_fname,
-    u.lastname  AS guardian_lname
-FROM student s
-LEFT JOIN enrolment e
-    ON e.student_id = s.student_id
-   AND (:sy_filter = '' OR e.school_year_id = :sy_filter)
-LEFT JOIN users u
-    ON u.user_id = s.guardian_id
-WHERE $baseWhere
-ORDER BY s.lname ASC, s.fname ASC
-";
-
-// -------------------------------------------
-// COUNT + PAGINATION
-// -------------------------------------------
-$countSql = "SELECT COUNT(*) FROM ($sql) t";
-$stmtCount = $pdo->prepare($countSql);
-
-// Bind the SY filter with new placeholder
-$bindsForCount = $bindParams;
-$bindsForCount[':sy_filter'] = $sy;
-
-$stmtCount->execute($bindsForCount);
-$totalRows  = (int)$stmtCount->fetchColumn();
-$totalPages = max(1, ceil($totalRows / $limit));
-
-$sql .= " LIMIT :limit OFFSET :offset";
-$stmt = $pdo->prepare($sql);
-
-// Bind teacher/grade filters
-foreach ($bindParams as $k => $v) {
-    $stmt->bindValue($k, $v);
-}
-
-// Bind SY filter once
-$stmt->bindValue(':sy_filter', $sy);
-
-// Bind pagination
-$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-
-$stmt->execute();
-$students = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-
 
 
 
@@ -243,7 +248,7 @@ $statusMap = [
     'dropped'         => ['danger', 'Dropped'],
     'rejected'        => ['purple', 'Rejected']
 ];
-if (isset($_POST['ajax'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     ob_start();
 
     if ($students) {
@@ -387,7 +392,7 @@ if (isset($_POST['ajax'])) {
                         <option value="active">Enrolled</option>
                         <option value="transferred">Transferred</option>
                         <option value="dropped">Dropped</option>
-                        <option value="rejected">Rejected</option>
+                        <!-- <option value="rejected">Rejected</option> -->
                     </select>
                 </div>
 
