@@ -1011,7 +1011,7 @@ WHERE NOT EXISTS (
     FROM sf_add_data s 
     WHERE s.sf_type = t.sf_type
 );
-
+ 
 INSERT INTO accessibility (id, accessible_to) VALUES (1, 'allusers')
 
 
