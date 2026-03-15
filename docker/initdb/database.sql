@@ -998,6 +998,22 @@ VALUES( 'Stamaria', 'Stamaria', 'Stamaria', '', '', 'stamariaenrollmentsystem@gm
 -- Indexes for dumped tables
 --
 
+INSERT INTO sf_add_data (sf_type)
+SELECT t.sf_type
+FROM (
+    SELECT 'sf_1' AS sf_type
+    UNION ALL SELECT 'sf_2'
+    UNION ALL SELECT 'sf_4'
+    UNION ALL SELECT 'sf_8'
+) t
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM sf_add_data s 
+    WHERE s.sf_type = t.sf_type
+);
+
+INSERT INTO accessibility (id, accessible_to) VALUES (1, 'allusers')
+
 
 --
 -- Indexes for table `accessibility`
